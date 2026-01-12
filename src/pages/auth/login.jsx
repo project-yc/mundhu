@@ -11,16 +11,23 @@ const loginUser = async (email, password) => {
       body: JSON.stringify({ email, password }),
     });
 
+    // Parse JSON once
+    const data = await response.json();
+    console.log('Login response:', data);
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.message || errorData.error || `HTTP Error: ${response.status}`;
+      const errorMessage = data.message || data.error || `HTTP Error: ${response.status}`;
       throw new Error(errorMessage);
     }
 
-    const data = await response.json();
-    console.log('Login response:', data);
-    if (data.data.tokens.access_token) {
-      localStorage.setItem('authToken', data.data.tokens.access_token);
+    // Store tokens - the API returns tokens at root level
+    if (data.access_token) {
+      localStorage.setItem('authToken', data.access_token);
+      localStorage.setItem('refreshToken', data.refresh_token);
+      // Optionally store user info
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+      }
     }
     return data;
   } catch (error) {

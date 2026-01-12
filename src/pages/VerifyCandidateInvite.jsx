@@ -27,9 +27,12 @@ export default function VerifyCandidateInvite() {
 
   const handleStartAssessment = () => {
     setIsStarting(true)
-    // Redirect to assessment application with session token
-    if (candidateData?.session_token) {
-      window.location.href = `http://localhost:3000/${candidateData.session_token}`
+    // Redirect to workspace URL from API response
+    if (candidateData?.workspace_url) {
+      window.location.href = candidateData.workspace_url
+    } else {
+      setError('Workspace URL not found')
+      setIsStarting(false)
     }
   }
 
