@@ -176,38 +176,56 @@ export default function InviteCandidate() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <Loader className="w-8 h-8 text-blue-500 animate-spin" />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-slate-50 to-blue-100/60 flex items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-20 -left-40 w-96 h-96 bg-blue-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
+          <div className="absolute top-40 -right-40 w-96 h-96 bg-cyan-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
+        </div>
+        <Loader className="w-8 h-8 text-blue-500 animate-spin relative z-10" />
       </div>
     );
   }
 
   if (!selectedAssessment) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900">Assessment Not Found</h1>
-          <button
-            onClick={resetInviteFlow}
-            className="mt-6 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg transition-colors"
-          >
-            Back to Assessments
-          </button>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-slate-50 to-blue-100/60 flex items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-20 -left-40 w-96 h-96 bg-blue-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
+          <div className="absolute top-40 -right-40 w-96 h-96 bg-cyan-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
+        </div>
+        <div className="text-center relative z-10">
+          <div className="backdrop-blur-2xl bg-white/70 rounded-3xl p-10 shadow-2xl shadow-rose-100/20 border border-white/30">
+            <AlertCircle className="w-16 h-16 text-rose-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Assessment Not Found</h1>
+            <p className="text-gray-600 mb-6">The requested assessment could not be found</p>
+            <button
+              onClick={resetInviteFlow}
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+            >
+              Back to Assessments
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-slate-50 to-blue-100/60 relative overflow-hidden">
+      {/* Subtle animated background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 -left-40 w-96 h-96 bg-blue-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
+        <div className="absolute top-40 -right-40 w-96 h-96 bg-cyan-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-20 left-1/3 w-96 h-96 bg-indigo-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
+      </div>
+
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+      <div className="backdrop-blur-2xl bg-white/60 border-b border-white/20 sticky top-0 z-40 shadow-lg shadow-blue-100/20">
+        <div className="max-w-6xl mx-auto px-6 py-5">
           <div className="flex items-center gap-4">
             <button
               onClick={resetInviteFlow}
-              className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-700 font-semibold"
+              className="flex items-center gap-2 px-4 py-2.5 backdrop-blur-xl bg-white/40 hover:bg-white/60 border border-white/30 rounded-xl transition-all text-gray-700 font-semibold shadow-sm hover:shadow-md"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
@@ -220,34 +238,34 @@ export default function InviteCandidate() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-6 py-8 relative z-10">
         {/* Messages */}
         {success && (
-          <div className="mb-6 flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg animate-in fade-in">
-            <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-green-700 font-medium">{success}</p>
+          <div className="mb-6 flex items-start gap-3 p-4 backdrop-blur-xl bg-emerald-50/80 border border-emerald-200/50 rounded-2xl shadow-lg shadow-emerald-100/20 animate-in fade-in slide-in-from-top-2">
+            <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-emerald-800 font-medium">{success}</p>
           </div>
         )}
         
         {error && (
-          <div className="mb-6 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700 font-medium">{error}</p>
+          <div className="mb-6 flex items-start gap-3 p-4 backdrop-blur-xl bg-rose-50/80 border border-rose-200/50 rounded-2xl shadow-lg shadow-rose-100/20">
+            <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-rose-800 font-medium">{error}</p>
           </div>
         )}
 
         {!showInviteLinks ? (
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="grid lg:grid-cols-3 gap-6">
             {/* Candidates List */}
             <div className="lg:col-span-2">
-              <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200">
+              <div className="backdrop-blur-2xl bg-white/70 rounded-3xl shadow-2xl shadow-blue-100/20 p-8 border border-white/30">
                 <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <Users className="w-6 h-6 text-blue-500" />
+                  <Users className="w-6 h-6 text-blue-600" />
                   Invite Candidates
                 </h2>
 
                 {/* Add Candidate Form */}
-                <div className="mb-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                <div className="mb-8 p-6 backdrop-blur-xl bg-gradient-to-br from-blue-50/70 to-cyan-50/70 rounded-2xl border border-blue-200/50 shadow-lg shadow-blue-100/20">
                   <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Add Candidate Manually</h3>
                   <div className="flex gap-3 mb-4">
                     <input
@@ -255,34 +273,34 @@ export default function InviteCandidate() {
                       placeholder="Full Name"
                       value={newCandidate.name}
                       onChange={(e) => setNewCandidate({ ...newCandidate, name: e.target.value })}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      className="flex-1 px-4 py-3 backdrop-blur-xl bg-white/60 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400 focus:bg-white/80 transition-all shadow-sm"
                     />
                     <input
                       type="email"
                       placeholder="Email Address"
                       value={newCandidate.email}
                       onChange={(e) => setNewCandidate({ ...newCandidate, email: e.target.value })}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      className="flex-1 px-4 py-3 backdrop-blur-xl bg-white/60 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400 focus:bg-white/80 transition-all shadow-sm"
                     />
                     <button
                       onClick={handleAddCandidate}
-                      className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors shadow-md hover:shadow-lg"
+                      className="px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-5 h-5" />
                     </button>
                   </div>
 
                   <div className="relative my-6">
                     <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-300"></div>
+                      <div className="w-full border-t border-blue-200/50"></div>
                     </div>
                     <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-gradient-to-br from-blue-50 to-indigo-50 text-gray-600 font-medium">OR upload Excel</span>
+                      <span className="px-3 backdrop-blur-xl bg-gradient-to-br from-blue-50/70 to-cyan-50/70 text-gray-600 font-medium rounded-full">OR upload Excel</span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="flex items-center justify-center gap-3 px-6 py-6 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-100 transition-all">
+                    <label className="flex items-center justify-center gap-3 px-6 py-6 border-2 border-dashed border-blue-300/60 rounded-2xl cursor-pointer hover:border-blue-400 backdrop-blur-xl bg-white/40 hover:bg-white/60 transition-all shadow-sm hover:shadow-md">
                       <Upload className="w-5 h-5 text-blue-600" />
                       <span className="text-sm font-semibold text-blue-700">
                         Click to upload Excel file
@@ -294,7 +312,7 @@ export default function InviteCandidate() {
                         className="hidden"
                       />
                     </label>
-                    <p className="mt-2 text-xs text-gray-600 text-center font-medium">
+                    <p className="mt-3 text-xs text-gray-600 text-center font-medium">
                       📄 CSV format: Name, Email (one candidate per row)
                     </p>
                   </div>
@@ -305,21 +323,21 @@ export default function InviteCandidate() {
                   {candidates.length > 0 ? (
                     <>
                       <div className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-bold shadow-lg">
                           {candidates.length}
                         </span>
                         Candidate{candidates.length !== 1 ? 's' : ''} added
                       </div>
-                      <div className="max-h-96 overflow-y-auto space-y-2">
+                      <div className="max-h-96 overflow-y-auto space-y-2.5 pr-2">
                         {candidates.map((candidate) => (
-                          <div key={candidate.id} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all">
+                          <div key={candidate.id} className="flex items-center justify-between p-4 backdrop-blur-xl bg-white/60 border border-white/40 rounded-2xl hover:border-blue-300/60 hover:bg-white/80 transition-all shadow-sm hover:shadow-md">
                             <div className="flex-1">
                               <p className="font-semibold text-gray-900">{candidate.name}</p>
                               <p className="text-sm text-gray-600">{candidate.email}</p>
                             </div>
                             <button
                               onClick={() => removeCandidateRow(candidate.id)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-2.5 text-rose-500 hover:bg-rose-50/80 backdrop-blur-xl rounded-xl transition-all shadow-sm"
                               title="Remove candidate"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -329,9 +347,9 @@ export default function InviteCandidate() {
                       </div>
                     </>
                   ) : (
-                    <div className="text-center py-12 border border-dashed border-gray-300 rounded-lg bg-gray-50">
-                      <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-600 font-medium">No candidates added yet</p>
+                    <div className="text-center py-12 border-2 border-dashed border-blue-200/60 rounded-2xl backdrop-blur-xl bg-white/40">
+                      <Users className="w-12 h-12 text-blue-300 mx-auto mb-3" />
+                      <p className="text-gray-700 font-medium">No candidates added yet</p>
                       <p className="text-sm text-gray-500 mt-1">Add candidates manually or import from Excel</p>
                     </div>
                   )}
@@ -340,33 +358,33 @@ export default function InviteCandidate() {
             </div>
 
             {/* Summary Card */}
-            <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200 h-fit sticky top-24">
+            <div className="backdrop-blur-2xl bg-white/70 rounded-3xl shadow-2xl shadow-blue-100/20 p-8 border border-white/30 h-fit sticky top-24">
               <h3 className="text-lg font-bold text-gray-900 mb-6">Assessment Summary</h3>
-              <div className="space-y-4">
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-xs text-blue-600 uppercase tracking-widest font-bold">Assessment</p>
+              <div className="space-y-3">
+                <div className="p-4 backdrop-blur-xl bg-gradient-to-br from-blue-50/70 to-cyan-50/70 rounded-2xl border border-blue-200/50 shadow-sm">
+                  <p className="text-xs text-blue-700 uppercase tracking-widest font-bold">Assessment</p>
                   <p className="text-lg font-bold text-blue-900 mt-2">{selectedAssessment.name}</p>
                 </div>
                 
-                <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <p className="text-xs text-purple-600 uppercase tracking-widest font-bold">Duration</p>
-                  <p className="text-lg font-bold text-purple-900 mt-2">{selectedAssessment.duration_minutes} minutes</p>
+                <div className="p-4 backdrop-blur-xl bg-gradient-to-br from-indigo-50/70 to-blue-50/70 rounded-2xl border border-indigo-200/50 shadow-sm">
+                  <p className="text-xs text-indigo-700 uppercase tracking-widest font-bold">Duration</p>
+                  <p className="text-lg font-bold text-indigo-900 mt-2">{selectedAssessment.duration_minutes} minutes</p>
                 </div>
                 
-                <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
-                  <p className="text-xs text-emerald-600 uppercase tracking-widest font-bold">Tasks</p>
-                  <p className="text-lg font-bold text-emerald-900 mt-2">{selectedAssessment.tasks?.length || 0}</p>
+                <div className="p-4 backdrop-blur-xl bg-gradient-to-br from-cyan-50/70 to-blue-50/70 rounded-2xl border border-cyan-200/50 shadow-sm">
+                  <p className="text-xs text-cyan-700 uppercase tracking-widest font-bold">Tasks</p>
+                  <p className="text-lg font-bold text-cyan-900 mt-2">{selectedAssessment.tasks?.length || 0}</p>
                 </div>
 
-                <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                  <p className="text-xs text-orange-600 uppercase tracking-widest font-bold">Candidates</p>
-                  <p className="text-lg font-bold text-orange-900 mt-2">{candidates.length}</p>
+                <div className="p-4 backdrop-blur-xl bg-gradient-to-br from-sky-50/70 to-cyan-50/70 rounded-2xl border border-sky-200/50 shadow-sm">
+                  <p className="text-xs text-sky-700 uppercase tracking-widest font-bold">Candidates</p>
+                  <p className="text-lg font-bold text-sky-900 mt-2">{candidates.length}</p>
                 </div>
 
                 <button
                   onClick={handleSendInvites}
                   disabled={candidates.length === 0 || inviteLoading}
-                  className="w-full mt-6 py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold rounded-lg transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl disabled:shadow-none"
+                  className="w-full mt-6 py-3.5 px-4 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold rounded-xl transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-xl hover:shadow-2xl disabled:shadow-none transform hover:scale-[1.02] active:scale-[0.98] disabled:scale-100"
                 >
                   {inviteLoading ? (
                     <>
@@ -385,7 +403,7 @@ export default function InviteCandidate() {
           </div>
         ) : (
           /* Invite Links View */
-          <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200">
+          <div className="backdrop-blur-2xl bg-white/70 rounded-3xl shadow-2xl shadow-blue-100/20 p-8 border border-white/30">
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">✅ Invitations Sent Successfully!</h2>
@@ -397,7 +415,7 @@ export default function InviteCandidate() {
                   setInviteLinks([]);
                   setShowInviteLinks(false);
                 }}
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors shadow-md"
+                className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
               >
                 + Add More
               </button>
@@ -406,35 +424,35 @@ export default function InviteCandidate() {
             <div className="mb-6 flex gap-3">
               <button
                 onClick={downloadInviteLinks}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold rounded-lg transition-colors"
+                className="flex items-center gap-2 px-5 py-2.5 backdrop-blur-xl bg-white/60 border border-white/40 hover:bg-white/80 text-gray-700 font-semibold rounded-xl transition-all shadow-sm hover:shadow-md"
               >
                 <Download className="w-4 h-4" />
                 Download CSV
               </button>
             </div>
 
-            <div className="space-y-3 max-h-96 overflow-y-auto">
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
               {inviteLinks.map((link) => (
-                <div key={link.id} className="p-5 bg-gray-50 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
+                <div key={link.id} className="p-5 backdrop-blur-xl bg-gradient-to-br from-blue-50/60 to-cyan-50/60 border border-blue-200/50 rounded-2xl hover:border-blue-300/70 transition-all shadow-sm hover:shadow-lg">
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <p className="font-bold text-gray-900">{link.name}</p>
                       <p className="text-sm text-gray-600">{link.email}</p>
                     </div>
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 uppercase tracking-wide">
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 uppercase tracking-wide shadow-sm">
                       ✓ {link.status}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded text-xs text-gray-700 break-all font-mono">
+                    <code className="flex-1 px-3 py-2.5 backdrop-blur-xl bg-white/70 border border-white/40 rounded-xl text-xs text-gray-700 break-all font-mono shadow-sm">
                       {link.inviteLink}
                     </code>
                     <button
                       onClick={() => copyToClipboard(link.inviteLink, link.id)}
-                      className={`p-2 rounded-lg transition-all flex-shrink-0 ${
+                      className={`p-2.5 rounded-xl transition-all flex-shrink-0 shadow-sm ${
                         copiedLink === link.id
-                          ? 'bg-green-100 text-green-600 shadow-md'
-                          : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                          ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-600 shadow-md'
+                          : 'backdrop-blur-xl bg-white/70 border border-white/40 text-gray-700 hover:bg-white/90'
                       }`}
                       title={copiedLink === link.id ? 'Copied!' : 'Copy to clipboard'}
                     >
@@ -445,10 +463,10 @@ export default function InviteCandidate() {
               ))}
             </div>
 
-            <div className="mt-8 pt-6 border-t border-gray-200">
+            <div className="mt-8 pt-6 border-t border-white/30">
               <button
                 onClick={resetInviteFlow}
-                className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold rounded-lg transition-colors"
+                className="w-full py-3.5 px-4 backdrop-blur-xl bg-white/60 hover:bg-white/80 border border-white/40 text-gray-900 font-bold rounded-xl transition-all shadow-sm hover:shadow-md"
               >
                 Back to Assessments
               </button>
