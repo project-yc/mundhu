@@ -1,6 +1,6 @@
 export const verifyInviteToken = async (token) => {
   try {
-    const response = await fetch('/api/verify-invite', {
+    const response = await fetch('/api/v1/sessions/verify-invite', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
