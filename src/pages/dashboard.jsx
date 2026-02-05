@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Loader, AlertCircle, CheckCircle, ChevronDown, Users } from 'lucide-react';
+import { Plus, X, Loader, AlertCircle, CheckCircle, ChevronDown, Users, LogOut } from 'lucide-react';
 import { createAssessment, getAllAssessments, createTask } from '../api/assessment';
+import { logout, getUser } from '../api/auth';
 
 export default function RecruiterDashboard() {
   const navigate = useNavigate();
+  const user = getUser();
   const [assessments, setAssessments] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -116,6 +118,11 @@ export default function RecruiterDashboard() {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    window.location.href = '/';  // Full reload to reset auth state
+  };
+
   // MAIN ASSESSMENTS PAGE
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -127,13 +134,23 @@ export default function RecruiterDashboard() {
               <h1 className="text-3xl font-bold text-gray-900">📊 Assessments</h1>
               <p className="text-gray-600 mt-1">Create, manage, and distribute your recruitment assessments</p>
             </div>
-            <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-            >
-              <Plus className="w-5 h-5" />
-              Create Assessment
-            </button>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">{user?.email}</span>
+              <button
+                onClick={() => setShowModal(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              >
+                <Plus className="w-5 h-5" />
+                Create Assessment
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>

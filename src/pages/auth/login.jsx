@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, AlertCircle, CheckCircle } from 'lucide-react';
 
 const loginUser = async (email, password) => {
@@ -16,7 +17,7 @@ const loginUser = async (email, password) => {
     console.log('Login response:', data);
 
     if (!response.ok) {
-      const errorMessage = data.message || data.error || `HTTP Error: ${response.status}`;
+      const errorMessage = data.message || data.error || data.detail || `HTTP Error: ${response.status}`;
       throw new Error(errorMessage);
     }
 
@@ -24,7 +25,7 @@ const loginUser = async (email, password) => {
     if (data.access_token) {
       localStorage.setItem('authToken', data.access_token);
       localStorage.setItem('refreshToken', data.refresh_token);
-      // Optionally store user info
+      // Store user info
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
       }
@@ -39,6 +40,7 @@ const loginUser = async (email, password) => {
 };
 
 export default function LoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -58,9 +60,13 @@ export default function LoginPage() {
       setPassword('');
       console.log('Login response:', response);
       
-      // Redirect to dashboard after 1 second
+      // Route based on account type
       setTimeout(() => {
-        window.location.href = '/';
+        if (response.user?.account_type === 'B2B') {
+          navigate('/recruiter');
+        } else {
+          navigate('/problems');
+        }
       }, 1000);
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
@@ -171,9 +177,9 @@ export default function LoginPage() {
           <div className="mt-8 pt-6 border-t border-gray-200">
             <p className="text-center text-gray-600 text-sm">
               Don't have an account?{' '}
-              <a href="#" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
+              <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
                 Sign up
-              </a>
+              </Link>
             </p>
           </div>
         </div>
