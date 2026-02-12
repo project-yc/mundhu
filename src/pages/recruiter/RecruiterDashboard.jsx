@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, X, Loader, AlertCircle, CheckCircle, ChevronDown, Users, LogOut } from 'lucide-react';
-import { createAssessment, getAllAssessments, createTask } from '../api/assessment';
+import { createAssessment, getAllAssessments, createTask } from '../../api/recruiter/assessment';
 
 export default function RecruiterDashboard() {
   const navigate = useNavigate();
@@ -30,6 +30,8 @@ export default function RecruiterDashboard() {
     localStorage.removeItem('authToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('org');
     navigate('/login');
   };
 

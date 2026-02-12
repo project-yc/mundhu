@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, X, Loader, AlertCircle, CheckCircle, Users, Upload, Copy, Download, ArrowLeft, Mail, Trash2 } from 'lucide-react';
-import { getAssessmentById, sendCandidateInvites } from '../api/assessment';
+import { getAssessmentById, sendCandidateInvites } from '../../api/recruiter/assessment';
 
 export default function InviteCandidate() {
   const { assessmentId } = useParams();

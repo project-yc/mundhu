@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { verifyInviteToken } from '../api/invite'
+import { verifyInviteToken } from '../../api/recruiter/invite'
 import { Check, X, Loader, Clock, Copy, CheckCheck } from 'lucide-react'
 
 export default function VerifyCandidateInvite() {

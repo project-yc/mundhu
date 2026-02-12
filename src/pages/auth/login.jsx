@@ -20,14 +20,46 @@ const loginUser = async (email, password) => {
       throw new Error(errorMessage);
     }
 
-    // Store tokens - the API returns tokens at root level
-    if (data.access_token) {
-      localStorage.setItem('authToken', data.access_token);
-      localStorage.setItem('refreshToken', data.refresh_token);
-      // Optionally store user info
+    // Handle both response formats
+    // New format: { tokens: { access_token, refresh_token }, user, org, role }
+    // Old format: { access_token, refresh_token, user }
+    const tokens = data.tokens || data;
+    const accessToken = tokens.access_token || data.access_token;
+    const refreshToken = tokens.refresh_token || data.refresh_token;
+
+    console.log('=== LOGIN DEBUG ===');
+    console.log('Full login response:', JSON.stringify(data, null, 2));
+    console.log('Access token:', accessToken ? 'exists' : 'missing');
+    console.log('Role from data.role:', data.role);
+
+    if (accessToken) {
+      localStorage.setItem('authToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      
+      // Store user info
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
       }
+      
+      // Store role - check multiple possible locations
+      const userRole = data.role || data.user?.role || null;
+      console.log('Detected user role:', userRole);
+      
+      if (userRole) {
+        console.log('Storing user role:', userRole);
+        localStorage.setItem('userRole', userRole);
+      } else {
+        console.warn('No role found in response! Response structure:', Object.keys(data));
+        // Don't store null/undefined
+        localStorage.removeItem('userRole');
+      }
+      
+      // Store org info
+      if (data.org) {
+        localStorage.setItem('org', JSON.stringify(data.org));
+      }
+      
+      console.log('=== END LOGIN DEBUG ===');
     }
     return data;
   } catch (error) {
@@ -57,10 +89,20 @@ export default function LoginPage() {
       setEmail('');
       setPassword('');
       console.log('Login response:', response);
+      console.log('Checking role for redirect:', response.role);
       
-      // Redirect to dashboard after 1 second
+      // Redirect based on role after 1 second
       setTimeout(() => {
-        window.location.href = '/';
+        const userRole = response.role || localStorage.getItem('userRole');
+        console.log('Role for redirect decision:', userRole);
+        
+        if (userRole === 'ADMIN') {
+          console.log('Redirecting to admin dashboard');
+          window.location.href = '/admin';
+        } else {
+          console.log('Redirecting to recruiter dashboard');
+          window.location.href = '/';
+        }
       }, 1000);
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
