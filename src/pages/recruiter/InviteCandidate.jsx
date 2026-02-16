@@ -176,238 +176,210 @@ export default function InviteCandidate() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-slate-50 to-blue-100/60 flex items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 -left-40 w-96 h-96 bg-blue-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
-          <div className="absolute top-40 -right-40 w-96 h-96 bg-cyan-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
-        </div>
-        <Loader className="w-8 h-8 text-blue-500 animate-spin relative z-10" />
+      <div className="min-h-screen bg-navy-50/40 flex items-center justify-center">
+        <Loader className="w-6 h-6 text-navy-500 animate-spin" />
       </div>
     );
   }
 
   if (!selectedAssessment) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-slate-50 to-blue-100/60 flex items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 -left-40 w-96 h-96 bg-blue-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
-          <div className="absolute top-40 -right-40 w-96 h-96 bg-cyan-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
-        </div>
-        <div className="text-center relative z-10">
-          <div className="backdrop-blur-2xl bg-white/70 rounded-3xl p-10 shadow-2xl shadow-rose-100/20 border border-white/30">
-            <AlertCircle className="w-16 h-16 text-rose-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Assessment Not Found</h1>
-            <p className="text-gray-600 mb-6">The requested assessment could not be found</p>
-            <button
-              onClick={resetInviteFlow}
-              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
-            >
-              Back to Assessments
-            </button>
-          </div>
+      <div className="min-h-screen bg-navy-50/40 flex items-center justify-center">
+        <div className="card-elevated p-10 text-center max-w-sm">
+          <AlertCircle className="w-12 h-12 text-rose-400 mx-auto mb-4" />
+          <h1 className="text-lg font-semibold text-navy-900 mb-1.5">Assessment Not Found</h1>
+          <p className="text-sm text-navy-800/50 mb-5">The requested assessment could not be found</p>
+          <button onClick={resetInviteFlow} className="btn-primary">
+            Back to Assessments
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-slate-50 to-blue-100/60 relative overflow-hidden">
-      {/* Subtle animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 -left-40 w-96 h-96 bg-blue-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
-        <div className="absolute top-40 -right-40 w-96 h-96 bg-cyan-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-20 left-1/3 w-96 h-96 bg-indigo-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
-      </div>
-
-      {/* Header */}
-      <div className="backdrop-blur-2xl bg-white/60 border-b border-white/20 sticky top-0 z-40 shadow-lg shadow-blue-100/20">
-        <div className="max-w-6xl mx-auto px-6 py-5">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={resetInviteFlow}
-              className="flex items-center gap-2 px-4 py-2.5 backdrop-blur-xl bg-white/40 hover:bg-white/60 border border-white/30 rounded-xl transition-all text-gray-700 font-semibold shadow-sm hover:shadow-md"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{selectedAssessment.name}</h1>
-              <p className="text-sm text-gray-600">Invite candidates to participate in this assessment</p>
-            </div>
+    <div className="min-h-screen bg-navy-50/40">
+      {/* ── Header ───────────────────────────────────── */}
+      <header className="bg-white border-b border-navy-900/8 sticky top-0 z-40">
+        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center gap-4">
+          <button
+            onClick={resetInviteFlow}
+            className="btn-ghost py-2 px-3 text-navy-800/50"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
+          <div className="h-5 w-px bg-navy-900/8"></div>
+          <div>
+            <h1 className="text-sm font-semibold text-navy-900">{selectedAssessment.name}</h1>
+            <p className="text-[11px] text-navy-800/40">Invite candidates to this assessment</p>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-6xl mx-auto px-6 py-8 relative z-10">
-        {/* Messages */}
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        {/* Status Messages */}
         {success && (
-          <div className="mb-6 flex items-start gap-3 p-4 backdrop-blur-xl bg-emerald-50/80 border border-emerald-200/50 rounded-2xl shadow-lg shadow-emerald-100/20 animate-in fade-in slide-in-from-top-2">
-            <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+          <div className="mb-5 flex items-center gap-2.5 px-4 py-3 bg-emerald-50 border border-emerald-200/60 rounded-card animate-fadeIn">
+            <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
             <p className="text-sm text-emerald-800 font-medium">{success}</p>
           </div>
         )}
         
         {error && (
-          <div className="mb-6 flex items-start gap-3 p-4 backdrop-blur-xl bg-rose-50/80 border border-rose-200/50 rounded-2xl shadow-lg shadow-rose-100/20">
-            <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+          <div className="mb-5 flex items-center gap-2.5 px-4 py-3 bg-rose-50 border border-rose-200/60 rounded-card animate-fadeIn">
+            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
             <p className="text-sm text-rose-800 font-medium">{error}</p>
           </div>
         )}
 
         {!showInviteLinks ? (
           <div className="grid lg:grid-cols-3 gap-6">
-            {/* Candidates List */}
-            <div className="lg:col-span-2">
-              <div className="backdrop-blur-2xl bg-white/70 rounded-3xl shadow-2xl shadow-blue-100/20 p-8 border border-white/30">
-                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <Users className="w-6 h-6 text-blue-600" />
-                  Invite Candidates
+            {/* ── Main Panel: Candidates ──────────── */}
+            <div className="lg:col-span-2 space-y-5">
+              {/* Add Candidate Form */}
+              <div className="card-surface p-5">
+                <h2 className="text-sm font-semibold text-navy-900 mb-4 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-navy-500" />
+                  Add Candidates
                 </h2>
 
-                {/* Add Candidate Form */}
-                <div className="mb-8 p-6 backdrop-blur-xl bg-gradient-to-br from-blue-50/70 to-cyan-50/70 rounded-2xl border border-blue-200/50 shadow-lg shadow-blue-100/20">
-                  <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Add Candidate Manually</h3>
-                  <div className="flex gap-3 mb-4">
+                <div className="bg-navy-50/50 border border-navy-900/6 rounded-lg p-4 mb-4">
+                  <p className="section-label mb-3">Add Manually</p>
+                  <div className="flex gap-2.5 mb-3">
                     <input
                       type="text"
                       placeholder="Full Name"
                       value={newCandidate.name}
                       onChange={(e) => setNewCandidate({ ...newCandidate, name: e.target.value })}
-                      className="flex-1 px-4 py-3 backdrop-blur-xl bg-white/60 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400 focus:bg-white/80 transition-all shadow-sm"
+                      className="input-field flex-1"
                     />
                     <input
                       type="email"
                       placeholder="Email Address"
                       value={newCandidate.email}
                       onChange={(e) => setNewCandidate({ ...newCandidate, email: e.target.value })}
-                      className="flex-1 px-4 py-3 backdrop-blur-xl bg-white/60 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400 focus:bg-white/80 transition-all shadow-sm"
+                      className="input-field flex-1"
                     />
                     <button
                       onClick={handleAddCandidate}
-                      className="px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
+                      className="btn-primary px-3"
                     >
-                      <Plus className="w-5 h-5" />
+                      <Plus className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <div className="relative my-6">
+                  <div className="relative my-4">
                     <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-blue-200/50"></div>
+                      <div className="w-full border-t border-navy-900/8"></div>
                     </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-3 backdrop-blur-xl bg-gradient-to-br from-blue-50/70 to-cyan-50/70 text-gray-600 font-medium rounded-full">OR upload Excel</span>
+                    <div className="relative flex justify-center">
+                      <span className="px-2.5 bg-navy-50/50 text-[11px] font-medium text-navy-800/40 uppercase tracking-wider">or upload</span>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="flex items-center justify-center gap-3 px-6 py-6 border-2 border-dashed border-blue-300/60 rounded-2xl cursor-pointer hover:border-blue-400 backdrop-blur-xl bg-white/40 hover:bg-white/60 transition-all shadow-sm hover:shadow-md">
-                      <Upload className="w-5 h-5 text-blue-600" />
-                      <span className="text-sm font-semibold text-blue-700">
-                        Click to upload Excel file
-                      </span>
-                      <input
-                        type="file"
-                        accept=".csv,.xlsx,.xls"
-                        onChange={handleParseExcel}
-                        className="hidden"
-                      />
-                    </label>
-                    <p className="mt-3 text-xs text-gray-600 text-center font-medium">
-                      📄 CSV format: Name, Email (one candidate per row)
-                    </p>
-                  </div>
+                  <label className="flex items-center justify-center gap-2 px-4 py-4 border border-dashed border-navy-900/12 hover:border-navy-500/30 rounded-lg cursor-pointer transition-colors duration-150 group bg-white/60">
+                    <Upload className="w-4 h-4 text-navy-500 group-hover:text-navy-700 transition-colors" />
+                    <span className="text-sm font-medium text-navy-800/50 group-hover:text-navy-700 transition-colors">
+                      Upload CSV file
+                    </span>
+                    <input
+                      type="file"
+                      accept=".csv,.xlsx,.xls"
+                      onChange={handleParseExcel}
+                      className="hidden"
+                    />
+                  </label>
+                  <p className="mt-2 text-[11px] text-navy-800/35 text-center">CSV format: Name, Email (one per row)</p>
                 </div>
+              </div>
 
-                {/* Candidates Table */}
-                <div className="space-y-3">
-                  {candidates.length > 0 ? (
-                    <>
-                      <div className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-bold shadow-lg">
-                          {candidates.length}
-                        </span>
-                        Candidate{candidates.length !== 1 ? 's' : ''} added
-                      </div>
-                      <div className="max-h-96 overflow-y-auto space-y-2.5 pr-2">
-                        {candidates.map((candidate) => (
-                          <div key={candidate.id} className="flex items-center justify-between p-4 backdrop-blur-xl bg-white/60 border border-white/40 rounded-2xl hover:border-blue-300/60 hover:bg-white/80 transition-all shadow-sm hover:shadow-md">
-                            <div className="flex-1">
-                              <p className="font-semibold text-gray-900">{candidate.name}</p>
-                              <p className="text-sm text-gray-600">{candidate.email}</p>
-                            </div>
-                            <button
-                              onClick={() => removeCandidateRow(candidate.id)}
-                              className="p-2.5 text-rose-500 hover:bg-rose-50/80 backdrop-blur-xl rounded-xl transition-all shadow-sm"
-                              title="Remove candidate"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+              {/* Candidates List */}
+              <div className="card-surface p-5">
+                {candidates.length > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="section-label">Candidates ({candidates.length})</p>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto space-y-1.5">
+                      {candidates.map((candidate) => (
+                        <div key={candidate.id} className="flex items-center justify-between px-3.5 py-2.5 bg-navy-50/40 border border-navy-900/4 rounded-lg hover:bg-navy-50 transition-colors duration-150">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-navy-900 truncate">{candidate.name}</p>
+                            <p className="text-xs text-navy-800/40">{candidate.email}</p>
                           </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-12 border-2 border-dashed border-blue-200/60 rounded-2xl backdrop-blur-xl bg-white/40">
-                      <Users className="w-12 h-12 text-blue-300 mx-auto mb-3" />
-                      <p className="text-gray-700 font-medium">No candidates added yet</p>
-                      <p className="text-sm text-gray-500 mt-1">Add candidates manually or import from Excel</p>
+                          <button
+                            onClick={() => removeCandidateRow(candidate.id)}
+                            className="p-1.5 text-navy-800/25 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-all duration-150 ml-2"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
+                  </>
+                ) : (
+                  <div className="text-center py-10 border border-dashed border-navy-900/8 rounded-lg">
+                    <Users className="w-8 h-8 text-navy-800/15 mx-auto mb-2" />
+                    <p className="text-sm text-navy-800/40 font-medium">No candidates added yet</p>
+                    <p className="text-xs text-navy-800/25 mt-0.5">Add manually or import from CSV</p>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Summary Card */}
-            <div className="backdrop-blur-2xl bg-white/70 rounded-3xl shadow-2xl shadow-blue-100/20 p-8 border border-white/30 h-fit sticky top-24">
-              <h3 className="text-lg font-bold text-gray-900 mb-6">Assessment Summary</h3>
-              <div className="space-y-3">
-                <div className="p-4 backdrop-blur-xl bg-gradient-to-br from-blue-50/70 to-cyan-50/70 rounded-2xl border border-blue-200/50 shadow-sm">
-                  <p className="text-xs text-blue-700 uppercase tracking-widest font-bold">Assessment</p>
-                  <p className="text-lg font-bold text-blue-900 mt-2">{selectedAssessment.name}</p>
+            {/* ── Sidebar: Summary ────────────────── */}
+            <div className="card-surface p-5 h-fit lg:sticky lg:top-24">
+              <p className="section-label mb-4">Assessment Summary</p>
+              
+              <div className="space-y-2.5">
+                <div className="bg-navy-50/50 border border-navy-900/6 rounded-lg px-3.5 py-3">
+                  <p className="text-[11px] text-navy-800/40 font-medium uppercase tracking-wider">Assessment</p>
+                  <p className="text-sm font-semibold text-navy-900 mt-1">{selectedAssessment.name}</p>
                 </div>
                 
-                <div className="p-4 backdrop-blur-xl bg-gradient-to-br from-indigo-50/70 to-blue-50/70 rounded-2xl border border-indigo-200/50 shadow-sm">
-                  <p className="text-xs text-indigo-700 uppercase tracking-widest font-bold">Duration</p>
-                  <p className="text-lg font-bold text-indigo-900 mt-2">{selectedAssessment.duration_minutes} minutes</p>
+                <div className="bg-navy-50/50 border border-navy-900/6 rounded-lg px-3.5 py-3">
+                  <p className="text-[11px] text-navy-800/40 font-medium uppercase tracking-wider">Duration</p>
+                  <p className="text-sm font-semibold text-navy-900 mt-1">{selectedAssessment.duration_minutes} minutes</p>
                 </div>
                 
-                <div className="p-4 backdrop-blur-xl bg-gradient-to-br from-cyan-50/70 to-blue-50/70 rounded-2xl border border-cyan-200/50 shadow-sm">
-                  <p className="text-xs text-cyan-700 uppercase tracking-widest font-bold">Tasks</p>
-                  <p className="text-lg font-bold text-cyan-900 mt-2">{selectedAssessment.tasks?.length || 0}</p>
+                <div className="bg-navy-50/50 border border-navy-900/6 rounded-lg px-3.5 py-3">
+                  <p className="text-[11px] text-navy-800/40 font-medium uppercase tracking-wider">Tasks</p>
+                  <p className="text-sm font-semibold text-navy-900 mt-1">{selectedAssessment.tasks?.length || 0}</p>
                 </div>
 
-                <div className="p-4 backdrop-blur-xl bg-gradient-to-br from-sky-50/70 to-cyan-50/70 rounded-2xl border border-sky-200/50 shadow-sm">
-                  <p className="text-xs text-sky-700 uppercase tracking-widest font-bold">Candidates</p>
-                  <p className="text-lg font-bold text-sky-900 mt-2">{candidates.length}</p>
+                <div className="bg-navy-100 border border-navy-500/10 rounded-lg px-3.5 py-3">
+                  <p className="text-[11px] text-navy-700 font-medium uppercase tracking-wider">Candidates</p>
+                  <p className="text-lg font-bold text-navy-900 mt-0.5">{candidates.length}</p>
                 </div>
-
-                <button
-                  onClick={handleSendInvites}
-                  disabled={candidates.length === 0 || inviteLoading}
-                  className="w-full mt-6 py-3.5 px-4 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold rounded-xl transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-xl hover:shadow-2xl disabled:shadow-none transform hover:scale-[1.02] active:scale-[0.98] disabled:scale-100"
-                >
-                  {inviteLoading ? (
-                    <>
-                      <Loader className="w-5 h-5 animate-spin" />
-                      Sending Invites...
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="w-5 h-5" />
-                      Send Invites
-                    </>
-                  )}
-                </button>
               </div>
+
+              <button
+                onClick={handleSendInvites}
+                disabled={candidates.length === 0 || inviteLoading}
+                className="btn-primary w-full justify-center mt-5"
+              >
+                {inviteLoading ? (
+                  <>
+                    <Loader className="w-4 h-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Send Invites
+                  </>
+                )}
+              </button>
             </div>
           </div>
         ) : (
-          /* Invite Links View */
-          <div className="backdrop-blur-2xl bg-white/70 rounded-3xl shadow-2xl shadow-blue-100/20 p-8 border border-white/30">
-            <div className="flex items-center justify-between mb-8">
+          /* ── Invite Links View ────────────────────── */
+          <div className="card-surface p-6 max-w-3xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">✅ Invitations Sent Successfully!</h2>
-                <p className="text-gray-600 mt-2">Share these unique links with your candidates</p>
+                <h2 className="text-base font-semibold text-navy-900">Invitations Sent</h2>
+                <p className="text-sm text-navy-800/50 mt-0.5">Share these unique links with your candidates</p>
               </div>
               <button
                 onClick={() => {
@@ -415,65 +387,66 @@ export default function InviteCandidate() {
                   setInviteLinks([]);
                   setShowInviteLinks(false);
                 }}
-                className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                className="btn-secondary text-xs"
               >
-                + Add More
+                <Plus className="w-3.5 h-3.5" />
+                Add More
               </button>
             </div>
 
-            <div className="mb-6 flex gap-3">
+            <div className="mb-4">
               <button
                 onClick={downloadInviteLinks}
-                className="flex items-center gap-2 px-5 py-2.5 backdrop-blur-xl bg-white/60 border border-white/40 hover:bg-white/80 text-gray-700 font-semibold rounded-xl transition-all shadow-sm hover:shadow-md"
+                className="btn-ghost text-xs text-navy-500"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-3.5 h-3.5" />
                 Download CSV
               </button>
             </div>
 
-            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+            <div className="space-y-2 max-h-96 overflow-y-auto">
               {inviteLinks.map((link) => (
-                <div key={link.id} className="p-5 backdrop-blur-xl bg-gradient-to-br from-blue-50/60 to-cyan-50/60 border border-blue-200/50 rounded-2xl hover:border-blue-300/70 transition-all shadow-sm hover:shadow-lg">
-                  <div className="flex items-start justify-between mb-4">
+                <div key={link.id} className="bg-navy-50/40 border border-navy-900/6 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2.5">
                     <div>
-                      <p className="font-bold text-gray-900">{link.name}</p>
-                      <p className="text-sm text-gray-600">{link.email}</p>
+                      <p className="text-sm font-medium text-navy-900">{link.name}</p>
+                      <p className="text-xs text-navy-800/40">{link.email}</p>
                     </div>
-                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 uppercase tracking-wide shadow-sm">
-                      ✓ {link.status}
+                    <span className="badge-blue text-[10px]">
+                      <CheckCircle className="w-3 h-3" />
+                      {link.status}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 px-3 py-2.5 backdrop-blur-xl bg-white/70 border border-white/40 rounded-xl text-xs text-gray-700 break-all font-mono shadow-sm">
+                    <code className="flex-1 px-3 py-2 bg-white border border-navy-900/6 rounded-md text-xs text-navy-800/60 break-all font-mono">
                       {link.inviteLink}
                     </code>
                     <button
                       onClick={() => copyToClipboard(link.inviteLink, link.id)}
-                      className={`p-2.5 rounded-xl transition-all flex-shrink-0 shadow-sm ${
+                      className={`p-2 rounded-md transition-all duration-150 flex-shrink-0 ${
                         copiedLink === link.id
-                          ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-600 shadow-md'
-                          : 'backdrop-blur-xl bg-white/70 border border-white/40 text-gray-700 hover:bg-white/90'
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : 'bg-white border border-navy-900/8 text-navy-800/40 hover:text-navy-700 hover:border-navy-900/15'
                       }`}
-                      title={copiedLink === link.id ? 'Copied!' : 'Copy to clipboard'}
                     >
-                      <Copy className="w-4 h-4" />
+                      <Copy className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="mt-8 pt-6 border-t border-white/30">
+            <div className="mt-6 pt-4 border-t border-navy-900/6">
               <button
                 onClick={resetInviteFlow}
-                className="w-full py-3.5 px-4 backdrop-blur-xl bg-white/60 hover:bg-white/80 border border-white/40 text-gray-900 font-bold rounded-xl transition-all shadow-sm hover:shadow-md"
+                className="btn-secondary w-full justify-center"
               >
                 Back to Assessments
               </button>
             </div>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

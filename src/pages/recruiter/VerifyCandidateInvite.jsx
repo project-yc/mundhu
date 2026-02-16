@@ -53,77 +53,59 @@ export default function VerifyCandidateInvite() {
   }
 
   return (
-    <div className="relative flex justify-center items-center min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 p-4 overflow-hidden">
-      {/* Animated background blobs */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl animate-blob"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-400/20 rounded-full blur-3xl animate-blob animation-delay-2000"></div>
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-teal-400/20 rounded-full blur-3xl animate-blob animation-delay-4000"></div>
-
-      <div className="relative max-w-md w-full">
-        {/* Card outer glow */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-[2rem] blur-2xl"></div>
-        
-        <div className="relative backdrop-blur-2xl bg-white/85 rounded-[2rem] shadow-[0_8px_48px_0_rgba(59,130,246,0.25)] border border-white/40 p-12 text-center">
+    <div className="min-h-screen bg-navy-50/40 flex items-center justify-center p-4">
+      <div className="max-w-sm w-full">
+        <div className="card-elevated p-10 text-center animate-fadeIn">
           
           {status === 'verifying' && (
-            <div className="animate-in fade-in duration-300">
-              <div className="flex justify-center mb-8">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-400/30 to-cyan-400/30 rounded-full blur-xl"></div>
-                  <div className="relative backdrop-blur-xl bg-white/60 p-4 rounded-full border border-white/40">
-                    <Loader className="w-8 h-8 text-blue-600 animate-spin" />
-                  </div>
+            <div>
+              <div className="flex justify-center mb-6">
+                <div className="w-14 h-14 rounded-full bg-navy-100 flex items-center justify-center">
+                  <Loader className="w-6 h-6 text-navy-500 animate-spin" />
                 </div>
               </div>
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-cyan-900 bg-clip-text text-transparent mb-3">
+              <h2 className="text-lg font-semibold text-navy-900 mb-1.5">
                 Verifying your invitation...
               </h2>
-              <p className="text-gray-600 text-base leading-relaxed">Please wait while we confirm your access.</p>
+              <p className="text-sm text-navy-800/50">Please wait while we confirm your access.</p>
             </div>
           )}
 
-        {status === 'success' && (
-          <div className="animate-in fade-in zoom-in-95 duration-500">
-            <div className="flex justify-center mb-8">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/40 to-teal-400/40 rounded-full blur-2xl animate-pulse"></div>
-                <div className="relative backdrop-blur-xl bg-gradient-to-br from-emerald-500 to-teal-500 p-5 rounded-full border border-white/40 shadow-[0_8px_32px_0_rgba(16,185,129,0.3)] animate-in zoom-in-95 duration-700">
-                  <Check className="w-10 h-10 text-white drop-shadow-lg" strokeWidth={3} />
+          {status === 'success' && (
+            <div className="animate-slideUp">
+              <div className="flex justify-center mb-6">
+                <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <Check className="w-7 h-7 text-emerald-600" strokeWidth={2.5} />
                 </div>
               </div>
-            </div>
-            
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-emerald-900 to-teal-900 bg-clip-text text-transparent mb-2">
-              Invitation Verified!
-            </h2>
-            <p className="text-gray-600 text-base mb-8">Your assessment is ready to start</p>
-            
-            {candidateData && (
-              <div className="relative mb-8">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-2xl blur-lg"></div>
-                <div className="relative backdrop-blur-xl bg-white/70 rounded-2xl p-6 border border-white/50 shadow-[0_4px_24px_0_rgba(59,130,246,0.12)] text-left space-y-4">
+              
+              <h2 className="text-lg font-semibold text-navy-900 mb-1">
+                Invitation Verified
+              </h2>
+              <p className="text-sm text-navy-800/50 mb-6">Your assessment is ready to start</p>
+              
+              {candidateData && (
+                <div className="bg-navy-50/50 border border-navy-900/6 rounded-lg p-5 text-left space-y-3 mb-6">
                   
-                  {/* Assessment ID with copy button */}
-                  <div className="group">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                      <span className="text-gray-600 text-sm font-semibold">Assessment ID</span>
-                    </div>
+                  {/* Assessment ID */}
+                  <div>
+                    <p className="text-[11px] text-navy-800/40 font-medium uppercase tracking-wider mb-1.5">Assessment ID</p>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 backdrop-blur-xl bg-white/60 rounded-xl px-3 py-2.5 border border-white/50 shadow-[inset_0_2px_8px_0_rgba(0,0,0,0.04)]">
-                        <code className="text-xs font-mono text-gray-900 break-all">
-                          {truncateId(candidateData.assessment_id)}
-                        </code>
-                      </div>
+                      <code className="flex-1 px-3 py-2 bg-white border border-navy-900/6 rounded-md text-xs text-navy-800/60 break-all font-mono">
+                        {truncateId(candidateData.assessment_id)}
+                      </code>
                       <button
                         onClick={handleCopyAssessmentId}
-                        className="p-2.5 backdrop-blur-xl bg-white/60 hover:bg-white/80 rounded-xl border border-white/50 transition-all hover:shadow-md group/copy"
-                        title="Copy full ID"
+                        className={`p-2 rounded-md transition-all duration-150 flex-shrink-0 ${
+                          copied
+                            ? 'bg-emerald-50 text-emerald-600'
+                            : 'bg-white border border-navy-900/8 text-navy-800/40 hover:text-navy-700 hover:border-navy-900/15'
+                        }`}
                       >
                         {copied ? (
-                          <CheckCheck className="w-4 h-4 text-emerald-600" />
+                          <CheckCheck className="w-3.5 h-3.5" />
                         ) : (
-                          <Copy className="w-4 h-4 text-gray-600 group-hover/copy:text-blue-600 transition-colors" />
+                          <Copy className="w-3.5 h-3.5" />
                         )}
                       </button>
                     </div>
@@ -131,85 +113,69 @@ export default function VerifyCandidateInvite() {
 
                   {/* Time Limit */}
                   {candidateData.time_limit_minutes && (
-                    <div className="group">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
-                        <span className="text-gray-600 text-sm font-semibold">Time Limit</span>
-                      </div>
-                      <div className="backdrop-blur-xl bg-white/60 rounded-xl px-3 py-2.5 border border-white/50 shadow-[inset_0_2px_8px_0_rgba(0,0,0,0.04)] flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-cyan-600" />
-                        <span className="text-sm font-semibold text-gray-900">
+                    <div>
+                      <p className="text-[11px] text-navy-800/40 font-medium uppercase tracking-wider mb-1.5">Time Limit</p>
+                      <div className="flex items-center gap-2 px-3 py-2 bg-white border border-navy-900/6 rounded-md">
+                        <Clock className="w-3.5 h-3.5 text-navy-500" />
+                        <span className="text-sm font-medium text-navy-900">
                           {candidateData.time_limit_minutes} minutes
                         </span>
                       </div>
                     </div>
                   )}
                 </div>
-              </div>
-            )}
+              )}
 
-            <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur-lg opacity-50 group-hover:opacity-75 transition-opacity"></div>
               <button 
-                className="relative w-full py-4 px-6 bg-gradient-to-r from-blue-500 via-blue-600 to-cyan-500 hover:from-blue-600 hover:via-blue-700 hover:to-cyan-600 disabled:from-gray-300 disabled:to-gray-400 text-white font-semibold rounded-2xl transition-all duration-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_8px_24px_0_rgba(59,130,246,0.25)] hover:shadow-[0_12px_32px_0_rgba(59,130,246,0.35)] transform hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:shadow-none"
+                className="btn-primary w-full justify-center"
                 onClick={handleStartAssessment}
                 disabled={isStarting}
               >
                 {isStarting ? (
                   <>
-                    <Loader className="w-5 h-5 animate-spin" />
-                    Starting Assessment...
+                    <Loader className="w-4 h-4 animate-spin" />
+                    Starting...
                   </>
                 ) : (
                   <>
-                    <Check className="w-5 h-5" />
+                    <Check className="w-4 h-4" />
                     Start Assessment
                   </>
                 )}
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {status === 'error' && (
-          <div className="animate-in fade-in zoom-in-95 duration-500">
-            <div className="flex justify-center mb-8">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-rose-400/40 to-red-400/40 rounded-full blur-2xl animate-pulse"></div>
-                <div className="relative backdrop-blur-xl bg-gradient-to-br from-rose-500 to-red-500 p-5 rounded-full border border-white/40 shadow-[0_8px_32px_0_rgba(244,63,94,0.3)] animate-in zoom-in-95 duration-700">
-                  <X className="w-10 h-10 text-white drop-shadow-lg" strokeWidth={3} />
+          {status === 'error' && (
+            <div className="animate-slideUp">
+              <div className="flex justify-center mb-6">
+                <div className="w-14 h-14 rounded-full bg-rose-100 flex items-center justify-center">
+                  <X className="w-7 h-7 text-rose-600" strokeWidth={2.5} />
                 </div>
               </div>
-            </div>
-            
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-rose-900 to-red-900 bg-clip-text text-transparent mb-3">
-              Invitation Invalid
-            </h2>
-            
-            {error && (
-              <div className="relative mb-3">
-                <div className="absolute inset-0 bg-gradient-to-r from-rose-400/10 to-red-400/10 rounded-2xl blur-lg"></div>
-                <div className="relative backdrop-blur-xl bg-rose-50/90 rounded-2xl p-4 border border-rose-200/60 shadow-[0_4px_16px_0_rgba(244,63,94,0.12)]">
-                  <p className="text-rose-700 text-sm font-semibold">{error}</p>
+              
+              <h2 className="text-lg font-semibold text-navy-900 mb-2">
+                Invitation Invalid
+              </h2>
+              
+              {error && (
+                <div className="mb-3 px-4 py-3 bg-rose-50 border border-rose-200/60 rounded-lg">
+                  <p className="text-sm text-rose-700 font-medium">{error}</p>
                 </div>
-              </div>
-            )}
-            
-            <p className="text-gray-600 text-sm leading-relaxed mb-8">
-              This invitation may have expired or is no longer valid. Please contact the recruiter for a new invitation.
-            </p>
-            
-            <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-gray-400 to-gray-500 rounded-2xl blur-lg opacity-30 group-hover:opacity-50 transition-opacity"></div>
+              )}
+              
+              <p className="text-sm text-navy-800/50 leading-relaxed mb-6">
+                This invitation may have expired or is no longer valid. Please contact the recruiter for a new invitation.
+              </p>
+              
               <button 
-                className="relative w-full py-4 px-6 backdrop-blur-xl bg-white/80 hover:bg-white/90 text-gray-900 font-semibold rounded-2xl transition-all duration-300 border border-white/50 shadow-[0_4px_16px_0_rgba(0,0,0,0.08)] hover:shadow-[0_8px_24px_0_rgba(0,0,0,0.12)] transform hover:scale-[1.02] active:scale-[0.98]"
+                className="btn-secondary w-full justify-center"
                 onClick={() => navigate('/')}
               >
                 Go Back
               </button>
             </div>
-          </div>
-        )}
+          )}
         </div>
       </div>
     </div>
