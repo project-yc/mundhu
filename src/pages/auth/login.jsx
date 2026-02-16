@@ -20,14 +20,46 @@ const loginUser = async (email, password) => {
       throw new Error(errorMessage);
     }
 
-    // Store tokens - the API returns tokens at root level
-    if (data.access_token) {
-      localStorage.setItem('authToken', data.access_token);
-      localStorage.setItem('refreshToken', data.refresh_token);
-      // Optionally store user info
+    // Handle both response formats
+    // New format: { tokens: { access_token, refresh_token }, user, org, role }
+    // Old format: { access_token, refresh_token, user }
+    const tokens = data.tokens || data;
+    const accessToken = tokens.access_token || data.access_token;
+    const refreshToken = tokens.refresh_token || data.refresh_token;
+
+    console.log('=== LOGIN DEBUG ===');
+    console.log('Full login response:', JSON.stringify(data, null, 2));
+    console.log('Access token:', accessToken ? 'exists' : 'missing');
+    console.log('Role from data.role:', data.role);
+
+    if (accessToken) {
+      localStorage.setItem('authToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      
+      // Store user info
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
       }
+      
+      // Store role - check multiple possible locations
+      const userRole = data.role || data.user?.role || null;
+      console.log('Detected user role:', userRole);
+      
+      if (userRole) {
+        console.log('Storing user role:', userRole);
+        localStorage.setItem('userRole', userRole);
+      } else {
+        console.warn('No role found in response! Response structure:', Object.keys(data));
+        // Don't store null/undefined
+        localStorage.removeItem('userRole');
+      }
+      
+      // Store org info
+      if (data.org) {
+        localStorage.setItem('org', JSON.stringify(data.org));
+      }
+      
+      console.log('=== END LOGIN DEBUG ===');
     }
     return data;
   } catch (error) {
@@ -57,10 +89,20 @@ export default function LoginPage() {
       setEmail('');
       setPassword('');
       console.log('Login response:', response);
+      console.log('Checking role for redirect:', response.role);
       
-      // Redirect to dashboard after 1 second
+      // Redirect based on role after 1 second
       setTimeout(() => {
-        window.location.href = '/';
+        const userRole = response.role || localStorage.getItem('userRole');
+        console.log('Role for redirect decision:', userRole);
+        
+        if (userRole === 'ADMIN') {
+          console.log('Redirecting to admin dashboard');
+          window.location.href = '/admin';
+        } else {
+          console.log('Redirecting to recruiter dashboard');
+          window.location.href = '/';
+        }
       }, 1000);
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
@@ -70,36 +112,43 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center p-4">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-0 -left-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute top-0 -right-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+    <div className="min-h-screen bg-navy-50/40 flex items-center justify-center p-4">
+      {/* Left brand panel */}
+      <div className="hidden lg:flex lg:w-1/2 lg:max-w-lg flex-col justify-center pr-16">
+        <div className="w-10 h-10 bg-navy-700 rounded-lg flex items-center justify-center mb-8">
+          <LogIn className="w-5 h-5 text-white" />
+        </div>
+        <h1 className="text-display text-navy-900 mb-3">Welcome back to <br />mundhu</h1>
+        <p className="text-sm text-navy-800/50 leading-relaxed max-w-sm">
+          Sign in to manage your recruitment assessments, invite candidates, and track progress.
+        </p>
       </div>
 
       {/* Login card */}
-      <div className="relative w-full max-w-md">
-        <div className="backdrop-blur-md bg-white border border-gray-200 rounded-2xl shadow-xl p-8">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-center mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
-                <LogIn className="w-6 h-6 text-white" />
-              </div>
+      <div className="w-full max-w-sm">
+        <div className="bg-white border border-navy-900/8 rounded-card shadow-elevated p-8">
+          {/* Mobile header */}
+          <div className="lg:hidden mb-6">
+            <div className="w-9 h-9 bg-navy-700 rounded-lg flex items-center justify-center mb-4">
+              <LogIn className="w-4 h-4 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 text-center mb-2">Welcome Back</h1>
-            <p className="text-gray-600 text-center text-sm">Sign in to your account to continue</p>
+            <h1 className="text-lg font-bold text-navy-900">Sign in</h1>
+            <p className="text-sm text-navy-800/50 mt-1">Continue to your dashboard</p>
           </div>
 
-          <div className="space-y-6">
-            {/* Email field */}
+          {/* Desktop header */}
+          <div className="hidden lg:block mb-6">
+            <h2 className="text-base font-semibold text-navy-900">Sign in to your account</h2>
+          </div>
+
+          <div className="space-y-4">
+            {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
+              <label htmlFor="email" className="block text-sm font-medium text-navy-900 mb-1.5">
+                Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-800/30" />
                 <input
                   id="email"
                   type="email"
@@ -107,18 +156,18 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                  className="input-field pl-10"
                 />
               </div>
             </div>
 
-            {/* Password field */}
+            {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-navy-900 mb-1.5">
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-800/30" />
                 <input
                   id="password"
                   type="password"
@@ -126,32 +175,32 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                  className="input-field pl-10"
                 />
               </div>
             </div>
 
-            {/* Error message */}
+            {/* Error */}
             {error && (
-              <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-700">{error}</p>
+              <div className="flex items-center gap-2 px-3 py-2.5 bg-rose-50 border border-rose-200/60 rounded-lg animate-fadeIn">
+                <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                <p className="text-xs text-rose-700 font-medium">{error}</p>
               </div>
             )}
 
-            {/* Success message */}
+            {/* Success */}
             {success && (
-              <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-green-700">{success}</p>
+              <div className="flex items-center gap-2 px-3 py-2.5 bg-emerald-50 border border-emerald-200/60 rounded-lg animate-fadeIn">
+                <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <p className="text-xs text-emerald-700 font-medium">{success}</p>
               </div>
             )}
 
-            {/* Submit button */}
+            {/* Submit */}
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg hover:shadow-xl disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="btn-primary w-full justify-center mt-1"
             >
               {loading ? (
                 <>
@@ -160,7 +209,7 @@ export default function LoginPage() {
                 </>
               ) : (
                 <>
-                  <LogIn className="w-5 h-5" />
+                  <LogIn className="w-4 h-4" />
                   Sign In
                 </>
               )}
@@ -168,33 +217,16 @@ export default function LoginPage() {
           </div>
 
           {/* Footer */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <p className="text-center text-gray-600 text-sm">
+          <div className="mt-6 pt-5 border-t border-navy-900/6">
+            <p className="text-center text-xs text-navy-800/40">
               Don't have an account?{' '}
-              <a href="#" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
+              <a href="#" className="text-navy-700 font-semibold hover:text-navy-900 transition-colors">
                 Sign up
               </a>
             </p>
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes blob {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
     </div>
   );
 }
