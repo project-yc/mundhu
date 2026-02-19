@@ -95,7 +95,30 @@ export const getTasksByAssessmentId = async (assessmentId) => {
   }
 };
 
-export const createTask = async (assessmentId, title, description, tags = []) => {
+export const uploadTaskZip = async (file) => {
+  try {
+    const token = getAuthToken();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/v1/tasks/upload-zip', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    return handleApiError(response);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error('Unable to connect to the server. Please check your connection.');
+    }
+    throw error;
+  }
+};
+
+export const createTask = async (assessmentId, title, description, tags = [], taskZipS3Key = null) => {
   try {
     const token = getAuthToken();
     const response = await fetch('/api/v1/create/task', {
@@ -109,6 +132,7 @@ export const createTask = async (assessmentId, title, description, tags = []) =>
         title,
         description,
         tags,
+        ...(taskZipS3Key && { task_zip_s3_key: taskZipS3Key }),
       }),
     });
 

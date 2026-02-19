@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Loader, AlertCircle, CheckCircle, ChevronDown, Users, LogOut } from 'lucide-react';
-import { createAssessment, getAllAssessments, createTask } from '../../api/recruiter/assessment';
+import { Plus, X, Loader, AlertCircle, CheckCircle, ChevronDown, Users, LogOut, Upload, FileText } from 'lucide-react';
+import { createAssessment, getAllAssessments, createTask, uploadTaskZip } from '../../api/recruiter/assessment';
 
 export default function RecruiterDashboard() {
   const navigate = useNavigate();
@@ -11,8 +11,11 @@ export default function RecruiterDashboard() {
   const [selectedAssessment, setSelectedAssessment] = useState(null);
   const [expandedAssessment, setExpandedAssessment] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [uploadingZip, setUploadingZip] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [selectedZip, setSelectedZip] = useState(null);
+  const zipInputRef = useRef(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -83,6 +86,19 @@ export default function RecruiterDashboard() {
     }
   };
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.name.endsWith('.zip')) {
+        setError('Only .zip files are allowed');
+        e.target.value = '';
+        return;
+      }
+      setSelectedZip(file);
+      setError('');
+    }
+  };
+
   const handleAddTask = async (e) => {
     e.preventDefault();
     
@@ -96,16 +112,34 @@ export default function RecruiterDashboard() {
       return;
     }
 
-    setLoading(true);
     setError('');
+    let taskZipS3Key = null;
 
+    // Step 1: upload zip if provided
+    if (selectedZip) {
+      setUploadingZip(true);
+      try {
+        const uploadData = await uploadTaskZip(selectedZip);
+        taskZipS3Key = uploadData.s3_key || uploadData.data?.s3_key;
+        if (!taskZipS3Key) throw new Error('Upload succeeded but no S3 key was returned');
+      } catch (err) {
+        setError(err.message || 'Failed to upload zip file');
+        setUploadingZip(false);
+        return;
+      }
+      setUploadingZip(false);
+    }
+
+    // Step 2: create the task
+    setLoading(true);
     try {
       const tags = taskFormData.tags.split(',').map(t => t.trim()).filter(Boolean);
       const data = await createTask(
         selectedAssessment.id,
         taskFormData.taskName,
         taskFormData.taskDescription,
-        tags
+        tags,
+        taskZipS3Key,
       );
 
       setAssessments(prev => prev.map(a => 
@@ -116,6 +150,7 @@ export default function RecruiterDashboard() {
 
       setSuccess('Task added successfully!');
       setTaskFormData({ taskName: '', taskDescription: '', tags: '' });
+      setSelectedZip(null);
       setShowTaskModal(false);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -404,6 +439,8 @@ export default function RecruiterDashboard() {
                 onClick={() => {
                   setShowTaskModal(false);
                   setTaskFormData({ taskName: '', taskDescription: '', tags: '' });
+                  setSelectedZip(null);
+                  setError('');
                 }}
                 className="p-1.5 hover:bg-navy-50 rounded-md transition-colors duration-150"
               >
@@ -447,6 +484,51 @@ export default function RecruiterDashboard() {
                 <p className="text-[11px] text-navy-800/40 mt-1.5">Separate tags with commas</p>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-navy-900 mb-1.5">
+                  Code Zip File <span className="text-navy-800/40 font-normal">(Optional)</span>
+                </label>
+                <input
+                  ref={zipInputRef}
+                  type="file"
+                  accept=".zip"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                {selectedZip ? (
+                  <div className="flex items-center gap-3 px-4 py-3 bg-navy-50 border border-navy-900/10 rounded-lg">
+                    <div className="w-8 h-8 bg-navy-100 rounded-md flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-4 h-4 text-navy-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-navy-900 truncate">{selectedZip.name}</p>
+                      <p className="text-xs text-navy-800/40">{(selectedZip.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedZip(null); zipInputRef.current.value = ''; }}
+                      className="p-1.5 hover:bg-navy-200/50 rounded-md transition-colors flex-shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5 text-navy-800/50" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => zipInputRef.current?.click()}
+                    className="w-full flex flex-col items-center justify-center gap-2 px-4 py-6 bg-navy-50/50 border-2 border-dashed border-navy-900/15 hover:border-navy-500/40 hover:bg-navy-50 rounded-lg transition-all duration-150 group"
+                  >
+                    <div className="w-9 h-9 bg-navy-100 group-hover:bg-navy-200/70 rounded-lg flex items-center justify-center transition-colors">
+                      <Upload className="w-4 h-4 text-navy-600" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-navy-700 group-hover:text-navy-900 transition-colors">Click to upload .zip file</p>
+                      <p className="text-xs text-navy-800/40 mt-0.5">Contains the starter code for this task</p>
+                    </div>
+                  </button>
+                )}
+              </div>
+
               {error && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-200/60 rounded-lg">
                   <AlertCircle className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
@@ -461,6 +543,8 @@ export default function RecruiterDashboard() {
                 onClick={() => {
                   setShowTaskModal(false);
                   setTaskFormData({ taskName: '', taskDescription: '', tags: '' });
+                  setSelectedZip(null);
+                  setError('');
                 }}
                 className="btn-secondary"
               >
@@ -468,10 +552,15 @@ export default function RecruiterDashboard() {
               </button>
               <button
                 onClick={handleAddTask}
-                disabled={loading}
+                disabled={loading || uploadingZip}
                 className="btn-primary"
               >
-                {loading ? (
+                {uploadingZip ? (
+                  <>
+                    <Loader className="w-4 h-4 animate-spin" />
+                    Uploading zip...
+                  </>
+                ) : loading ? (
                   <>
                     <Loader className="w-4 h-4 animate-spin" />
                     Creating...

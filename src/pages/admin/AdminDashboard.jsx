@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, X, Loader, AlertCircle, CheckCircle, 
   Sparkles, Layers, Clock, Tag, Upload, FileText,
   LogOut, TrendingUp, Activity, Zap, Grid
 } from 'lucide-react';
-import { createAssessment, getAllAssessments, createTask } from '../../api/recruiter/assessment';
+import { createAssessment, getAllAssessments, createTask, uploadTaskZip } from '../../api/recruiter/assessment';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -13,9 +13,11 @@ export default function AdminDashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createMode, setCreateMode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploadingZip, setUploadingZip] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [selectedZip, setSelectedZip] = useState(null);
+  const zipInputRef = useRef(null);
   
   // Assessment form
   const [assessmentForm, setAssessmentForm] = useState({
@@ -59,8 +61,16 @@ export default function AdminDashboard() {
   };
 
   const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
-    setSelectedFiles(files);
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.name.endsWith('.zip')) {
+        setError('Only .zip files are allowed');
+        e.target.value = '';
+        return;
+      }
+      setSelectedZip(file);
+      setError('');
+    }
   };
 
   const handleCreateAssessment = async (e) => {
@@ -102,16 +112,34 @@ export default function AdminDashboard() {
       return;
     }
 
-    setLoading(true);
     setError('');
+    let taskZipS3Key = null;
 
+    // Step 1: upload zip if provided
+    if (selectedZip) {
+      setUploadingZip(true);
+      try {
+        const uploadData = await uploadTaskZip(selectedZip);
+        taskZipS3Key = uploadData.s3_key || uploadData.data?.s3_key;
+        if (!taskZipS3Key) throw new Error('Upload succeeded but no S3 key was returned');
+      } catch (err) {
+        setError(err.message || 'Failed to upload zip file');
+        setUploadingZip(false);
+        return;
+      }
+      setUploadingZip(false);
+    }
+
+    // Step 2: create the task
+    setLoading(true);
     try {
       const tags = taskForm.tags.split(',').map(t => t.trim()).filter(Boolean);
       const data = await createTask(
         taskForm.assessment_id,
         taskForm.title,
         taskForm.description,
-        tags
+        tags,
+        taskZipS3Key,
       );
 
       setAssessments(prev => prev.map(a => 
@@ -122,7 +150,7 @@ export default function AdminDashboard() {
 
       setSuccess('Task created successfully! 🎯');
       setTaskForm({ assessment_id: '', title: '', description: '', tags: '' });
-      setSelectedFiles([]);
+      setSelectedZip(null);
       setShowCreateModal(false);
       setCreateMode('');
       setTimeout(() => setSuccess(''), 4000);
@@ -144,7 +172,7 @@ export default function AdminDashboard() {
     setCreateMode('');
     setAssessmentForm({ name: '', description: '', duration_minutes: '' });
     setTaskForm({ assessment_id: '', title: '', description: '', tags: '' });
-    setSelectedFiles([]);
+    setSelectedZip(null);
     setError('');
   };
 
@@ -448,29 +476,48 @@ export default function AdminDashboard() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-navy-900 mb-1.5">Upload Code Folder (Optional)</label>
-                    <div className="relative">
-                      <input
-                        type="file"
-                        onChange={handleFileSelect}
-                        multiple
-                        webkitdirectory=""
-                        directory=""
-                        className="hidden"
-                        id="folder-upload"
-                      />
-                      <label
-                        htmlFor="folder-upload"
-                        className="flex items-center justify-center gap-2.5 px-4 py-5 bg-navy-50/50 border border-dashed border-navy-900/12 hover:border-navy-500/30 rounded-lg cursor-pointer transition-colors duration-150 group"
+                    <label className="block text-sm font-medium text-navy-900 mb-1.5">
+                      Code Zip File <span className="text-navy-800/40 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      ref={zipInputRef}
+                      type="file"
+                      accept=".zip"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    {selectedZip ? (
+                      <div className="flex items-center gap-3 px-4 py-3 bg-navy-50 border border-navy-900/10 rounded-lg">
+                        <div className="w-8 h-8 bg-navy-100 rounded-md flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-4 h-4 text-navy-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-navy-900 truncate">{selectedZip.name}</p>
+                          <p className="text-xs text-navy-800/40">{(selectedZip.size / 1024).toFixed(1)} KB</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedZip(null); zipInputRef.current.value = ''; }}
+                          className="p-1.5 hover:bg-navy-200/50 rounded-md transition-colors flex-shrink-0"
+                        >
+                          <X className="w-3.5 h-3.5 text-navy-800/50" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => zipInputRef.current?.click()}
+                        className="w-full flex flex-col items-center justify-center gap-2 px-4 py-6 bg-navy-50/50 border-2 border-dashed border-navy-900/15 hover:border-navy-500/40 hover:bg-navy-50 rounded-lg transition-all duration-150 group"
                       >
-                        <Upload className="w-4 h-4 text-navy-500 group-hover:text-navy-700 transition-colors" />
-                        <span className="text-sm font-medium text-navy-800/50 group-hover:text-navy-700 transition-colors">
-                          {selectedFiles.length > 0 
-                            ? `${selectedFiles.length} files selected` 
-                            : 'Click to upload code folder'}
-                        </span>
-                      </label>
-                    </div>
+                        <div className="w-9 h-9 bg-navy-100 group-hover:bg-navy-200/70 rounded-lg flex items-center justify-center transition-colors">
+                          <Upload className="w-4.5 h-4.5 text-navy-600" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-navy-700 group-hover:text-navy-900 transition-colors">Click to upload .zip file</p>
+                          <p className="text-xs text-navy-800/40 mt-0.5">Contains the starter code for this task</p>
+                        </div>
+                      </button>
+                    )}
                   </div>
 
                   {error && (
@@ -483,8 +530,10 @@ export default function AdminDashboard() {
 
                 <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-navy-900/6 bg-navy-50/30">
                   <button type="button" onClick={closeModal} className="btn-secondary">Cancel</button>
-                  <button type="submit" disabled={loading} className="btn-primary">
-                    {loading ? (
+                  <button type="submit" disabled={loading || uploadingZip} className="btn-primary">
+                    {uploadingZip ? (
+                      <><Loader className="w-4 h-4 animate-spin" /> Uploading zip...</>
+                    ) : loading ? (
                       <><Loader className="w-4 h-4 animate-spin" /> Creating...</>
                     ) : (
                       <><Zap className="w-4 h-4" /> Create Task</>
