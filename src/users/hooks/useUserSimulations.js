@@ -84,7 +84,7 @@ export const useUserSimulations = () => {
 
   const updateDifficulty = (value) => {
     setPage(1);
-    setSelectedDifficulty(value);
+    setSelectedDifficulty((current) => (current === value ? '' : value));
   };
 
   const updateAiAssistance = (value) => {
