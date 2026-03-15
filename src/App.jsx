@@ -5,6 +5,8 @@ import RecruiterDashboard from './pages/recruiter/RecruiterDashboard'
 import InviteCandidate from './pages/recruiter/InviteCandidate'
 import VerifyCandidateInvite from './pages/recruiter/VerifyCandidateInvite'
 import AdminDashboard from './pages/admin/AdminDashboard'
+import UserDashboardPage from './users/pages/UserDashboardPage'
+import UserSimulationsPage from './users/pages/UserSimulationsPage'
 import ProtectedRoute from './utils/ProtectedRoute'
 import AdminRoute from './utils/AdminRoute'
 
@@ -23,6 +25,26 @@ function App() {
         />
         <Route 
           path="/" 
+          element={<Navigate to="/user/dashboard" replace />} 
+        />
+        <Route 
+          path="/user/dashboard" 
+          element={
+            <ProtectedRoute>
+              <UserDashboardPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/user/simulations" 
+          element={
+            <ProtectedRoute>
+              <UserSimulationsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/recruiter/dashboard" 
           element={
             <ProtectedRoute>
               <RecruiterDashboard />
