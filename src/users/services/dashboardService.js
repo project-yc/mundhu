@@ -1,0 +1,24 @@
+import userApi from './api';
+
+export const getUserDashboard = async () => {
+  const response = await userApi.get('/api/v1/user/dashboard');
+  return response.data?.data;
+};
+
+export const getUserSessions = async () => {
+  const response = await userApi.get('/api/v1/user/sessions');
+  return response.data?.data || [];
+};
+
+export const getUserSimulations = async (query = {}) => {
+  const response = await userApi.get('/api/v1/user/simulations', {
+    params: query,
+  });
+
+  return response.data?.data;
+};
+
+export const getUserSimulationById = async (assessmentId) => {
+  const response = await userApi.get(`/api/v1/user/simulations/${assessmentId}`);
+  return response.data?.data;
+};
