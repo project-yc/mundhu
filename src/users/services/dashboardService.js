@@ -22,3 +22,8 @@ export const getUserSimulationById = async (assessmentId) => {
   const response = await userApi.get(`/api/v1/user/simulations/${assessmentId}`);
   return response.data?.data;
 };
+
+export const startUserSimulation = async (assessmentId) => {
+  const response = await userApi.post(`/api/v1/public/assessments/${assessmentId}/start`);
+  return response.data;
+};

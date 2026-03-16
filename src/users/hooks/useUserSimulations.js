@@ -5,7 +5,11 @@ import {
   SIMULATION_SORT_OPTIONS,
   SIMULATION_TAGS,
 } from '../constants/simulationsData';
-import { getUserSimulationById, getUserSimulations } from '../services/dashboardService';
+import {
+  getUserSimulationById,
+  getUserSimulations,
+  startUserSimulation,
+} from '../services/dashboardService';
 
 export const useUserSimulations = () => {
   const [rows, setRows] = useState([]);
@@ -98,6 +102,7 @@ export const useUserSimulations = () => {
   };
 
   const fetchSimulationDetail = async (assessmentId) => getUserSimulationById(assessmentId);
+  const launchSimulation = async (assessmentId) => startUserSimulation(assessmentId);
 
   return {
     rows,
@@ -128,5 +133,6 @@ export const useUserSimulations = () => {
     sortOptions: SIMULATION_SORT_OPTIONS,
     refetch: fetchSimulations,
     fetchSimulationDetail,
+    launchSimulation,
   };
 };
