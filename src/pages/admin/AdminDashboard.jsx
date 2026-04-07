@@ -111,7 +111,8 @@ export default function AdminDashboard() {
         taskForm.assessment_id,
         taskForm.title,
         taskForm.description,
-        tags
+        tags,
+        selectedFiles
       );
 
       setAssessments(prev => prev.map(a => 

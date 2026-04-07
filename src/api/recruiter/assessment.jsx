@@ -95,22 +95,46 @@ export const getTasksByAssessmentId = async (assessmentId) => {
   }
 };
 
-export const createTask = async (assessmentId, title, description, tags = []) => {
+export const createTask = async (assessmentId, title, description, tags = [], files = []) => {
   try {
     const token = getAuthToken();
-    const response = await fetch('/api/v1/create/task', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        assessment_id: assessmentId,
-        title,
-        description,
-        tags,
-      }),
-    });
+    let response;
+
+    if (files.length > 0) {
+      const formData = new FormData();
+      formData.append('assessment_id', assessmentId);
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('tags', JSON.stringify(tags));
+
+      files.forEach((file) => {
+        const relativeName = file.webkitRelativePath || file.name;
+        formData.append('files', file, relativeName);
+        formData.append('relative_paths', relativeName);
+      });
+
+      response = await fetch('/api/v1/create/task', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+    } else {
+      response = await fetch('/api/v1/create/task', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          assessment_id: assessmentId,
+          title,
+          description,
+          tags,
+        }),
+      });
+    }
 
     return handleApiError(response);
   } catch (error) {
