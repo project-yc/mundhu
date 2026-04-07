@@ -7,6 +7,7 @@ import VerifyCandidateInvite from './pages/recruiter/VerifyCandidateInvite'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import UserDashboardPage from './users/pages/UserDashboardPage'
 import UserSimulationsPage from './users/pages/UserSimulationsPage'
+import SessionAnalyticsPage from './users/pages/SessionAnalyticsPage'
 import ProtectedRoute from './utils/ProtectedRoute'
 import AdminRoute from './utils/AdminRoute'
 
@@ -40,6 +41,14 @@ function App() {
           element={
             <ProtectedRoute>
               <UserSimulationsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/analytics/:sessionId" 
+          element={
+            <ProtectedRoute>
+              <SessionAnalyticsPage />
             </ProtectedRoute>
           } 
         />
