@@ -10,23 +10,23 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const menuItems = [
-  { label: 'Dashboard', icon: LayoutDashboard, path: '/user/dashboard' },
-  { label: 'Simulations', icon: Compass, path: '/user/simulations' },
-  { label: 'My Sessions', icon: Gauge },
-  { label: 'Analytics', icon: BarChart3 },
-  { label: 'AI Insights', icon: Bot },
-  { label: 'Skill Roadmap', icon: Sparkles },
-];
-
 export default function UserSidebar({
   signalScore,
   activeItem = 'Dashboard',
   showSignalCard = true,
   showUserFooter = false,
+  analyticsSessionId = 'latest',
 }) {
   const navigate = useNavigate();
   const clampedSignalScore = Math.max(0, Math.min(100, signalScore || 0));
+  const menuItems = [
+    { label: 'Dashboard', icon: LayoutDashboard, path: '/user/dashboard' },
+    { label: 'Simulations', icon: Compass, path: '/user/simulations' },
+    { label: 'My Sessions', icon: Gauge },
+    { label: 'Analytics', icon: BarChart3, path: `/analytics/${analyticsSessionId}` },
+    { label: 'AI Insights', icon: Bot },
+    { label: 'Skill Roadmap', icon: Sparkles },
+  ];
 
   return (
     <aside className="fixed left-0 top-0 z-30 hidden h-screen w-[174px] flex-col overflow-hidden border-r border-[#121f38] bg-[#040914] md:flex">
