@@ -1,5 +1,10 @@
 import { CirclePlay, Clock3, Dot, Landmark, Signal } from 'lucide-react';
 
+function getSimulationKey(simulation, index) {
+  const baseKey = simulation.id || simulation.uuid || simulation.slug || simulation.name || 'simulation';
+  return `${baseKey}-${index}`;
+}
+
 function RecommendationItem({ simulation, isHighlighted }) {
   return (
     <li
@@ -59,7 +64,7 @@ export default function RecommendedSimulations({ simulations }) {
       <ul className="space-y-2">
         {simulations.map((simulation, index) => (
           <RecommendationItem
-            key={simulation.id || `${simulation.name}-${index}`}
+            key={getSimulationKey(simulation, index)}
             simulation={simulation}
             isHighlighted={index === 0}
           />

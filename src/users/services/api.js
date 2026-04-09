@@ -21,6 +21,7 @@ userApi.interceptors.request.use((config) => {
 
 const normalizeApiError = (error) => {
   const message =
+    error.response?.data?.detail ||
     error.response?.data?.message ||
     error.response?.data?.error ||
     error.message ||

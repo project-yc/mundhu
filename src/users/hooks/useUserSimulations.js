@@ -8,7 +8,7 @@ import {
 import {
   getUserSimulationById,
   getUserSimulations,
-  startUserSimulation,
+  launchUserSimulation,
 } from '../services/dashboardService';
 
 export const useUserSimulations = () => {
@@ -102,7 +102,7 @@ export const useUserSimulations = () => {
   };
 
   const fetchSimulationDetail = async (assessmentId) => getUserSimulationById(assessmentId);
-  const launchSimulation = async (assessmentId) => startUserSimulation(assessmentId);
+  const launchSimulation = async (assessmentId) => launchUserSimulation(assessmentId);
 
   return {
     rows,

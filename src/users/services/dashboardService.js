@@ -23,7 +23,26 @@ export const getUserSimulationById = async (assessmentId) => {
   return response.data?.data;
 };
 
-export const startUserSimulation = async (assessmentId) => {
-  const response = await userApi.post(`/api/v1/public/assessments/${assessmentId}/start`);
+export const getPublicAssessmentTasks = async (assessmentId) => {
+  const response = await userApi.get(`/api/v1/public/assessments/${assessmentId}/tasks`);
+  return response.data?.data || [];
+};
+
+export const startUserSimulation = async (assessmentId, taskId) => {
+  const response = await userApi.post(
+    `/api/v1/public/assessments/${assessmentId}/tasks/${taskId}/start`,
+  );
   return response.data;
+};
+
+export const launchUserSimulation = async (assessmentId) => {
+  const tasks = await getPublicAssessmentTasks(assessmentId);
+  const firstTask = tasks[0];
+  const taskId = firstTask?.id || firstTask?.task_id;
+
+  if (!taskId) {
+    throw new Error('No tasks available for this simulation.');
+  }
+
+  return startUserSimulation(assessmentId, taskId);
 };
