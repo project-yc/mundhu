@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
 import LoginPage from './pages/auth/login'
+import SignupPage from './pages/auth/signup'
 import RecruiterDashboard from './pages/recruiter/RecruiterDashboard'
 import InviteCandidate from './pages/recruiter/InviteCandidate'
 import VerifyCandidateInvite from './pages/recruiter/VerifyCandidateInvite'
@@ -16,6 +17,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
         <Route 
           path="/admin" 
           element={
