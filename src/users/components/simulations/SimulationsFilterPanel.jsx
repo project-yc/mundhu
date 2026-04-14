@@ -1,106 +1,105 @@
-import { ChevronDown, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
-function SectionLabel({ children }) {
-  return <p className="mb-2 text-[10px] font-semibold tracking-[0.18em] text-[#6f7f9f]">{children}</p>;
-}
+const chipBaseClass =
+  'rounded-[4px] border border-[#0F1A2E] bg-[#060B18] px-2 py-[3px] text-[10px] font-semibold uppercase tracking-[0.06em] text-[#94A3B8] transition';
+
+const activeChipClass = 'border-[#06B6D4] text-[#06B6D4]';
+
+const domainLabel = (value) => (value === 'ALL_DOMAINS' ? 'ALL' : value);
 
 export default function SimulationsFilterPanel({
   domains,
   selectedDomains,
   onToggleDomain,
   difficulties,
-  selectedDifficulty,
-  onSelectDifficulty,
-  tags,
-  selectedTags,
-  onToggleTag,
-  aiAssistance,
-  onToggleAi,
+  selectedDifficulties,
+  onToggleDifficulty,
+  onResetFilters,
+  hasActiveFilters,
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, []);
+
   return (
-    <aside className="w-[280px] border-r border-[#121f38] bg-[#040a16] px-4 py-4">
-      <SectionLabel>DOMAIN</SectionLabel>
-      <div className="space-y-2">
-        {domains.map((domain) => {
-          const checked = selectedDomains.includes(domain.value);
+    <div ref={wrapperRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        className="inline-flex items-center gap-1.5 rounded-[8px] border border-[#0F1A2E] bg-transparent px-3 py-1 text-[11px] uppercase text-[#94A3B8]"
+      >
+        <span className="font-mono">Filter</span>
+        {hasActiveFilters && <span className="text-[#06B6D4]">◉</span>}
+      </button>
 
-          return (
-            <label key={domain.value} className="flex cursor-pointer items-center gap-2 text-sm text-[#8b9cbc]">
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => onToggleDomain(domain.value)}
-                className="h-4 w-4 rounded border border-[#263b63] bg-[#091426] text-[#16d2ff] focus:ring-0"
-              />
-              {domain.label}
-            </label>
-          );
-        })}
-      </div>
+      {isOpen && (
+        <div className="absolute right-0 top-full z-20 mt-2 w-[280px] rounded-[8px] border border-[#0F1A2E] bg-[#0A0F1E] p-4">
+          <div>
+            <p className="mb-2 text-[11px] uppercase text-[#4B5563]">DOMAIN</p>
+            <div className="flex flex-wrap gap-2">
+              {domains.map((domain) => {
+                const isActive = selectedDomains.includes(domain);
 
-      <div className="mt-6">
-        <SectionLabel>DIFFICULTY</SectionLabel>
-        <div className="space-y-1.5">
-          {difficulties.map((difficulty) => {
-            const selected = difficulty === selectedDifficulty;
+                return (
+                  <button
+                    key={domain}
+                    type="button"
+                    onClick={() => onToggleDomain(domain)}
+                    className={`${chipBaseClass} ${isActive ? activeChipClass : ''}`}
+                  >
+                    {domainLabel(domain)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-            return (
-              <button
-                key={difficulty}
-                type="button"
-                onClick={() => onSelectDifficulty(difficulty)}
-                className={`flex w-full items-center gap-2 rounded border px-3 py-2 text-left text-sm transition ${
-                  selected
-                    ? 'border-[#16d2ff] bg-[#07192d] text-[#e7f4ff]'
-                    : 'border-[#1a2945] bg-[#070f1d] text-[#7f90b2] hover:border-[#29416d]'
-                }`}
-              >
-                <span
-                  className={`h-3.5 w-3.5 rounded-full border ${
-                    selected ? 'border-[#16d2ff] bg-[#16d2ff]' : 'border-[#2a3c60]'
-                  }`}
-                />
-                {difficulty}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+          <div className="mt-3">
+            <p className="mb-2 text-[11px] uppercase text-[#4B5563]">DIFFICULTY</p>
+            <div className="flex flex-wrap gap-2">
+              {difficulties.map((difficulty) => {
+                const isActive = selectedDifficulties.includes(difficulty);
 
-      <div className="mt-6">
-        <SectionLabel>TAGS</SectionLabel>
-        <div className="space-y-2 rounded border border-[#1a2945] bg-[#070f1d] p-3">
-          {tags.map((tag) => {
-            const checked = selectedTags.includes(tag.value);
+                return (
+                  <button
+                    key={difficulty}
+                    type="button"
+                    onClick={() => onToggleDifficulty(difficulty)}
+                    className={`${chipBaseClass} ${isActive ? activeChipClass : ''}`}
+                  >
+                    {difficulty}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-            return (
-              <label key={tag.value} className="flex cursor-pointer items-center gap-2 text-[13px] text-[#8b9cbc]">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => onToggleTag(tag.value)}
-                  className="h-3.5 w-3.5 rounded border border-[#263b63] bg-[#091426] text-[#16d2ff] focus:ring-0"
-                />
-                {tag.label}
-              </label>
-            );
-          })}
-
-          {tags.length === 0 && <p className="text-[12px] text-[#6f7f9f]">No tags available</p>}
-
-          <div className="flex items-center justify-between border-t border-[#1a2945] pt-2">
-            <p className="text-[12px] text-[#7f90b2]">Select tags...</p>
-            <ChevronDown className="h-4 w-4 text-[#6f7f9f]" />
+          <div className="mt-3 text-right">
+            <button
+              type="button"
+              onClick={() => {
+                onResetFilters();
+                setIsOpen(false);
+              }}
+              className="text-[11px] text-[#4B5563]"
+            >
+              Reset filters
+            </button>
           </div>
         </div>
-      </div>
-
-      <div className="mt-8 flex items-center justify-between">
-        <p className="text-[14px] text-[#95a6c7]">AI Assistance</p>
-        <button type="button" onClick={onToggleAi} className="text-[#16d2ff]">
-          {aiAssistance ? <ToggleRight className="h-8 w-8" /> : <ToggleLeft className="h-8 w-8" />}
-        </button>
-      </div>
-    </aside>
+      )}
+    </div>
   );
 }

@@ -8,6 +8,7 @@ import VerifyCandidateInvite from './pages/recruiter/VerifyCandidateInvite'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import UserDashboardPage from './users/pages/UserDashboardPage'
 import UserSimulationsPage from './users/pages/UserSimulationsPage'
+import UserSimulationDetailPage from './users/pages/UserSimulationDetailPage'
 import SessionAnalyticsPage from './users/pages/SessionAnalyticsPage'
 import ProtectedRoute from './utils/ProtectedRoute'
 import AdminRoute from './utils/AdminRoute'
@@ -39,10 +40,26 @@ function App() {
           } 
         />
         <Route 
+          path="/simulations" 
+          element={
+            <ProtectedRoute>
+              <UserSimulationsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
           path="/user/simulations" 
           element={
             <ProtectedRoute>
               <UserSimulationsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/simulations/:id" 
+          element={
+            <ProtectedRoute>
+              <UserSimulationDetailPage />
             </ProtectedRoute>
           } 
         />

@@ -1,203 +1,216 @@
-import { Circle, Search } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-const statusClassMap = {
-  COMPLETED: 'text-[#0fd7b2]',
-  IN_PROGRESS: 'text-[#ffbf3d]',
-  NOT_STARTED: 'text-[#5f7294]',
+const statusStyles = {
+  LIVE: {
+    container: 'border-[#3D1212] bg-[#1A0A0A] text-[#EF4444]',
+    label: 'LIVE INCIDENT',
+  },
+  IN_PROGRESS: {
+    container: 'border-[#3D2E00] bg-[#1A1200] text-[#F59E0B]',
+    label: 'IN-PROGRESS',
+  },
+  COMPLETED: {
+    container: 'border-[#123D12] bg-[#0A1A0A] text-[#10B981]',
+    label: 'COMPLETED',
+  },
 };
 
-const domainTagClassMap = {
-  INFRA: 'bg-[#172235] text-[#a8b9da]',
-  AUTH: 'bg-[#15243f] text-[#a6bae8]',
-  MICROSERVICES: 'bg-[#1a2438] text-[#a9bad8]',
-  DATA_PIPELINE: 'bg-[#1d2638] text-[#9ab1d7]',
-  PAYMENTS: 'bg-[#1b2438] text-[#a5b9de]',
+const getCardStatus = (row) => {
+  if (row.status === 'COMPLETED') {
+    return 'COMPLETED';
+  }
+
+  if (row.status === 'IN_PROGRESS') {
+    return 'IN_PROGRESS';
+  }
+
+  if ((row.completedTasks || 0) === 0 && (row.progress || 0) === 0) {
+    return 'LIVE';
+  }
+
+  return 'IN_PROGRESS';
 };
 
-const scoreIndicatorClassMap = {
-  GREEN: 'fill-[#20df9f] text-[#20df9f]',
-  AMBER: 'fill-[#ffbf3d] text-[#ffbf3d]',
+const getProgressColorClass = (status) => {
+  if (status === 'COMPLETED') {
+    return 'bg-[#10B981]';
+  }
+
+  if (status === 'IN_PROGRESS') {
+    return 'bg-[#F59E0B]';
+  }
+
+  return 'bg-transparent';
 };
 
-const getStatusLabel = (value) =>
-  value
-    .split('_')
-    .map((part) => `${part.charAt(0)}${part.slice(1).toLowerCase()}`)
-    .join(' ');
+const getAccentBorderClass = (status) => {
+  if (status === 'LIVE') {
+    return 'border-l-[#EF4444]';
+  }
 
-function PaginationButton({ children, active, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`h-8 min-w-8 rounded border px-2 text-[12px] font-semibold transition ${
-        active
-          ? 'border-[#17d1ff] bg-[#17d1ff] text-[#051325]'
-          : 'border-[#1b2b49] bg-[#081022] text-[#95a7cb] hover:border-[#2b4573]'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
+  if (status === 'IN_PROGRESS') {
+    return 'border-l-[#F59E0B]';
+  }
+
+  if (status === 'COMPLETED') {
+    return 'border-l-[#10B981]';
+  }
+
+  return 'border-l-[#0F1A2E]';
+};
+
+const domainDisplay = (domain) => String(domain || 'INFRA').replace(/_/g, ' ');
+const clampTwoLinesClass =
+  '[display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden';
 
 export default function SimulationsTable({
   rows,
-  page,
-  totalPages,
-  onPageChange,
-  sortBy,
-  sortOptions,
-  onSortChange,
-  search,
-  onSearchChange,
-  totalRows,
-  startIndex,
-  endIndex,
   loading,
-  onOpenSimulation,
+  error,
+  onRetry,
+  onClearFilters,
+  hasActiveFilters,
 }) {
-  const pageNumbers = [];
+  const navigate = useNavigate();
 
-  if (totalPages <= 6) {
-    for (let index = 1; index <= totalPages; index += 1) {
-      pageNumbers.push(index);
+  const handleAction = (row, status) => {
+    if (status === 'COMPLETED') {
+      navigate(`/simulations/${row.id}/report`);
+      return;
     }
-  } else if (page <= 3) {
-    pageNumbers.push(1, 2, 3, 'ellipsis', totalPages);
-  } else if (page >= totalPages - 2) {
-    pageNumbers.push(1, 'ellipsis', totalPages - 2, totalPages - 1, totalPages);
-  } else {
-    pageNumbers.push(1, 'ellipsis', page - 1, page, page + 1, 'ellipsis', totalPages);
-  }
+
+    navigate(`/simulations/${row.id}`);
+  };
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col px-5 py-4">
-      <div className="mb-3 flex items-center justify-between gap-4">
-        <div className="relative w-full max-w-[520px]">
-          <input
-            type="text"
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Filter simulations..."
-            className="h-10 w-full rounded border border-[#1b2b49] bg-[#070f1d] px-10 text-[14px] text-[#c8d7f5] placeholder:text-[#6e81a4] focus:border-[#16d2ff] focus:outline-none"
-          />
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#607194]" />
+    <section className="min-h-0 flex-1 bg-[#060B18] p-5">
+      <style>{`@keyframes borderPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4) } 50% { box-shadow: 0 0 0 4px rgba(239,68,68,0) } }`}</style>
+      {error && (
+        <div className="mb-4 rounded-[8px] border border-[#0F1A2E] bg-[#0A0F1E] px-4 py-3 text-sm text-[#94A3B8]">
+          <div className="flex flex-wrap items-center gap-3">
+            <p>Failed to load simulations. Retry?</p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-[8px] border border-[#0F1A2E] bg-[#16161F] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#F1F5F9] transition hover:border-[#06B6D4]"
+            >
+              Retry
+            </button>
+          </div>
         </div>
+      )}
 
-        <div className="flex items-center gap-2 text-[12px] text-[#8092b6]">
-          <span>Sort by:</span>
-          <select
-            value={sortBy}
-            onChange={(event) => onSortChange(event.target.value)}
-            className="h-8 rounded border border-[#1b2b49] bg-[#070f1d] px-2 text-[12px] text-[#d4e0fb] focus:border-[#16d2ff] focus:outline-none"
-          >
-            {sortOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+      {loading && (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div
+              key={`skeleton-${index}`}
+              className="h-[292px] animate-pulse rounded-[8px] border border-[#0F1A2E] bg-[#0A0F1E]"
+            />
+          ))}
         </div>
-      </div>
+      )}
 
-      <div className="overflow-hidden rounded border border-[#121f38]">
-        <table className="min-w-full text-left">
-          <thead className="border-b border-[#13233f] bg-[#070f20]">
-            <tr>
-              <th className="px-4 py-3 text-[10px] font-semibold tracking-[0.14em] text-[#6f7f9f]">SIMULATION NAME</th>
-              <th className="px-4 py-3 text-[10px] font-semibold tracking-[0.14em] text-[#6f7f9f]">DOMAIN</th>
-              <th className="px-4 py-3 text-[10px] font-semibold tracking-[0.14em] text-[#6f7f9f]">DIFFICULTY</th>
-              <th className="px-4 py-3 text-[10px] font-semibold tracking-[0.14em] text-[#6f7f9f]">EST. TIME</th>
-              <th className="px-4 py-3 text-[10px] font-semibold tracking-[0.14em] text-[#6f7f9f]">YOUR BEST SIGNAL</th>
-              <th className="px-4 py-3 text-[10px] font-semibold tracking-[0.14em] text-[#6f7f9f]">STATUS</th>
-            </tr>
-          </thead>
+      {!loading && rows.length === 0 && (
+        <div className="flex h-full min-h-[320px] flex-col items-center justify-center text-center">
+          <p className="text-[14px] text-[#4B5563]">No simulations match your filters.</p>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={onClearFilters}
+              className="mt-3 rounded-[8px] border border-[#0F1A2E] bg-[#16161F] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#94A3B8] transition hover:border-[#06B6D4] hover:text-[#F1F5F9]"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
 
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-[13px] text-[#7a8cae]">
-                  Loading simulations...
-                </td>
-              </tr>
-            )}
-
-            {!loading && rows.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-[13px] text-[#7a8cae]">
-                  No simulations found for current filters.
-                </td>
-              </tr>
-            )}
-
-            {rows.map((row) => {
-              const scoreLabel = row.user_best_score === null ? '--' : String(row.user_best_score);
-              const domainClass = domainTagClassMap[row.domain] || 'bg-[#18263f] text-[#a8b9da]';
-              const statusClass = statusClassMap[row.attempt_status] || 'text-[#95a7cb]';
-              const indicatorClass = scoreIndicatorClassMap[row.user_best_score_indicator];
-
-              return (
-                <tr key={row.id} className="border-b border-[#101d35] last:border-none">
-                  <td className="px-4 py-3 text-base font-semibold leading-tight text-[#e6efff]">
-                    <button
-                      type="button"
-                      onClick={() => onOpenSimulation(row.id)}
-                      className="text-left transition hover:text-[#17d1ff]"
-                    >
-                      {row.name}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex rounded px-2 py-0.5 text-[9px] font-semibold tracking-[0.12em] ${domainClass}`}>
-                      {row.domain}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-[#a0b2d4]">{row.difficulty}</td>
-                  <td className="px-4 py-3 text-sm text-[#9db0d2]">{row.duration_minutes}m</td>
-                  <td className="px-4 py-3 text-sm text-[#d9e5ff]">
-                    <span className="inline-flex items-center gap-1">
-                      {scoreLabel}
-                      {indicatorClass && <Circle className={`h-1.5 w-1.5 ${indicatorClass}`} />}
-                    </span>
-                  </td>
-                  <td className={`px-4 py-3 text-sm font-medium ${statusClass}`}>{getStatusLabel(row.attempt_status)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between">
-        <p className="text-[12px] text-[#697c9f]">Showing {startIndex}-{endIndex} of {totalRows} simulations</p>
-
-        <div className="flex items-center gap-1.5">
-          <PaginationButton active={false} onClick={() => onPageChange(Math.max(1, page - 1))}>
-            Previous
-          </PaginationButton>
-
-          {pageNumbers.map((item, index) => {
-            if (item === 'ellipsis') {
-              return (
-                <span key={`ellipsis-${index}`} className="px-1 text-[#617396]">
-                  ...
-                </span>
-              );
-            }
+      {!loading && rows.length > 0 && (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
+          {rows.map((row) => {
+            const badgeStatus = getCardStatus(row);
+            const badge = statusStyles[badgeStatus];
+            const progressColorClass = getProgressColorClass(badgeStatus);
+            const accentBorderClass = getAccentBorderClass(badgeStatus);
+            const progressWidth = Math.max(0, Math.min(100, row.progress || 0));
+            const isLiveStatus = badgeStatus === 'LIVE';
 
             return (
-              <PaginationButton key={item} active={page === item} onClick={() => onPageChange(item)}>
-                {item}
-              </PaginationButton>
+              <article
+                key={row.id}
+                className={`w-full rounded-[8px] border border-[#0F1A2E] border-l-[3px] bg-[#0A0F1E] p-5 transition hover:border-[#06B6D4] ${accentBorderClass}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className={`inline-flex items-center gap-1.5 rounded-[4px] border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] ${badge.container}`}>
+                    {badgeStatus === 'LIVE' && <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#EF4444]" />}
+                    {badgeStatus === 'COMPLETED' && <CheckCircle2 className="h-3 w-3" />}
+                    <span>{badge.label}</span>
+                  </div>
+                </div>
+
+                <h3 className={`mt-3 text-[18px] font-bold leading-[1.2] text-[#F1F5F9] ${clampTwoLinesClass}`}>{row.name}</h3>
+
+                <p className={`mt-2 text-[13px] leading-[1.5] text-[#94A3B8] ${clampTwoLinesClass}`}>
+                  {row.description || 'No incident summary provided for this simulation.'}
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {row.stackTags.slice(0, 5).map((tag) => (
+                    <span
+                      key={`${row.id}-${tag}`}
+                      className="font-mono rounded-[4px] border border-[#0F1A2E] bg-[#060B18] px-1.5 py-0.5 text-[10px] text-[#06B6D4]"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-4">
+                  <div className="h-[3px] w-full bg-[#0F1A2E]">
+                    <div className={`h-[3px] ${progressColorClass}`} style={{ width: `${progressWidth}%` }} />
+                  </div>
+                  {row.totalTasks !== null && row.completedTasks !== null && (
+                    <p className="mt-1 text-[11px] text-[#4B5563]">{row.completedTasks} / {row.totalTasks} tasks</p>
+                  )}
+                </div>
+
+                <div className="mt-5 flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.06em] text-[#4B5563]">DOMAIN</p>
+                    <p className="mt-1 text-[13px] font-medium text-[#F1F5F9]">{domainDisplay(row.domain)}</p>
+                  </div>
+
+                  {badgeStatus === 'COMPLETED' ? (
+                    <button
+                      type="button"
+                      onClick={() => handleAction(row, badgeStatus)}
+                      className="text-[12px] text-[#94A3B8] transition hover:underline"
+                    >
+                      VIEW REPORT
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleAction(row, badgeStatus)}
+                      className={`rounded-[8px] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.06em] ${
+                        badgeStatus === 'IN_PROGRESS'
+                          ? 'border border-[#06B6D4] bg-transparent text-[#06B6D4]'
+                          : isLiveStatus
+                            ? 'border-none bg-[#EF4444] text-[#FFFFFF] [animation:borderPulse_2s_ease-in-out_infinite]'
+                            : 'bg-[#06B6D4] text-[#0A0A0F]'
+                      }`}
+                    >
+                      {badgeStatus === 'IN_PROGRESS' ? 'RESUME' : 'INTERVENE'}
+                    </button>
+                  )}
+                </div>
+              </article>
             );
           })}
-
-          <PaginationButton active={false} onClick={() => onPageChange(Math.min(totalPages, page + 1))}>
-            Next
-          </PaginationButton>
         </div>
-      </div>
+      )}
     </section>
   );
 }
