@@ -8,25 +8,61 @@ import {
   Sparkles,
   Zap,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function UserSidebar({
   signalScore,
   activeItem = 'Dashboard',
   showSignalCard = true,
   showUserFooter = false,
-  analyticsSessionId = 'latest',
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const clampedSignalScore = Math.max(0, Math.min(100, signalScore || 0));
   const menuItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/user/dashboard' },
     { label: 'Simulations', icon: Compass, path: '/user/simulations' },
-    { label: 'My Sessions', icon: Gauge },
-    { label: 'Analytics', icon: BarChart3, path: `/analytics/${analyticsSessionId}` },
-    { label: 'AI Insights', icon: Bot },
-    { label: 'Skill Roadmap', icon: Sparkles },
+    { label: 'My Sessions', icon: Gauge, path: '/sessions' },
+    { label: 'Analytics', icon: BarChart3, path: '/analytics' },
+    { label: 'AI Insights', icon: Bot, path: '/ai-insights' },
+    { label: 'Skill Roadmap', icon: Sparkles, path: '/skill-roadmap' },
   ];
+
+  const getActiveFromPath = () => {
+    const pathname = location.pathname;
+
+    if (pathname.startsWith('/user/dashboard')) {
+      return 'Dashboard';
+    }
+
+    if (pathname.startsWith('/user/simulations') || pathname.startsWith('/simulations')) {
+      return 'Simulations';
+    }
+
+    if (pathname.startsWith('/sessions')) {
+      return 'My Sessions';
+    }
+
+    if (pathname.startsWith('/analytics')) {
+      return 'Analytics';
+    }
+
+    if (pathname.startsWith('/ai-insights')) {
+      return 'AI Insights';
+    }
+
+    if (pathname.startsWith('/skill-roadmap')) {
+      return 'Skill Roadmap';
+    }
+
+    if (pathname.startsWith('/settings')) {
+      return 'Settings';
+    }
+
+    return activeItem;
+  };
+
+  const resolvedActiveItem = getActiveFromPath();
 
   return (
     <aside className="fixed left-0 top-0 z-30 hidden h-screen w-[174px] flex-col overflow-hidden border-r border-[#121f38] bg-[#040914] md:flex">
@@ -44,10 +80,10 @@ export default function UserSidebar({
               key={item.label}
               type="button"
               onClick={() => item.path && navigate(item.path)}
-              className={`flex w-full items-center gap-2 rounded px-3 py-2 text-left text-[13px] transition ${
-                item.label === activeItem
-                  ? 'bg-[#101c32] text-[#dfeaff]'
-                  : 'text-[#7f8fb0] hover:bg-[#0c1629] hover:text-[#c9d8f6]'
+              className={`flex w-full items-center gap-2 border-l-2 px-3 py-2 text-left text-[13px] transition ${
+                item.label === resolvedActiveItem
+                  ? 'border-l-[#06B6D4] bg-[#0A0F1E] text-[#F1F5F9]'
+                  : 'border-l-transparent bg-transparent text-[#94A3B8] hover:bg-[#0A0F1E] hover:text-[#F1F5F9]'
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -75,7 +111,12 @@ export default function UserSidebar({
         <div className="border-t border-[#101d35] px-3 pb-3 pt-2">
           <button
             type="button"
-            className="mb-2 flex w-full items-center gap-2 rounded px-2 py-2 text-left text-[13px] text-[#7f8fb0] transition hover:bg-[#0c1629] hover:text-[#c9d8f6]"
+            onClick={() => navigate('/settings')}
+            className={`mb-2 flex w-full items-center gap-2 border-l-2 px-2 py-2 text-left text-[13px] transition ${
+              resolvedActiveItem === 'Settings'
+                ? 'border-l-[#06B6D4] bg-[#0A0F1E] text-[#F1F5F9]'
+                : 'border-l-transparent bg-transparent text-[#94A3B8] hover:bg-[#0A0F1E] hover:text-[#F1F5F9]'
+            }`}
           >
             <Settings className="h-3.5 w-3.5" />
             Settings

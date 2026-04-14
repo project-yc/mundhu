@@ -10,6 +10,11 @@ import UserDashboardPage from './users/pages/UserDashboardPage'
 import UserSimulationsPage from './users/pages/UserSimulationsPage'
 import UserSimulationDetailPage from './users/pages/UserSimulationDetailPage'
 import SessionAnalyticsPage from './users/pages/SessionAnalyticsPage'
+import UserSessionsPage from './users/pages/UserSessionsPage'
+import UserAnalyticsPlaceholderPage from './users/pages/UserAnalyticsPlaceholderPage'
+import UserAIInsightsPage from './users/pages/UserAIInsightsPage'
+import UserSkillRoadmapPage from './users/pages/UserSkillRoadmapPage'
+import UserSettingsPage from './users/pages/UserSettingsPage'
 import ProtectedRoute from './utils/ProtectedRoute'
 import AdminRoute from './utils/AdminRoute'
 
@@ -60,6 +65,46 @@ function App() {
           element={
             <ProtectedRoute>
               <UserSimulationDetailPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/sessions" 
+          element={
+            <ProtectedRoute>
+              <UserSessionsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/analytics" 
+          element={
+            <ProtectedRoute>
+              <UserAnalyticsPlaceholderPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/ai-insights" 
+          element={
+            <ProtectedRoute>
+              <UserAIInsightsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/skill-roadmap" 
+          element={
+            <ProtectedRoute>
+              <UserSkillRoadmapPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/settings" 
+          element={
+            <ProtectedRoute>
+              <UserSettingsPage />
             </ProtectedRoute>
           } 
         />

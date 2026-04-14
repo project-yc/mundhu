@@ -88,7 +88,7 @@ const deriveTaskCounts = ({ status, tasks }) => {
   const totalTasks = safeTasks.length;
 
   if (totalTasks === 0) {
-    return { totalTasks: null, completedTasks: null };
+    return { totalTasks: null, completedTasks: null, inProgressTasks: null };
   }
 
   const completedFromTasks = safeTasks.filter((task) => {
@@ -96,15 +96,20 @@ const deriveTaskCounts = ({ status, tasks }) => {
     return taskStatus === 'completed' || taskStatus === 'done' || taskStatus === 'submitted';
   }).length;
 
+  const inProgressFromTasks = safeTasks.filter((task) => {
+    const taskStatus = String(task?.status || '').toLowerCase();
+    return taskStatus === 'in_progress' || taskStatus === 'in progress' || taskStatus === 'started' || taskStatus === 'running';
+  }).length;
+
   if (completedFromTasks > 0) {
-    return { totalTasks, completedTasks: completedFromTasks };
+    return { totalTasks, completedTasks: completedFromTasks, inProgressTasks: inProgressFromTasks };
   }
 
   if (status === 'COMPLETED') {
-    return { totalTasks, completedTasks: totalTasks };
+    return { totalTasks, completedTasks: totalTasks, inProgressTasks: 0 };
   }
 
-  return { totalTasks, completedTasks: 0 };
+  return { totalTasks, completedTasks: 0, inProgressTasks: inProgressFromTasks };
 };
 
 export const useUserSimulations = () => {
@@ -158,7 +163,12 @@ export const useUserSimulations = () => {
         const status = normalizeStatus(detail?.attempt_status);
         const difficulty = API_TO_UI_DIFFICULTY[detail?.difficulty] || 'MID_CORE';
         const progress = deriveProgress({ status, tasks, detail });
-        const { totalTasks, completedTasks } = deriveTaskCounts({ status, tasks });
+        const { totalTasks, completedTasks, inProgressTasks } = deriveTaskCounts({ status, tasks });
+        const hasActiveOrCompletedTask =
+          status === 'COMPLETED' ||
+          status === 'IN_PROGRESS' ||
+          (completedTasks || 0) > 0 ||
+          (inProgressTasks || 0) > 0;
 
         return {
           id: assessment.id,
@@ -172,7 +182,16 @@ export const useUserSimulations = () => {
           stackTags: uniqueTags(tasks),
           totalTasks,
           completedTasks,
+          inProgressTasks,
           progress,
+          hasActiveOrCompletedTask,
+          lastActivityAt:
+            detail?.last_activity_at ||
+            detail?.updated_at ||
+            detail?.started_at ||
+            assessment?.updated_at ||
+            assessment?.created_at ||
+            null,
         };
       });
 
