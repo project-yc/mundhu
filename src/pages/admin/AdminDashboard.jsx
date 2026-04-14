@@ -28,9 +28,15 @@ export default function AdminDashboard() {
   const [taskForm, setTaskForm] = useState({
     assessment_id: '',
     title: '',
-    description: '',
+    incident_brief: '',
+    reproduction: '',
+    difficulty: 'mid',
+    estimated_time_minutes: '',
     tags: '',
   });
+  const [environmentServices, setEnvironmentServices] = useState([
+    { id: 1, name: '', status: 'healthy' },
+  ]);
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -97,7 +103,7 @@ export default function AdminDashboard() {
   const handleCreateTask = async (e) => {
     e.preventDefault();
     
-    if (!taskForm.title.trim() || !taskForm.description.trim() || !taskForm.assessment_id) {
+    if (!taskForm.title.trim() || !taskForm.incident_brief.trim() || !taskForm.assessment_id) {
       setError('Please fill in all fields');
       return;
     }
@@ -107,12 +113,29 @@ export default function AdminDashboard() {
 
     try {
       const tags = taskForm.tags.split(',').map(t => t.trim()).filter(Boolean);
+      const services = environmentServices
+        .map((service) => ({
+          name: service.name.trim(),
+          status: service.status,
+        }))
+        .filter((service) => service.name);
+
+      const additionalInfo = {
+        reproduction: taskForm.reproduction.trim(),
+        difficulty: taskForm.difficulty,
+        estimated_time_minutes: taskForm.estimated_time_minutes
+          ? parseInt(taskForm.estimated_time_minutes, 10)
+          : null,
+        environment_services: services,
+      };
+
       const data = await createTask(
         taskForm.assessment_id,
         taskForm.title,
-        taskForm.description,
+        taskForm.incident_brief,
         tags,
-        selectedFiles
+        selectedFiles,
+        additionalInfo,
       );
 
       setAssessments(prev => prev.map(a => 
@@ -122,7 +145,16 @@ export default function AdminDashboard() {
       ));
 
       setSuccess('Task created successfully! 🎯');
-      setTaskForm({ assessment_id: '', title: '', description: '', tags: '' });
+      setTaskForm({
+        assessment_id: '',
+        title: '',
+        incident_brief: '',
+        reproduction: '',
+        difficulty: 'mid',
+        estimated_time_minutes: '',
+        tags: '',
+      });
+      setEnvironmentServices([{ id: Date.now(), name: '', status: 'healthy' }]);
       setSelectedFiles([]);
       setShowCreateModal(false);
       setCreateMode('');
@@ -144,9 +176,38 @@ export default function AdminDashboard() {
     setShowCreateModal(false);
     setCreateMode('');
     setAssessmentForm({ name: '', description: '', duration_minutes: '' });
-    setTaskForm({ assessment_id: '', title: '', description: '', tags: '' });
+    setTaskForm({
+      assessment_id: '',
+      title: '',
+      incident_brief: '',
+      reproduction: '',
+      difficulty: 'mid',
+      estimated_time_minutes: '',
+      tags: '',
+    });
+    setEnvironmentServices([{ id: Date.now(), name: '', status: 'healthy' }]);
     setSelectedFiles([]);
     setError('');
+  };
+
+  const addEnvironmentService = () => {
+    setEnvironmentServices((current) => [
+      ...current,
+      { id: Date.now() + Math.random(), name: '', status: 'healthy' },
+    ]);
+  };
+
+  const updateEnvironmentService = (id, key, value) => {
+    setEnvironmentServices((current) =>
+      current.map((service) => (service.id === id ? { ...service, [key]: value } : service)),
+    );
+  };
+
+  const removeEnvironmentService = (id) => {
+    setEnvironmentServices((current) => {
+      const next = current.filter((service) => service.id !== id);
+      return next.length > 0 ? next : [{ id: Date.now(), name: '', status: 'healthy' }];
+    });
   };
 
   // Stats calculation
@@ -401,6 +462,15 @@ export default function AdminDashboard() {
             ) : (
               <form onSubmit={handleCreateTask}>
                 <div className="px-6 py-5 space-y-4">
+                  <div className="rounded-lg border border-navy-900/10 bg-navy-50/40 p-3.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-navy-800/50">
+                      Incident Context
+                    </p>
+                    <p className="mt-1 text-xs text-navy-800/45">
+                      Description is saved as incident brief. Structured metadata is saved in additional_info.
+                    </p>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-navy-900 mb-1.5">Select Assessment</label>
                     <select
@@ -427,14 +497,99 @@ export default function AdminDashboard() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-navy-900 mb-1.5">Task Description</label>
+                    <label className="block text-sm font-medium text-navy-900 mb-1.5">Incident Brief</label>
                     <textarea
-                      value={taskForm.description}
-                      onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                      placeholder="Describe the task requirements..."
+                      value={taskForm.incident_brief}
+                      onChange={(e) => setTaskForm({ ...taskForm, incident_brief: e.target.value })}
+                      placeholder="Write the incident brief shown to candidates..."
                       rows="4"
                       className="textarea-field"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-navy-900 mb-1.5">Reproduction Steps</label>
+                    <textarea
+                      value={taskForm.reproduction}
+                      onChange={(e) => setTaskForm({ ...taskForm, reproduction: e.target.value })}
+                      placeholder="Add reproducible steps (optional)"
+                      rows="3"
+                      className="textarea-field"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-navy-900 mb-1.5">Difficulty</label>
+                      <select
+                        value={taskForm.difficulty}
+                        onChange={(e) => setTaskForm({ ...taskForm, difficulty: e.target.value })}
+                        className="input-field"
+                      >
+                        <option value="entry">Entry</option>
+                        <option value="mid">Mid</option>
+                        <option value="senior">Senior</option>
+                        <option value="staff">Staff</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-navy-900 mb-1.5">Estimated Time (minutes)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={taskForm.estimated_time_minutes}
+                        onChange={(e) => setTaskForm({ ...taskForm, estimated_time_minutes: e.target.value })}
+                        placeholder="e.g., 45"
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <label className="block text-sm font-medium text-navy-900">Environment Services</label>
+                      <button
+                        type="button"
+                        onClick={addEnvironmentService}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-navy-700 hover:text-navy-900"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Service
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {environmentServices.map((service, index) => (
+                        <div key={service.id} className="grid grid-cols-[1fr_130px_auto] gap-2">
+                          <input
+                            type="text"
+                            value={service.name}
+                            onChange={(e) => updateEnvironmentService(service.id, 'name', e.target.value)}
+                            placeholder={`Service ${index + 1} (e.g., postgres)`}
+                            className="input-field"
+                          />
+
+                          <select
+                            value={service.status}
+                            onChange={(e) => updateEnvironmentService(service.id, 'status', e.target.value)}
+                            className="input-field"
+                          >
+                            <option value="healthy">Healthy</option>
+                            <option value="degraded">Degraded</option>
+                            <option value="down">Down</option>
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={() => removeEnvironmentService(service.id)}
+                            className="inline-flex items-center justify-center rounded-lg border border-navy-900/12 px-2 hover:bg-navy-50"
+                            aria-label="Remove service"
+                          >
+                            <X className="w-3.5 h-3.5 text-navy-700/60" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <div>

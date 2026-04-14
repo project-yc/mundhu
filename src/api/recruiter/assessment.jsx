@@ -95,7 +95,14 @@ export const getTasksByAssessmentId = async (assessmentId) => {
   }
 };
 
-export const createTask = async (assessmentId, title, description, tags = [], files = []) => {
+export const createTask = async (
+  assessmentId,
+  title,
+  description,
+  tags = [],
+  files = [],
+  additionalInfo = {},
+) => {
   try {
     const token = getAuthToken();
     let response;
@@ -106,6 +113,7 @@ export const createTask = async (assessmentId, title, description, tags = [], fi
       formData.append('title', title);
       formData.append('description', description);
       formData.append('tags', JSON.stringify(tags));
+      formData.append('additional_info', JSON.stringify(additionalInfo || {}));
 
       files.forEach((file) => {
         const relativeName = file.webkitRelativePath || file.name;
@@ -132,6 +140,7 @@ export const createTask = async (assessmentId, title, description, tags = [], fi
           title,
           description,
           tags,
+          additional_info: additionalInfo || {},
         }),
       });
     }
