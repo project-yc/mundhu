@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Mail, Lock, LogIn, AlertCircle, CheckCircle } from 'lucide-react';
 
 const loginUser = async (email, password) => {
@@ -220,9 +221,9 @@ export default function LoginPage() {
           <div className="mt-6 pt-5 border-t border-navy-900/6">
             <p className="text-center text-xs text-navy-800/40">
               Don't have an account?{' '}
-              <a href="#" className="text-navy-700 font-semibold hover:text-navy-900 transition-colors">
+              <Link to="/signup" className="text-navy-700 font-semibold hover:text-navy-900 transition-colors">
                 Sign up
-              </a>
+              </Link>
             </p>
           </div>
         </div>
