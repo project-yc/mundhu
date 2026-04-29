@@ -314,3 +314,21 @@ export const getAssessmentCandidates = async (assessmentId) => {
   });
   return handleApiError(response);
 };
+
+export const getCandidatesWithReports = async (assessmentId) => {
+  const token = getAuthToken();
+  const response = await fetch(`/api/v1/recruiter/assessment/${assessmentId}/candidates/reports`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+  });
+  return handleApiError(response);
+};
+
+export const getSessionReport = async (assessmentId, sessionId) => {
+  const token = getAuthToken();
+  const response = await fetch(`/api/v1/analytics/assessments/${assessmentId}/reports/${sessionId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+  });
+  return handleApiError(response);
+};

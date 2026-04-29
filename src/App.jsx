@@ -3,6 +3,13 @@ import './App.css'
 import LoginPage from './pages/auth/login'
 import SignupPage from './pages/auth/signup'
 import RecruiterDashboard from './pages/recruiter/RecruiterDashboard'
+import AssessmentDetailScreen from './pages/recruiter/AssessmentDetailScreen'
+import RecruiterLayout from './pages/recruiter/RecruiterLayout'
+import AssessmentsScreen from './pages/recruiter/AssessmentsScreen'
+import CandidatesScreen from './pages/recruiter/CandidatesScreen'
+import ReportsScreen from './pages/recruiter/ReportsScreen'
+import ReportDetailScreen from './pages/recruiter/ReportDetailScreen'
+import InviteScreen from './pages/recruiter/InviteScreen'
 import InviteCandidate from './pages/recruiter/InviteCandidate'
 import VerifyCandidateInvite from './pages/recruiter/VerifyCandidateInvite'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -120,7 +127,55 @@ function App() {
           path="/recruiter/dashboard" 
           element={
             <ProtectedRoute>
-              <RecruiterDashboard />
+              <RecruiterLayout><RecruiterDashboard /></RecruiterLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/recruiter/assessments/:id" 
+          element={
+            <ProtectedRoute>
+              <RecruiterLayout><AssessmentDetailScreen /></RecruiterLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/recruiter/assessments" 
+          element={
+            <ProtectedRoute>
+              <RecruiterLayout><AssessmentsScreen /></RecruiterLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/recruiter/candidates" 
+          element={
+            <ProtectedRoute>
+              <RecruiterLayout><CandidatesScreen /></RecruiterLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/recruiter/reports" 
+          element={
+            <ProtectedRoute>
+              <RecruiterLayout><ReportsScreen /></RecruiterLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/recruiter/reports/:assessmentId/:sessionId" 
+          element={
+            <ProtectedRoute>
+              <RecruiterLayout><ReportDetailScreen /></RecruiterLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/recruiter/invite" 
+          element={
+            <ProtectedRoute>
+              <RecruiterLayout><InviteScreen /></RecruiterLayout>
             </ProtectedRoute>
           } 
         />
