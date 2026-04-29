@@ -1,5 +1,43 @@
 const getAuthToken = () => localStorage.getItem('authToken');
 
+/**
+ * Upload a pre-built zip file to S3 via the upload API.
+ * Returns { s3_key: string }
+ */
+export const uploadTaskZip = async (zipFile, onProgress) => {
+  const token = getAuthToken();
+  const formData = new FormData();
+  formData.append('file', zipFile);
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/v1/tasks/upload-zip');
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+    if (onProgress) {
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      });
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText)); }
+        catch { reject(new Error('Invalid response from upload server')); }
+      } else {
+        try {
+          const body = JSON.parse(xhr.responseText);
+          reject(new Error(body.detail || body.error || `Upload failed (${xhr.status})`));
+        } catch {
+          reject(new Error(`Upload failed (${xhr.status})`));
+        }
+      }
+    };
+    xhr.onerror = () => reject(new Error('Upload failed — network error'));
+    xhr.send(formData);
+  });
+};
+
 const handleApiError = async (response) => {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -105,6 +143,7 @@ export const createTask = async (
   sourceType = 'local',
   gitRepoUrl = null,
   gitBranch = null,
+  taskZipS3Key = null,
 ) => {
   try {
     const token = getAuthToken();
@@ -152,6 +191,7 @@ export const createTask = async (
           source_type: sourceType,
           git_repo_url: sourceType === 'git' ? gitRepoUrl : null,
           git_branch: sourceType === 'git' ? gitBranch : null,
+          ...(taskZipS3Key ? { task_zip_s3_key: taskZipS3Key } : {}),
         }),
       });
     }
@@ -255,4 +295,22 @@ export const sendCandidateInvites = async (assessmentId, candidates) => {
     }
     throw error;
   }
+};
+
+export const getRecruiterStats = async () => {
+  const token = getAuthToken();
+  const response = await fetch('/api/v1/recruiter/stats', {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+  });
+  return handleApiError(response);
+};
+
+export const getAssessmentCandidates = async (assessmentId) => {
+  const token = getAuthToken();
+  const response = await fetch(`/api/v1/recruiter/assessment/${assessmentId}/candidates`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+  });
+  return handleApiError(response);
 };

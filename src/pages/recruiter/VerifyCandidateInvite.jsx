@@ -1,7 +1,8 @@
+﻿// REDESIGNED — dark theme matching user flow
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { verifyInviteToken } from '../../api/recruiter/invite'
-import { Check, X, Loader, Clock, Copy, CheckCheck } from 'lucide-react'
+import { Check, X, Loader, Clock, Copy, CheckCheck, AlertCircle, Zap, ArrowRight } from 'lucide-react'
 
 export default function VerifyCandidateInvite() {
   const { token } = useParams()
@@ -23,13 +24,11 @@ export default function VerifyCandidateInvite() {
         setStatus('error')
       }
     }
-
     verifyToken()
   }, [token])
 
   const handleStartAssessment = () => {
     setIsStarting(true)
-    // Redirect to workspace URL from API response
     if (candidateData?.workspace_url) {
       window.location.href = candidateData.workspace_url
     } else {
@@ -53,123 +52,110 @@ export default function VerifyCandidateInvite() {
   }
 
   return (
-    <div className="min-h-screen bg-navy-50/40 flex items-center justify-center p-4">
-      <div className="max-w-sm w-full">
-        <div className="card-elevated p-10 text-center animate-fadeIn">
-          
+    <div className="min-h-screen bg-[#040914] flex flex-col items-center justify-center p-4">
+      {/* Brand mark */}
+      <div className="flex items-center gap-2 mb-10">
+        <Zap className="w-4 h-4 text-[#18d3ff]" strokeWidth={2.5} />
+        <span className="text-sm font-bold tracking-[0.08em] text-[#edf4ff]">MUNDHU</span>
+      </div>
+
+      <div className="w-full max-w-sm">
+        <div className="rounded-2xl border border-[#0e1f38] bg-[#070f20] p-8 text-center shadow-2xl">
+
+          {/* ── VERIFYING ── */}
           {status === 'verifying' && (
-            <div>
+            <div className="animate-fadeIn">
               <div className="flex justify-center mb-6">
-                <div className="w-14 h-14 rounded-full bg-navy-100 flex items-center justify-center">
-                  <Loader className="w-6 h-6 text-navy-500 animate-spin" />
+                <div className="w-14 h-14 rounded-full border border-[#0e1f38] bg-[#040914] flex items-center justify-center">
+                  <Loader className="w-6 h-6 text-[#18d3ff] animate-spin" />
                 </div>
               </div>
-              <h2 className="text-lg font-semibold text-navy-900 mb-1.5">
-                Verifying your invitation...
-              </h2>
-              <p className="text-sm text-navy-800/50">Please wait while we confirm your access.</p>
+              <h2 className="text-base font-semibold text-[#edf4ff] mb-2">Verifying your invitation</h2>
+              <p className="text-sm text-[#4a5f7a]">Please wait while we confirm your access.</p>
             </div>
           )}
 
+          {/* ── SUCCESS ── */}
           {status === 'success' && (
             <div className="animate-slideUp">
               <div className="flex justify-center mb-6">
-                <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <Check className="w-7 h-7 text-emerald-600" strokeWidth={2.5} />
+                <div className="w-14 h-14 rounded-full bg-[#041a10] border border-[#1a4a28] flex items-center justify-center">
+                  <Check className="w-7 h-7 text-[#4ade80]" strokeWidth={2.5} />
                 </div>
               </div>
-              
-              <h2 className="text-lg font-semibold text-navy-900 mb-1">
-                Invitation Verified
-              </h2>
-              <p className="text-sm text-navy-800/50 mb-6">Your assessment is ready to start</p>
-              
+
+              <h2 className="text-base font-semibold text-[#edf4ff] mb-1">Invitation Verified</h2>
+              <p className="text-sm text-[#4a5f7a] mb-6">Your assessment is ready to start</p>
+
               {candidateData && (
-                <div className="bg-navy-50/50 border border-navy-900/6 rounded-lg p-5 text-left space-y-3 mb-6">
-                  
+                <div className="rounded-xl border border-[#0e1f38] bg-[#040914]/60 p-4 text-left space-y-3 mb-6">
                   {/* Assessment ID */}
                   <div>
-                    <p className="text-[11px] text-navy-800/40 font-medium uppercase tracking-wider mb-1.5">Assessment ID</p>
+                    <p className="text-[10px] text-[#4a5f7a] font-semibold uppercase tracking-[0.15em] mb-2">Assessment ID</p>
                     <div className="flex items-center gap-2">
-                      <code className="flex-1 px-3 py-2 bg-white border border-navy-900/6 rounded-md text-xs text-navy-800/60 break-all font-mono">
+                      <code className="flex-1 px-3 py-2 bg-[#040914] border border-[#0e1f38] rounded-lg text-xs text-[#7a8aa8] break-all font-mono truncate">
                         {truncateId(candidateData.assessment_id)}
                       </code>
                       <button
                         onClick={handleCopyAssessmentId}
-                        className={`p-2 rounded-md transition-all duration-150 flex-shrink-0 ${
-                          copied
-                            ? 'bg-emerald-50 text-emerald-600'
-                            : 'bg-white border border-navy-900/8 text-navy-800/40 hover:text-navy-700 hover:border-navy-900/15'
-                        }`}
+                        title="Copy ID"
+                        className={`p-2 rounded-lg flex-shrink-0 transition-all duration-150 border ${copied ? 'bg-[#041a10] border-[#1a4a28] text-[#4ade80]' : 'bg-[#040914] border-[#0e1f38] text-[#4a5f7a] hover:border-[#18d3ff] hover:text-[#18d3ff]'}`}
                       >
-                        {copied ? (
-                          <CheckCheck className="w-3.5 h-3.5" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
+                        {copied ? <CheckCheck className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                       </button>
                     </div>
                   </div>
 
-                  {/* Time Limit */}
+                  {/* Time limit */}
                   {candidateData.time_limit_minutes && (
                     <div>
-                      <p className="text-[11px] text-navy-800/40 font-medium uppercase tracking-wider mb-1.5">Time Limit</p>
-                      <div className="flex items-center gap-2 px-3 py-2 bg-white border border-navy-900/6 rounded-md">
-                        <Clock className="w-3.5 h-3.5 text-navy-500" />
-                        <span className="text-sm font-medium text-navy-900">
-                          {candidateData.time_limit_minutes} minutes
-                        </span>
+                      <p className="text-[10px] text-[#4a5f7a] font-semibold uppercase tracking-[0.15em] mb-2">Time Limit</p>
+                      <div className="flex items-center gap-2 px-3 py-2 bg-[#040914] border border-[#0e1f38] rounded-lg">
+                        <Clock className="w-3.5 h-3.5 text-[#18d3ff]" />
+                        <span className="text-sm font-medium text-[#edf4ff]">{candidateData.time_limit_minutes} minutes</span>
                       </div>
                     </div>
                   )}
                 </div>
               )}
 
-              <button 
-                className="btn-primary w-full justify-center"
+              <button
+                className="w-full flex items-center justify-center gap-2 py-3 bg-[#18d3ff] text-[#040914] text-sm font-bold rounded-xl hover:bg-[#06B6D4] transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleStartAssessment}
                 disabled={isStarting}
               >
                 {isStarting ? (
-                  <>
-                    <Loader className="w-4 h-4 animate-spin" />
-                    Starting...
-                  </>
+                  <><Loader className="w-4 h-4 animate-spin" />Starting...</>
                 ) : (
-                  <>
-                    <Check className="w-4 h-4" />
-                    Start Assessment
-                  </>
+                  <><span>Start Assessment</span><ArrowRight className="w-4 h-4" /></>
                 )}
               </button>
             </div>
           )}
 
+          {/* ── ERROR ── */}
           {status === 'error' && (
             <div className="animate-slideUp">
               <div className="flex justify-center mb-6">
-                <div className="w-14 h-14 rounded-full bg-rose-100 flex items-center justify-center">
-                  <X className="w-7 h-7 text-rose-600" strokeWidth={2.5} />
+                <div className="w-14 h-14 rounded-full bg-[#1b0f15] border border-[#6a2335] flex items-center justify-center">
+                  <X className="w-7 h-7 text-[#ff8fa5]" strokeWidth={2.5} />
                 </div>
               </div>
-              
-              <h2 className="text-lg font-semibold text-navy-900 mb-2">
-                Invitation Invalid
-              </h2>
-              
+
+              <h2 className="text-base font-semibold text-[#edf4ff] mb-3">Invitation Invalid</h2>
+
               {error && (
-                <div className="mb-3 px-4 py-3 bg-rose-50 border border-rose-200/60 rounded-lg">
-                  <p className="text-sm text-rose-700 font-medium">{error}</p>
+                <div className="mb-4 px-4 py-3 bg-[#1b0f15] border border-[#6a2335] rounded-xl">
+                  <p className="text-sm text-[#ff8fa5]">{error}</p>
                 </div>
               )}
-              
-              <p className="text-sm text-navy-800/50 leading-relaxed mb-6">
+
+              <p className="text-sm text-[#4a5f7a] leading-relaxed mb-6">
                 This invitation may have expired or is no longer valid. Please contact the recruiter for a new invitation.
               </p>
-              
-              <button 
-                className="btn-secondary w-full justify-center"
+
+              <button
+                className="w-full flex items-center justify-center gap-2 py-3 border border-[#1a3050] text-[#94A3B8] text-sm font-semibold rounded-xl hover:border-[#18d3ff] hover:text-[#18d3ff] transition-all duration-150"
                 onClick={() => navigate('/')}
               >
                 Go Back
@@ -177,6 +163,8 @@ export default function VerifyCandidateInvite() {
             </div>
           )}
         </div>
+
+        <p className="text-center text-[11px] text-[#354e68] mt-6">Powered by Mundhu Assessment Platform</p>
       </div>
     </div>
   )
