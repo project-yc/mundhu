@@ -2,16 +2,16 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  Zap, LayoutDashboard, ClipboardList, Users, FileText,
+  Zap, LayoutDashboard, GitBranch, Users, FileText,
   UserPlus, Settings, LogOut, ChevronLeft, ChevronRight, Menu, X,
 } from 'lucide-react';
 
 const NAV = [
-  { to: '/recruiter/dashboard',  icon: LayoutDashboard, label: 'Dashboard'   },
-  { to: '/recruiter/assessments', icon: ClipboardList,   label: 'Assessments' },
-  { to: '/recruiter/candidates',  icon: Users,           label: 'Candidates'  },
-  { to: '/recruiter/reports',     icon: FileText,        label: 'Reports'     },
-  { to: '/recruiter/invite',      icon: UserPlus,        label: 'Invite'      },
+  { to: '/recruiter/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/recruiter/pipeline',   icon: GitBranch,       label: 'Pipeline'  },
+  { to: '/recruiter/candidates', icon: Users,           label: 'Candidates' },
+  { to: '/recruiter/reports',    icon: FileText,        label: 'Reports'   },
+  { to: '/recruiter/invite',     icon: UserPlus,        label: 'Invite'    },
 ];
 
 export default function RecruiterLayout({ children }) {

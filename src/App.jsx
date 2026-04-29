@@ -6,6 +6,7 @@ import RecruiterDashboard from './pages/recruiter/RecruiterDashboard'
 import AssessmentDetailScreen from './pages/recruiter/AssessmentDetailScreen'
 import RecruiterLayout from './pages/recruiter/RecruiterLayout'
 import AssessmentsScreen from './pages/recruiter/AssessmentsScreen'
+import PipelineScreen from './pages/recruiter/pipeline'
 import CandidatesScreen from './pages/recruiter/CandidatesScreen'
 import ReportsScreen from './pages/recruiter/ReportsScreen'
 import ReportDetailScreen from './pages/recruiter/ReportDetailScreen'
@@ -141,9 +142,13 @@ function App() {
         />
         <Route 
           path="/recruiter/assessments" 
+          element={<Navigate to="/recruiter/pipeline" replace />} 
+        />
+        <Route 
+          path="/recruiter/pipeline" 
           element={
             <ProtectedRoute>
-              <RecruiterLayout><AssessmentsScreen /></RecruiterLayout>
+              <RecruiterLayout><PipelineScreen /></RecruiterLayout>
             </ProtectedRoute>
           } 
         />
