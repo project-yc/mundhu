@@ -17,3 +17,20 @@ export const verifyInviteToken = async (token) => {
     throw error
   }
 }
+
+export const startInviteSession = async (token) => {
+  const response = await fetch('/api/v1/sessions/start-invite', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ token }),
+  })
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.detail || 'Failed to start assessment')
+  }
+
+  return await response.json()
+}

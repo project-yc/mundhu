@@ -1,7 +1,7 @@
 ﻿// REDESIGNED — dark theme matching user flow
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { verifyInviteToken } from '../../api/recruiter/invite'
+import { verifyInviteToken, startInviteSession } from '../../api/recruiter/invite'
 import { Check, X, Loader, Clock, Copy, CheckCheck, AlertCircle, Zap, ArrowRight } from 'lucide-react'
 
 export default function VerifyCandidateInvite() {
@@ -27,12 +27,18 @@ export default function VerifyCandidateInvite() {
     verifyToken()
   }, [token])
 
-  const handleStartAssessment = () => {
+  const handleStartAssessment = async () => {
     setIsStarting(true)
-    if (candidateData?.workspace_url) {
-      window.location.href = candidateData.workspace_url
-    } else {
-      setError('Workspace URL not found')
+    try {
+      const result = await startInviteSession(token)
+      if (result?.workspace_url) {
+        window.location.href = result.workspace_url
+      } else {
+        setError('Workspace URL not returned by server')
+        setIsStarting(false)
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to start assessment')
       setIsStarting(false)
     }
   }
