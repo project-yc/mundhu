@@ -1,11 +1,32 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import userApi from '../../services/api';
+import { queueSessionAnalyticsReport } from '../../../api/ai-report/report';
 import { startUserSimulation } from '../../services/dashboardService';
 
 const MONO_STYLE = { fontFamily: '"JetBrains Mono", monospace' };
 
 const TABS = ['Brief', 'Environment', 'Metrics'];
+
+const getCompletedActionLabel = (reportStatus, loading) => {
+  if (loading) {
+    return '> QUEUEING REPORT...';
+  }
+
+  if (reportStatus === 'completed') {
+    return '> VIEW REPORT';
+  }
+
+  if (reportStatus === 'pending' || reportStatus === 'processing') {
+    return '> REPORT GENERATING';
+  }
+
+  if (reportStatus === 'failed') {
+    return '> RETRY REPORT';
+  }
+
+  return '> GENERATE REPORT';
+};
 
 const normalizeTaskStatus = (value) => {
   const normalized = String(value || '')
@@ -126,8 +147,12 @@ export default function TaskAnalysisPanel({ taskId, simId, onClose }) {
   const [task, setTask] = useState(null);
   const [taskStatus, setTaskStatus] = useState('not_started');
   const [workspaceUrl, setWorkspaceUrl] = useState('');
+  const [sessionId, setSessionId] = useState('');
+  const [reportStatus, setReportStatus] = useState('');
   const [startLoading, setStartLoading] = useState(false);
   const [startError, setStartError] = useState('');
+  const [reportActionLoading, setReportActionLoading] = useState(false);
+  const [reportActionError, setReportActionError] = useState('');
 
   const fetchTask = useCallback(async () => {
     if (!taskId || !simId) {
@@ -143,6 +168,9 @@ export default function TaskAnalysisPanel({ taskId, simId, onClose }) {
       const response = await userApi.get(`/api/v1/public/assessments/${simId}/tasks/${taskId}`);
       const payload = response.data?.data || null;
       setTask(payload);
+      setSessionId(payload?.latest_session_id || '');
+      setReportStatus(payload?.report_status || '');
+      setReportActionError('');
 
       if (Object.prototype.hasOwnProperty.call(payload || {}, 'status')) {
         setTaskStatus(normalizeTaskStatus(payload?.status));
@@ -197,6 +225,8 @@ export default function TaskAnalysisPanel({ taskId, simId, onClose }) {
     try {
       const startResponse = await startUserSimulation(simId, taskId);
       setTaskStatus('in_progress');
+      setSessionId(startResponse?.session_id || '');
+      setReportStatus('');
 
       if (startResponse?.workspace_url) {
         setWorkspaceUrl(startResponse.workspace_url);
@@ -211,9 +241,40 @@ export default function TaskAnalysisPanel({ taskId, simId, onClose }) {
     }
   };
 
-  const onPrimaryAction = () => {
+  const onPrimaryAction = async () => {
     if (taskStatus === 'completed') {
-      navigate(`/simulations/${simId}/tasks/${taskId}/report`);
+      if (!sessionId) {
+        setReportActionError('No completed session was found for this task yet.');
+        return;
+      }
+
+      if (reportStatus === 'completed' || reportStatus === 'pending' || reportStatus === 'processing') {
+        navigate(`/analytics/${sessionId}`);
+        return;
+      }
+
+      setReportActionLoading(true);
+      setReportActionError('');
+      try {
+        const reportPayload = await queueSessionAnalyticsReport(sessionId);
+        const nextStatus = reportPayload?.status || 'pending';
+        setReportStatus(nextStatus);
+        setTask((current) => (
+          current
+            ? {
+                ...current,
+                latest_session_id: sessionId,
+                report_status: nextStatus,
+                report_ready: reportPayload?.report_ready || false,
+              }
+            : current
+        ));
+        navigate(`/analytics/${sessionId}`);
+      } catch (requestError) {
+        setReportActionError(requestError.message || 'Unable to queue analytics report.');
+      } finally {
+        setReportActionLoading(false);
+      }
       return;
     }
 
@@ -229,6 +290,14 @@ export default function TaskAnalysisPanel({ taskId, simId, onClose }) {
 
     onDeploy();
   };
+
+  const completedActionLabel = getCompletedActionLabel(reportStatus, reportActionLoading);
+  const completedActionClass =
+    reportStatus === 'failed'
+      ? 'border-2 border-[#EF4444] bg-transparent text-[#EF4444] hover:bg-[#EF444420]'
+      : reportStatus === 'pending' || reportStatus === 'processing'
+        ? 'border-2 border-[#06B6D4] bg-transparent text-[#06B6D4] hover:bg-[#06B6D420]'
+        : 'border-2 border-[#10B981] bg-transparent text-[#10B981]';
 
   const renderBrief = () => (
     <div className="px-5 py-5">
@@ -431,21 +500,27 @@ export default function TaskAnalysisPanel({ taskId, simId, onClose }) {
             </p>
           ) : null}
 
+          {reportActionError ? (
+            <p className="mb-2 text-[11px] text-[#EF4444]" style={MONO_STYLE}>
+              // {reportActionError}
+            </p>
+          ) : null}
+
           <button
             type="button"
-            disabled={startLoading}
+            disabled={startLoading || reportActionLoading}
             onClick={onPrimaryAction}
             className={`w-full rounded-[8px] px-4 py-3.5 text-[13px] uppercase tracking-[0.05em] ${
               taskStatus === 'completed'
-                ? 'border-2 border-[#10B981] bg-transparent text-[#10B981]'
+                ? completedActionClass
                 : taskStatus === 'in_progress'
                   ? 'border-2 border-[#06B6D4] bg-transparent text-[#06B6D4] hover:bg-[#06B6D420]'
                   : 'bg-[#06B6D4] text-[#040914] hover:shadow-[0_0_16px_#06B6D440]'
-            } ${startLoading ? 'cursor-not-allowed opacity-80' : ''}`}
+            } ${(startLoading || reportActionLoading) ? 'cursor-not-allowed opacity-80' : ''}`}
             style={MONO_STYLE}
           >
             {taskStatus === 'completed' ? (
-              '> GENERATE REPORT'
+              completedActionLabel
             ) : taskStatus === 'in_progress' ? (
               '> ENTER WAR ROOM'
             ) : startLoading ? (

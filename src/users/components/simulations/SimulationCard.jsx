@@ -16,7 +16,7 @@ const statusStyles = {
   },
 };
 
-export const getSimulationCardStatus = (row) => {
+const getSimulationCardStatus = (row) => {
   if (row.status === 'COMPLETED') {
     return 'COMPLETED';
   }
@@ -74,11 +74,6 @@ export default function SimulationCard({ row }) {
   const isLiveStatus = badgeStatus === 'LIVE';
 
   const handleAction = () => {
-    if (badgeStatus === 'COMPLETED') {
-      navigate(`/simulations/${row.id}/report`);
-      return;
-    }
-
     navigate(`/simulations/${row.id}`);
   };
 
@@ -132,7 +127,7 @@ export default function SimulationCard({ row }) {
             onClick={handleAction}
             className="text-[12px] text-[#94A3B8] transition hover:underline"
           >
-            VIEW REPORT
+            OPEN TASKS
           </button>
         ) : (
           <button

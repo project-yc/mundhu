@@ -15,6 +15,22 @@ const getLeftAccentColor = (status) => {
 const clampTwoLinesClass =
   '[display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden';
 
+const getCompletedActionLabel = (reportStatus) => {
+  if (reportStatus === 'completed') {
+    return 'VIEW REPORT';
+  }
+
+  if (reportStatus === 'pending' || reportStatus === 'processing') {
+    return 'REPORT GENERATING';
+  }
+
+  if (reportStatus === 'failed') {
+    return 'RETRY REPORT';
+  }
+
+  return 'GENERATE REPORT';
+};
+
 export default function SimulationDetailTaskRow({
   task,
   index,
@@ -23,6 +39,7 @@ export default function SimulationDetailTaskRow({
 }) {
   const taskNumber = String(index + 1).padStart(2, '0');
   const leftAccentColor = getLeftAccentColor(status);
+  const completedActionLabel = getCompletedActionLabel(task?.report_status);
 
   return (
     <article
@@ -87,7 +104,7 @@ export default function SimulationDetailTaskRow({
           }`}
           style={MONO_STYLE}
         >
-          {status === 'completed' ? 'GENERATE REPORT' : status === 'in_progress' ? 'CONTINUE' : 'START TASK'}
+          {status === 'completed' ? completedActionLabel : status === 'in_progress' ? 'CONTINUE' : 'START TASK'}
         </button>
       </div>
     </article>

@@ -5,3 +5,9 @@ export const getSessionAnalyticsReport = async (sessionId) => {
 
   return response.data?.data ?? response.data;
 };
+
+export const queueSessionAnalyticsReport = async (sessionId) => {
+  const response = await userApi.post(`/api/v1/analytics/reports/${sessionId}/queue`);
+
+  return response.data?.data ?? response.data;
+};
