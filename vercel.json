@@ -1,8 +1,9 @@
 {
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "http://98.81.194.1/api/:path*"
-    }
-  ]
-}
+    "rewrites": [
+      {
+        "source": "/(.*)",
+        "destination": "/index.html"
+      }
+    ]
+  }
+  
