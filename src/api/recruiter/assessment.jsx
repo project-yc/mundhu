@@ -1,11 +1,11 @@
-const getAuthToken = () => localStorage.getItem('authToken');
+import { authFetch, forceLogout } from '../../utils/authFetch';
 
 /**
  * Upload a pre-built zip file to S3 via the upload API.
  * Returns { s3_key: string }
  */
 export const uploadTaskZip = async (zipFile, onProgress) => {
-  const token = getAuthToken();
+  const token = localStorage.getItem('authToken');
   const formData = new FormData();
   formData.append('file', zipFile);
 
@@ -21,6 +21,10 @@ export const uploadTaskZip = async (zipFile, onProgress) => {
     }
 
     xhr.onload = () => {
+      if (xhr.status === 401) {
+        forceLogout();
+        return;
+      }
       if (xhr.status >= 200 && xhr.status < 300) {
         try { resolve(JSON.parse(xhr.responseText)); }
         catch { reject(new Error('Invalid response from upload server')); }
@@ -47,15 +51,13 @@ const handleApiError = async (response) => {
   return response.json();
 };
 
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
+
 export const createAssessment = async (name, description, duration_minutes, config_json = {}) => {
   try {
-    const token = getAuthToken();
-    const response = await fetch('/api/v1/create/assessment', {
+    const response = await authFetch('/api/v1/create/assessment', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: JSON_HEADERS,
       body: JSON.stringify({
         name,
         description,
@@ -75,15 +77,7 @@ export const createAssessment = async (name, description, duration_minutes, conf
 
 export const getAllAssessments = async () => {
   try {
-    const token = getAuthToken();
-    const response = await fetch('/api/assessments/all', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-
+    const response = await authFetch('/api/assessments/all');
     return handleApiError(response);
   } catch (error) {
     if (error instanceof TypeError) {
@@ -95,15 +89,7 @@ export const getAllAssessments = async () => {
 
 export const getAssessmentById = async (id) => {
   try {
-    const token = getAuthToken();
-    const response = await fetch(`/api/v1/assessment/${id}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-
+    const response = await authFetch(`/api/v1/assessment/${id}`);
     return handleApiError(response);
   } catch (error) {
     if (error instanceof TypeError) {
@@ -115,15 +101,7 @@ export const getAssessmentById = async (id) => {
 
 export const getTasksByAssessmentId = async (assessmentId) => {
   try {
-    const token = getAuthToken();
-    const response = await fetch(`/api/v1/assessment/${assessmentId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-
+    const response = await authFetch(`/api/v1/assessment/${assessmentId}`);
     return handleApiError(response);
   } catch (error) {
     if (error instanceof TypeError) {
@@ -149,7 +127,6 @@ export const createTask = async (
   taskManifestJson = null,
 ) => {
   try {
-    const token = getAuthToken();
     let response;
 
     if (files.length > 0) {
@@ -171,20 +148,15 @@ export const createTask = async (
         formData.append('relative_paths', relativeName);
       });
 
-      response = await fetch('/api/v1/create/task', {
+      // No Content-Type header — browser sets it with the correct FormData boundary
+      response = await authFetch('/api/v1/create/task', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
         body: formData,
       });
     } else {
-      response = await fetch('/api/v1/create/task', {
+      response = await authFetch('/api/v1/create/task', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: JSON_HEADERS,
         body: JSON.stringify({
           assessment_id: assessmentId,
           title,
@@ -213,15 +185,7 @@ export const createTask = async (
 
 export const getTaskById = async (taskId) => {
   try {
-    const token = getAuthToken();
-    const response = await fetch(`/api/v1/tasks/${taskId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-
+    const response = await authFetch(`/api/v1/tasks/${taskId}`);
     return handleApiError(response);
   } catch (error) {
     if (error instanceof TypeError) {
@@ -233,13 +197,9 @@ export const getTaskById = async (taskId) => {
 
 export const updateTask = async (taskId, payload) => {
   try {
-    const token = getAuthToken();
-    const response = await fetch(`/api/v1/tasks/${taskId}`, {
+    const response = await authFetch(`/api/v1/tasks/${taskId}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: JSON_HEADERS,
       body: JSON.stringify(payload),
     });
     return handleApiError(response);
@@ -253,16 +213,12 @@ export const updateTask = async (taskId, payload) => {
 
 export const verifyGitSource = async ({ taskId = null, gitRepoUrl, gitBranch }) => {
   try {
-    const token = getAuthToken();
     const endpoint = taskId
       ? `/api/admin/tasks/${taskId}/verify-git-source`
       : '/api/v1/tasks/verify-git-source';
-    const response = await fetch(endpoint, {
+    const response = await authFetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: JSON_HEADERS,
       body: JSON.stringify({
         git_repo_url: gitRepoUrl,
         git_branch: gitBranch,
@@ -279,13 +235,9 @@ export const verifyGitSource = async ({ taskId = null, gitRepoUrl, gitBranch }) 
 
 export const sendCandidateInvites = async (assessmentId, candidates) => {
   try {
-    const token = getAuthToken();
-    const response = await fetch(`/api/v1/assessment/${assessmentId}/invite`, {
+    const response = await authFetch(`/api/v1/assessment/${assessmentId}/invite`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: JSON_HEADERS,
       body: JSON.stringify({
         candidates: candidates.map(c => ({
           name: c.name,
@@ -304,37 +256,21 @@ export const sendCandidateInvites = async (assessmentId, candidates) => {
 };
 
 export const getRecruiterStats = async () => {
-  const token = getAuthToken();
-  const response = await fetch('/api/v1/recruiter/stats', {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-  });
+  const response = await authFetch('/api/v1/recruiter/stats');
   return handleApiError(response);
 };
 
 export const getAssessmentCandidates = async (assessmentId) => {
-  const token = getAuthToken();
-  const response = await fetch(`/api/v1/recruiter/assessment/${assessmentId}/candidates`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-  });
+  const response = await authFetch(`/api/v1/recruiter/assessment/${assessmentId}/candidates`);
   return handleApiError(response);
 };
 
 export const getCandidatesWithReports = async (assessmentId) => {
-  const token = getAuthToken();
-  const response = await fetch(`/api/v1/recruiter/assessment/${assessmentId}/candidates/reports`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-  });
+  const response = await authFetch(`/api/v1/recruiter/assessment/${assessmentId}/candidates/reports`);
   return handleApiError(response);
 };
 
 export const getSessionReport = async (assessmentId, sessionId) => {
-  const token = getAuthToken();
-  const response = await fetch(`/api/v1/analytics/assessments/${assessmentId}/reports/${sessionId}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-  });
+  const response = await authFetch(`/api/v1/analytics/assessments/${assessmentId}/reports/${sessionId}`);
   return handleApiError(response);
 };

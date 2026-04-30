@@ -66,6 +66,21 @@ const buildSegmentUnits = (segments) => {
 };
 
 export default function TimeAllocationBar({ timeBreakdown }) {
+  // Display gate: backend sets `display_ready=false` when active time is
+  // below the safe threshold (smoke tests, abandoned sessions). A
+  // half-empty bar is more misleading than no bar at all.
+  if (timeBreakdown && timeBreakdown.display_ready === false) {
+    const activeSeconds = Number(timeBreakdown.active_seconds || 0);
+    return (
+      <section className="rounded-xl border border-[#1e2130] bg-[#13151f] p-5">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">Time Allocation</p>
+        <p className="text-sm text-gray-400">
+          Session too short for time analysis ({Math.round(activeSeconds)}s of active work).
+        </p>
+      </section>
+    );
+  }
+
   const segments = SEGMENT_DEFINITIONS.map((definition) => ({
     ...definition,
     percent: toSafePercent(timeBreakdown?.[definition.key]),

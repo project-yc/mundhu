@@ -1,12 +1,13 @@
 // CandidatesScreen — ranked candidates across all assessments, with report scores
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Loader, AlertCircle, Users, ChevronDown, ChevronUp,
-  Award, FileText, Clock, Mail, TrendingUp, Filter,
+  Award, FileText, Clock, Mail, TrendingUp, Filter, XCircle,
 } from 'lucide-react';
-import { getAllAssessments } from '../../api/recruiter/assessment.jsx';
-import { getCandidatesWithReports } from '../../api/recruiter/assessment.jsx';
+import { getAllAssessments, getCandidatesWithReports } from '../../api/recruiter/assessment.jsx';
+
+const POLL_INTERVAL_MS = 8000;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatDate(dateStr) {
@@ -87,9 +88,10 @@ export default function CandidatesScreen() {
   const [error,        setError]        = useState('');
   const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy,       setSortBy]       = useState('rank'); // rank | name | invited
+  const [sortBy,       setSortBy]       = useState('rank');
   const [sortDir,      setSortDir]      = useState('asc');
   const [assessmentName, setAssessmentName] = useState('');
+  const pollRef = useRef(null);
 
   // Load assessment list on mount
   useEffect(() => {
@@ -106,16 +108,43 @@ export default function CandidatesScreen() {
   // Load candidates when assessment selected
   useEffect(() => {
     if (!selectedId) return;
-    setLoading(true); setCandidates([]); setError('');
+    let cancelled = false;
+    setLoading(true);
+    setCandidates([]);
+    setError('');
     getCandidatesWithReports(selectedId)
       .then(d => {
-        const payload = d.data || d;
-        setCandidates(payload.candidates || []);
-        setAssessmentName(payload.assessment_name || '');
+        if (!cancelled) {
+          const payload = d.data || d;
+          setCandidates(payload.candidates || []);
+          setAssessmentName(payload.assessment_name || '');
+        }
       })
-      .catch(err => setError(err.message || 'Failed to load candidates.'))
-      .finally(() => setLoading(false));
+      .catch(err => { if (!cancelled) setError(err.message || 'Failed to load candidates.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [selectedId]);
+
+  // Poll while any candidate has pending/processing report or non-final assessment status
+  useEffect(() => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    const needsPoll = candidates.some(
+      c => c.report_status === 'pending' || c.report_status === 'processing' ||
+           c.status === 'Invited' || c.status === 'In Progress'
+    );
+    if (needsPoll && selectedId) {
+      pollRef.current = setInterval(() => {
+        getCandidatesWithReports(selectedId)
+          .then(d => {
+            const payload = d.data || d;
+            setCandidates(payload.candidates || []);
+            setAssessmentName(payload.assessment_name || '');
+          })
+          .catch(() => {});
+      }, POLL_INTERVAL_MS);
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [candidates, selectedId]);
 
   const toggle = (col) => {
     if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -324,7 +353,11 @@ export default function CandidatesScreen() {
                         <FileText className="w-3 h-3" />View
                       </button>
                     ) : c.report_status === 'processing' ? (
-                      <span className="flex items-center gap-1 text-[11px] text-[#F59E0B]"><Loader className="w-3 h-3 animate-spin" />Processing</span>
+                      <span className="flex items-center gap-1 text-[11px] text-[#06B6D4]"><Loader className="w-3 h-3 animate-spin" />Generating…</span>
+                    ) : c.report_status === 'pending' ? (
+                      <span className="flex items-center gap-1 text-[11px] text-[#F59E0B]"><Clock className="w-3 h-3" />Queued</span>
+                    ) : c.report_status === 'failed' ? (
+                      <span className="flex items-center gap-1 text-[11px] text-[#F43F5E]"><XCircle className="w-3 h-3" />Failed</span>
                     ) : (
                       <span className="text-[11px] text-[#3F3F46]">—</span>
                     )}

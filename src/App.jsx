@@ -26,6 +26,15 @@ import UserSettingsPage from './users/pages/UserSettingsPage'
 import ProtectedRoute from './utils/ProtectedRoute'
 import AdminRoute from './utils/AdminRoute'
 
+function RoleBasedRedirect() {
+  const token = localStorage.getItem('authToken');
+  const userRole = localStorage.getItem('userRole');
+  if (!token) return <Navigate to="/login" replace />;
+  if (userRole === 'ADMIN') return <Navigate to="/admin" replace />;
+  if (userRole === 'RECRUITER') return <Navigate to="/recruiter/dashboard" replace />;
+  return <Navigate to="/user/dashboard" replace />;
+}
+
 function App() {
   return (
     <Router>
@@ -42,12 +51,12 @@ function App() {
         />
         <Route 
           path="/" 
-          element={<Navigate to="/user/dashboard" replace />} 
+          element={<RoleBasedRedirect />} 
         />
         <Route 
           path="/user/dashboard" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="USER">
               <UserDashboardPage />
             </ProtectedRoute>
           } 
@@ -55,7 +64,7 @@ function App() {
         <Route 
           path="/simulations" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="USER">
               <UserSimulationsPage />
             </ProtectedRoute>
           } 
@@ -63,7 +72,7 @@ function App() {
         <Route 
           path="/user/simulations" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="USER">
               <UserSimulationsPage />
             </ProtectedRoute>
           } 
@@ -71,7 +80,7 @@ function App() {
         <Route 
           path="/simulations/:id" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="USER">
               <UserSimulationDetailPage />
             </ProtectedRoute>
           } 
@@ -79,7 +88,7 @@ function App() {
         <Route 
           path="/sessions" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="USER">
               <UserSessionsPage />
             </ProtectedRoute>
           } 
@@ -87,7 +96,7 @@ function App() {
         <Route 
           path="/analytics" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="USER">
               <UserAnalyticsPlaceholderPage />
             </ProtectedRoute>
           } 
@@ -95,7 +104,7 @@ function App() {
         <Route 
           path="/ai-insights" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="USER">
               <UserAIInsightsPage />
             </ProtectedRoute>
           } 
@@ -103,7 +112,7 @@ function App() {
         <Route 
           path="/skill-roadmap" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="USER">
               <UserSkillRoadmapPage />
             </ProtectedRoute>
           } 
@@ -111,7 +120,7 @@ function App() {
         <Route 
           path="/settings" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="USER">
               <UserSettingsPage />
             </ProtectedRoute>
           } 
@@ -119,7 +128,7 @@ function App() {
         <Route 
           path="/analytics/:sessionId" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="USER">
               <SessionAnalyticsPage />
             </ProtectedRoute>
           } 
@@ -127,7 +136,7 @@ function App() {
         <Route 
           path="/recruiter/dashboard" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><RecruiterDashboard /></RecruiterLayout>
             </ProtectedRoute>
           } 
@@ -135,7 +144,7 @@ function App() {
         <Route 
           path="/recruiter/assessments/:id" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><AssessmentDetailScreen /></RecruiterLayout>
             </ProtectedRoute>
           } 
@@ -147,7 +156,7 @@ function App() {
         <Route 
           path="/recruiter/pipeline" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><PipelineScreen /></RecruiterLayout>
             </ProtectedRoute>
           } 
@@ -155,7 +164,7 @@ function App() {
         <Route 
           path="/recruiter/candidates" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><CandidatesScreen /></RecruiterLayout>
             </ProtectedRoute>
           } 
@@ -163,7 +172,7 @@ function App() {
         <Route 
           path="/recruiter/reports" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><ReportsScreen /></RecruiterLayout>
             </ProtectedRoute>
           } 
@@ -171,7 +180,7 @@ function App() {
         <Route 
           path="/recruiter/reports/:assessmentId/:sessionId" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><ReportDetailScreen /></RecruiterLayout>
             </ProtectedRoute>
           } 
@@ -179,7 +188,7 @@ function App() {
         <Route 
           path="/recruiter/invite" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><InviteScreen /></RecruiterLayout>
             </ProtectedRoute>
           } 
@@ -187,7 +196,7 @@ function App() {
         <Route 
           path="/:assessmentId/invite" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="RECRUITER">
               <InviteCandidate />
             </ProtectedRoute>
           } 

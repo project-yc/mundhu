@@ -16,9 +16,23 @@ const SIGNAL_DOT_CLASS = {
   red: 'bg-red-400',
 };
 
-export default function SignalCard({ title, signal, summary }) {
+const SUBSCORE_LABELS = {
+  planning_debugging: 'Planning & Debugging',
+  verification: 'Verification',
+  direction: 'Direction',
+  iteration: 'Iteration',
+};
+
+function formatSubscoreLabel(key) {
+  return SUBSCORE_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export default function SignalCard({ title, signal, summary, subscores }) {
   const normalizedSignal = SIGNAL_SCORE_MAPPING[signal] ? signal : 'red';
   const scoreData = SIGNAL_SCORE_MAPPING[normalizedSignal];
+  const subscoreEntries = subscores && typeof subscores === 'object'
+    ? Object.entries(subscores).filter(([, v]) => typeof v === 'number')
+    : [];
 
   return (
     <article className="rounded-xl border border-[#1e2130] bg-[#13151f] p-5">
@@ -34,6 +48,17 @@ export default function SignalCard({ title, signal, summary }) {
         <span className="text-4xl font-bold">{scoreData.score}</span>
         <span className="pb-1 text-sm text-gray-400">/5</span>
       </div>
+
+      {subscoreEntries.length > 0 && (
+        <div className="mt-4 border-t border-[#1e2130] pt-3 space-y-1.5">
+          {subscoreEntries.map(([key, value]) => (
+            <div key={key} className="flex items-center justify-between text-xs">
+              <span className="text-gray-500">{formatSubscoreLabel(key)}</span>
+              <span className="font-mono text-gray-300">{value}<span className="text-gray-600">/100</span></span>
+            </div>
+          ))}
+        </div>
+      )}
     </article>
   );
 }

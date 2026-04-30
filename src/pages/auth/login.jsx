@@ -100,9 +100,12 @@ export default function LoginPage() {
         if (userRole === 'ADMIN') {
           console.log('Redirecting to admin dashboard');
           window.location.href = '/admin';
-        } else {
+        } else if (userRole === 'RECRUITER') {
           console.log('Redirecting to recruiter dashboard');
-          window.location.href = '/';
+          window.location.href = '/recruiter/dashboard';
+        } else {
+          console.log('Redirecting to user dashboard');
+          window.location.href = '/user/dashboard';
         }
       }, 1000);
     } catch (err) {

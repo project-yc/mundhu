@@ -112,6 +112,7 @@ export default function SessionAnalyticsPage() {
       title: config.title,
       signal: cardData?.signal,
       summary: cardData?.summary,
+      subscores: cardData?.subscores,
     };
   });
 
@@ -234,7 +235,7 @@ export default function SessionAnalyticsPage() {
 
             <section className="grid grid-cols-1 gap-4 xl:grid-cols-4">
               {signalCards.map((card) => (
-                <SignalCard key={card.title} title={card.title} signal={card.signal} summary={card.summary} />
+                <SignalCard key={card.title} title={card.title} signal={card.signal} summary={card.summary} subscores={card.subscores} />
               ))}
             </section>
 
