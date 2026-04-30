@@ -298,7 +298,14 @@ export default function AssessmentsScreen() {
       const zipFile = new File([blob], `${rootDir}.zip`, { type: 'application/zip' });
       setUploadState('uploading');
       const result = await uploadTaskZip(zipFile, pct => setUploadProgress(pct));
-      setFolderUpload({ fileName: rootDir, fileCount: files.length, s3_key: result.s3_key });
+      setFolderUpload({
+        fileName: rootDir,
+        fileCount: files.length,
+        s3_key: result.s3_key,
+        starter_bundle_s3_key: result.starter_bundle_s3_key,
+        grader_bundle_s3_key: result.grader_bundle_s3_key,
+        task_manifest_json: result.task_manifest_json,
+      });
       setUploadState('done');
     } catch (err) {
       setUploadState('error');
@@ -327,7 +334,10 @@ export default function AssessmentsScreen() {
       const taskData = await ct(newAssessment.id, taskForm.title, taskForm.description, tags, [], additionalInfo, taskForm.source_type,
         taskForm.source_type === 'git' ? taskForm.git_repo_url : null,
         taskForm.source_type === 'git' ? taskForm.git_branch : null,
-        folderUpload?.s3_key || null);
+        folderUpload?.s3_key || null,
+        folderUpload?.starter_bundle_s3_key || null,
+        folderUpload?.grader_bundle_s3_key || null,
+        folderUpload?.task_manifest_json || null);
       const newTask = taskData.data || taskData;
       setAssessments(prev => [...prev, { ...newAssessment, tasks: [newTask], candidate_counts: { total: 0, invited: 0, in_progress: 0, submitted: 0, expired: 0 } }]);
       setSuccess('Assessment created successfully!');

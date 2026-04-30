@@ -47,7 +47,7 @@ const handleApiError = async (response) => {
   return response.json();
 };
 
-export const createAssessment = async (name, description, duration_minutes) => {
+export const createAssessment = async (name, description, duration_minutes, config_json = {}) => {
   try {
     const token = getAuthToken();
     const response = await fetch('/api/v1/create/assessment', {
@@ -60,7 +60,7 @@ export const createAssessment = async (name, description, duration_minutes) => {
         name,
         description,
         duration_minutes,
-        config_json: {},
+        config_json,
       }),
     });
 
@@ -144,6 +144,9 @@ export const createTask = async (
   gitRepoUrl = null,
   gitBranch = null,
   taskZipS3Key = null,
+  starterBundleS3Key = null,
+  graderBundleS3Key = null,
+  taskManifestJson = null,
 ) => {
   try {
     const token = getAuthToken();
@@ -192,6 +195,9 @@ export const createTask = async (
           git_repo_url: sourceType === 'git' ? gitRepoUrl : null,
           git_branch: sourceType === 'git' ? gitBranch : null,
           ...(taskZipS3Key ? { task_zip_s3_key: taskZipS3Key } : {}),
+          ...(starterBundleS3Key ? { starter_bundle_s3_key: starterBundleS3Key } : {}),
+          ...(graderBundleS3Key ? { grader_bundle_s3_key: graderBundleS3Key } : {}),
+          ...(taskManifestJson ? { task_manifest_json: taskManifestJson } : {}),
         }),
       });
     }

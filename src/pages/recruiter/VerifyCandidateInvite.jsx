@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { verifyInviteToken, startInviteSession } from '../../api/recruiter/invite'
-import { Check, X, Loader, Clock, Copy, CheckCheck, AlertCircle, Zap, ArrowRight } from 'lucide-react'
+import { Check, X, Loader, Clock, Copy, CheckCheck, Zap, ArrowRight } from 'lucide-react'
 
 export default function VerifyCandidateInvite() {
   const { token } = useParams()
@@ -29,16 +29,19 @@ export default function VerifyCandidateInvite() {
 
   const handleStartAssessment = async () => {
     setIsStarting(true)
+    setError('')
+
     try {
       const result = await startInviteSession(token)
       if (result?.workspace_url) {
         window.location.href = result.workspace_url
-      } else {
-        setError('Workspace URL not returned by server')
-        setIsStarting(false)
+        return
       }
+
+      setError('Workspace URL not returned by server')
     } catch (err) {
       setError(err.message || 'Failed to start assessment')
+    } finally {
       setIsStarting(false)
     }
   }

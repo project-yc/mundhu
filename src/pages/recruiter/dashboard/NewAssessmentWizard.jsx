@@ -3,6 +3,7 @@ import { useState, useRef } from 'react';
 import {
   X, Loader, AlertCircle, Check, Tag, FolderOpen, Upload, XCircle,
   Clock, ArrowRight, Code, GitBranch, FileCode, CheckCircle,
+  Sparkles, MessageSquare, Zap, ZapOff,
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { createAssessment, createTask, uploadTaskZip } from '../../../api/recruiter/assessment.jsx';
@@ -12,7 +13,7 @@ export default function NewAssessmentWizard({ onClose, onCreated }) {
   const [wizardStep,    setWizardStep]    = useState(0);
   const [wizardLoading, setWizardLoading] = useState(false);
   const [wizardError,   setWizardError]   = useState('');
-  const [assessmentForm, setAssessmentForm] = useState({ name: '', description: '', duration_minutes: '' });
+  const [assessmentForm, setAssessmentForm] = useState({ name: '', description: '', duration_minutes: '', ai_level: 'full' });
   const [taskForm, setTaskForm] = useState({ title: '', description: '', tags: '', source_type: 'local', git_repo_url: '', git_branch: '' });
 
   const folderInputRef = useRef(null);
@@ -41,7 +42,14 @@ export default function NewAssessmentWizard({ onClose, onCreated }) {
       const zipFile = new File([blob], `${rootDir}.zip`, { type: 'application/zip' });
       setUploadState('uploading');
       const result = await uploadTaskZip(zipFile, pct => setUploadProgress(pct));
-      setFolderUpload({ fileName: rootDir, fileCount: files.length, s3_key: result.s3_key });
+      setFolderUpload({
+        fileName: rootDir,
+        fileCount: files.length,
+        s3_key: result.s3_key,
+        starter_bundle_s3_key: result.starter_bundle_s3_key,
+        grader_bundle_s3_key: result.grader_bundle_s3_key,
+        task_manifest_json: result.task_manifest_json,
+      });
       setUploadState('done');
     } catch (err) {
       setUploadState('error');
@@ -68,7 +76,12 @@ export default function NewAssessmentWizard({ onClose, onCreated }) {
     }
     setWizardLoading(true); setWizardError('');
     try {
-      const assessmentData = await createAssessment(assessmentForm.name, assessmentForm.description, parseInt(assessmentForm.duration_minutes));
+      const assessmentData = await createAssessment(
+        assessmentForm.name,
+        assessmentForm.description,
+        parseInt(assessmentForm.duration_minutes),
+        { ai_level: assessmentForm.ai_level },
+      );
       const newAssessment = assessmentData.data || assessmentData;
       const tags = taskForm.tags.split(',').map(t => t.trim()).filter(Boolean);
       const additionalInfo = folderUpload?.s3_key ? { uploaded_folder: folderUpload.fileName, file_count: folderUpload.fileCount } : {};
@@ -78,6 +91,9 @@ export default function NewAssessmentWizard({ onClose, onCreated }) {
         taskForm.source_type === 'git' ? taskForm.git_repo_url : null,
         taskForm.source_type === 'git' ? taskForm.git_branch : null,
         folderUpload?.s3_key || null,
+        folderUpload?.starter_bundle_s3_key || null,
+        folderUpload?.grader_bundle_s3_key || null,
+        folderUpload?.task_manifest_json || null,
       );
       const newTask = taskData.data || taskData;
       onCreated({ ...newAssessment, tasks: [newTask], candidate_counts: { total: 0, invited: 0, in_progress: 0, submitted: 0, expired: 0 } });
@@ -155,6 +171,33 @@ export default function NewAssessmentWizard({ onClose, onCreated }) {
                         ))}
                       </div>
                       <FInput type="number" value={assessmentForm.duration_minutes} onChange={e => setAssessmentForm({ ...assessmentForm, duration_minutes: e.target.value })} placeholder="Or enter custom minutes…" min="1" />
+                    </Field>
+                    <Field label="AI Assistance">
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { value: 'full',                label: 'Full Agent',          desc: 'Orchestrator + chat + inline completions', Icon: Sparkles },
+                          { value: 'chat_only',           label: 'Chat + Inline',       desc: 'Chat (manual context) + inline completions', Icon: MessageSquare },
+                          { value: 'inline_completions',  label: 'Inline Only',         desc: 'Code suggestions only — no chat panel',     Icon: Zap },
+                          { value: 'none',                label: 'No AI',               desc: 'All AI features disabled',                  Icon: ZapOff },
+                        ].map(({ value, label, desc, Icon }) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setAssessmentForm({ ...assessmentForm, ai_level: value })}
+                            className={`flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all duration-150 ${
+                              assessmentForm.ai_level === value
+                                ? 'bg-[#083344] border-[#06B6D4]'
+                                : 'bg-transparent border-[#27272A] hover:border-[#3F3F46]'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <Icon className={`w-3.5 h-3.5 ${assessmentForm.ai_level === value ? 'text-[#06B6D4]' : 'text-[#52525B]'}`} />
+                              <span className={`text-[12px] font-bold ${assessmentForm.ai_level === value ? 'text-[#06B6D4]' : 'text-[#A1A1AA]'}`}>{label}</span>
+                            </div>
+                            <span className="text-[10px] text-[#52525B] leading-relaxed">{desc}</span>
+                          </button>
+                        ))}
+                      </div>
                     </Field>
                   </div>
                 )}

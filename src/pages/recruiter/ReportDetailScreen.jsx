@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Loader, AlertCircle, Download, ChevronDown, ChevronUp,
-  CheckCircle, XCircle, AlertTriangle, Clock, Code, Brain,
+  CheckCircle, XCircle, AlertTriangle, Code, Brain,
   TrendingUp, MessageSquare, Award, Target,
 } from 'lucide-react';
 import { getSessionReport } from '../../api/recruiter/assessment.jsx';
@@ -61,35 +61,6 @@ function Section({ title, icon: Icon, color = '#06B6D4', defaultOpen = false, ch
   );
 }
 
-function TimePie({ tb }) {
-  const segments = [
-    { label: 'Coding',    key: 'coding_pct',     color: '#06B6D4' },
-    { label: 'Debugging', key: 'debugging_pct',  color: '#F59E0B' },
-    { label: 'Planning',  key: 'planning_pct',   color: '#10B981' },
-    { label: 'Testing',   key: 'testing_pct',    color: '#A78BFA' },
-    { label: 'Idle',      key: 'idle_pct',       color: '#27272A' },
-  ].filter(s => (tb?.[s.key] || 0) > 0);
-
-  return (
-    <div className="space-y-2">
-      {segments.map(({ label, key, color }) => {
-        const pct = Math.round(tb?.[key] || 0);
-        return (
-          <div key={key}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[12px] text-[#A1A1AA]">{label}</span>
-              <span className="text-[12px] font-bold text-[#E4E4E7]">{pct}%</span>
-            </div>
-            <div className="h-1.5 bg-[#1C1C20] rounded-full overflow-hidden">
-              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function downloadReport(reportData, candidateName) {
   const json = JSON.stringify(reportData, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
@@ -142,7 +113,6 @@ export default function ReportDetailScreen() {
   const dq   = dims.design_quality         || {};
   const psp  = dims.problem_solving_process|| {};
   const ai   = dims.ai_collaboration;
-  const tb   = report.time_breakdown       || {};
   const bev  = report.behavioral_evidence  || [];
   const probes = report.interview_probes   || [];
   const growth = report.growth_edges       || [];
@@ -201,11 +171,6 @@ export default function ReportDetailScreen() {
         )}
       </div>
 
-      {/* Time breakdown */}
-      <Section title="Time Breakdown" icon={Clock} color="#06B6D4" defaultOpen>
-        <TimePie tb={tb} />
-      </Section>
-
       {/* Behavioral evidence */}
       {bev.length > 0 && (
         <Section title="Behavioral Evidence" icon={TrendingUp} color="#10B981" defaultOpen>
@@ -229,12 +194,29 @@ export default function ReportDetailScreen() {
       {growth.length > 0 && (
         <Section title="Growth Edges" icon={Award} color="#F59E0B">
           <div className="space-y-2">
-            {growth.map((g, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-[#1C150A] border border-[#78350F]/40">
-                <span className="w-5 h-5 rounded-full bg-[#78350F]/40 text-[#F59E0B] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                <p className="text-[13px] text-[#E4E4E7] leading-relaxed">{g}</p>
-              </div>
-            ))}
+            {growth.map((g, i) => {
+              const isObj = g && typeof g === 'object';
+              return (
+                <div key={i} className="p-3 rounded-xl bg-[#1C150A] border border-[#78350F]/40 space-y-2">
+                  <div className="flex items-start gap-3">
+                    <span className="w-5 h-5 rounded-full bg-[#78350F]/40 text-[#F59E0B] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                    <p className="text-[13px] text-[#E4E4E7] leading-relaxed">{isObj ? g.moment : g}</p>
+                  </div>
+                  {isObj && g.alternative && (
+                    <div className="ml-8 space-y-1">
+                      <p className="text-[10px] font-semibold text-[#78350F] uppercase tracking-wider">Better approach</p>
+                      <p className="text-[12px] text-[#A1A1AA] leading-relaxed">{g.alternative}</p>
+                    </div>
+                  )}
+                  {isObj && g.why && (
+                    <div className="ml-8 space-y-1">
+                      <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-wider">Why it matters</p>
+                      <p className="text-[12px] text-[#71717A] leading-relaxed">{g.why}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </Section>
       )}
