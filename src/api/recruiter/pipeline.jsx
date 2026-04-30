@@ -1,5 +1,5 @@
 // Recruiter Pipeline API
-const getAuthToken = () => localStorage.getItem('authToken');
+import { authFetch } from '../../utils/authFetch';
 
 const handleApiError = async (response) => {
   if (!response.ok) {
@@ -9,16 +9,6 @@ const handleApiError = async (response) => {
   }
   return response.json();
 };
-
-const authFetch = (url, options = {}) =>
-  fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${getAuthToken()}`,
-      ...(options.headers || {}),
-    },
-  });
 
 export const getPipeline = async (assessmentId) => {
   const url = assessmentId
@@ -39,6 +29,7 @@ export const getNeedsAction = async (assessmentId) => {
 export const updatePipelineCandidate = async (instanceId, payload) => {
   const res = await authFetch(`/api/v1/recruiter/candidates/${instanceId}/pipeline`, {
     method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
   return handleApiError(res);

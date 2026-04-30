@@ -15,9 +15,23 @@ const SIGNAL_CFG = {
   red:    { color: '#F43F5E', bg: '#1C0813', border: '#881337', icon: XCircle,        label: 'Weak'     },
 };
 
-function SignalCard({ label, signal, score, summary, icon: Icon }) {
+const SUBSCORE_LABELS = {
+  planning_debugging: 'Planning & Debugging',
+  verification: 'Verification',
+  direction: 'Direction',
+  iteration: 'Iteration',
+};
+
+function formatSubscoreLabel(key) {
+  return SUBSCORE_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function SignalCard({ label, signal, score, summary, subscores, icon: Icon }) {
   const cfg = SIGNAL_CFG[signal] || { color: '#52525B', bg: '#17171A', border: '#27272A', icon: Target, label: 'N/A' };
   const SigIcon = cfg.icon;
+  const subscoreEntries = subscores && typeof subscores === 'object'
+    ? Object.entries(subscores).filter(([, v]) => typeof v === 'number')
+    : [];
   return (
     <div className="rounded-xl border p-4 space-y-2" style={{ backgroundColor: cfg.bg, borderColor: cfg.border }}>
       <div className="flex items-center justify-between">
@@ -36,6 +50,16 @@ function SignalCard({ label, signal, score, summary, icon: Icon }) {
         </div>
       </div>
       {summary && <p className="text-[12px] text-[#A1A1AA] leading-relaxed">{summary}</p>}
+      {subscoreEntries.length > 0 && (
+        <div className="pt-2 mt-2 border-t border-[#27272A]/60 grid grid-cols-2 gap-x-4 gap-y-1">
+          {subscoreEntries.map(([key, value]) => (
+            <div key={key} className="flex items-center justify-between text-[11px]">
+              <span className="text-[#71717A]">{formatSubscoreLabel(key)}</span>
+              <span className="font-mono text-[#E4E4E7]">{value}<span className="text-[#52525B]">/100</span></span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -160,9 +184,9 @@ export default function ReportDetailScreen() {
       <div className="grid grid-cols-2 gap-3">
         <SignalCard label="Task Completion"         signal={tc.signal}   score={tc.score}   summary={tc.summary}   icon={Code} />
         <SignalCard label="Design Quality"          signal={dq.signal}   score={dq.score}   summary={dq.summary}   icon={Target} />
-        <SignalCard label="Problem-Solving Process" signal={psp.signal}  score={psp.score}  summary={psp.summary}  icon={Brain} />
+        <SignalCard label="Problem-Solving Process" signal={psp.signal}  score={psp.score}  summary={psp.summary}  subscores={psp.subscores} icon={Brain} />
         {ai ? (
-          <SignalCard label="AI Collaboration" signal={ai.signal} score={ai.score} summary={ai.summary} icon={MessageSquare} />
+          <SignalCard label="AI Collaboration" signal={ai.signal} score={ai.score} summary={ai.summary} subscores={ai.subscores} icon={MessageSquare} />
         ) : (
           <div className="rounded-xl border border-[#27272A] p-4 bg-[#111113] flex items-center gap-3">
             <MessageSquare className="w-4 h-4 text-[#3F3F46]" />

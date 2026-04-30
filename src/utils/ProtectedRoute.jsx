@@ -1,24 +1,31 @@
 import { Navigate } from 'react-router-dom';
 
-const ProtectedRoute = ({ children }) => {
+const ROLE_HOME = {
+  ADMIN: '/admin',
+  RECRUITER: '/recruiter/dashboard',
+  USER: '/user/dashboard',
+};
+
+const ProtectedRoute = ({ children, requiredRole }) => {
   const token = localStorage.getItem('authToken');
   const userRole = localStorage.getItem('userRole');
-  
-  console.log('[ProtectedRoute] Token:', token ? 'exists' : 'missing');
-  console.log('[ProtectedRoute] User role:', userRole);
-  
+
   if (!token) {
-    console.log('[ProtectedRoute] No token, redirecting to login');
     return <Navigate to="/login" replace />;
   }
-  
-  // Redirect admins to their dashboard
+
+  // Always keep admins in their area
   if (userRole === 'ADMIN') {
-    console.log('[ProtectedRoute] Admin detected, redirecting to /admin');
     return <Navigate to="/admin" replace />;
   }
-  
-  console.log('[ProtectedRoute] Regular user, allowing access');
+
+  // If this route requires a specific role and the user doesn't have it,
+  // send them to their own dashboard
+  if (requiredRole && userRole !== requiredRole) {
+    const home = ROLE_HOME[userRole] || '/user/dashboard';
+    return <Navigate to={home} replace />;
+  }
+
   return children;
 };
 

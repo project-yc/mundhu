@@ -8,8 +8,10 @@ import {
   Loader, AlertCircle, Search, ChevronDown, X, Inbox, LayoutGrid, Archive,
   Sparkles, Shield, Clock, Mail, Hash, ArrowRight, ExternalLink,
   CheckCircle2, XCircle, UserCheck, Send, Eye, Star, Tag, Plus,
-  ChevronRight, MoreHorizontal,
+  ChevronRight, MoreHorizontal, FileText,
 } from 'lucide-react';
+
+const PIPELINE_POLL_MS = 10000;
 import {
   getPipeline, getNeedsAction, updatePipelineCandidate,
 } from '../../../api/recruiter/pipeline.jsx';
@@ -623,15 +625,30 @@ function DetailRail({ card, onClose, onUpdate, onSaving }) {
 
         {/* Footer */}
         <div className="p-4 border-t border-[#27272A] flex gap-2">
-          {card.session_id && card.assessment_id && (
+          {card.report_status === 'completed' && card.session_id && card.assessment_id ? (
             <button
               onClick={() => navigate(`/recruiter/reports/${card.assessment_id}/${card.session_id}`)}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#06B6D4] hover:bg-[#0891B2] text-[#0C0C0E] text-[12px] font-bold rounded-lg transition-colors active:scale-[0.97]"
             >
-              <ExternalLink className="w-3.5 h-3.5" strokeWidth={2.5} />
-              Open report
+              <FileText className="w-3.5 h-3.5" strokeWidth={2.5} />
+              View Report
             </button>
-          )}
+          ) : card.report_status === 'processing' ? (
+            <div className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#083344] border border-[#0E7490] text-[#06B6D4] text-[12px] font-semibold rounded-lg">
+              <Loader className="w-3.5 h-3.5 animate-spin" />
+              Generating Report…
+            </div>
+          ) : card.report_status === 'pending' ? (
+            <div className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#1C150A] border border-[#78350F] text-[#F59E0B] text-[12px] font-semibold rounded-lg">
+              <Clock className="w-3.5 h-3.5" />
+              Report Queued
+            </div>
+          ) : card.report_status === 'failed' ? (
+            <div className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#1C0813] border border-[#881337] text-[#F43F5E] text-[12px] font-semibold rounded-lg">
+              <XCircle className="w-3.5 h-3.5" />
+              Report Failed
+            </div>
+          ) : null}
           {card.assessment_id && (
             <button
               onClick={() => navigate(`/recruiter/assessments/${card.assessment_id}`)}
@@ -731,6 +748,7 @@ export default function PipelineScreen() {
   const [error, setError] = useState('');
   const [selectedAssessment, setSelectedAssessment] = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
+  const pollRef = useRef(null);
 
   const loadPipeline = useCallback(async (assessmentId) => {
     setLoading(true); setError('');
@@ -763,6 +781,34 @@ export default function PipelineScreen() {
 
   useEffect(() => { loadPipeline(selectedAssessment); }, [selectedAssessment]);
   useEffect(() => { loadNeeds(selectedAssessment); }, [selectedAssessment]);
+
+  // Poll while any card has in-progress report or non-final status
+  useEffect(() => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    const allCards = [
+      ...Object.values(pipeline?.columns || {}).flat(),
+      ...(pipeline?.trays?.in_flight || []),
+    ];
+    const needsPoll = allCards.some(
+      c => c.report_status === 'pending' || c.report_status === 'processing' ||
+           c.status === 'Invited' || c.status === 'In Progress'
+    );
+    if (needsPoll && selectedAssessment) {
+      pollRef.current = setInterval(async () => {
+        const res = await getPipeline(selectedAssessment).catch(() => null);
+        if (res) {
+          const data = res.data || res;
+          setPipeline(data);
+          if (selectedCard) {
+            const allUpdated = [...Object.values(data.columns || {}).flat(), ...(data.trays?.in_flight || [])];
+            const updated = allUpdated.find(c => c.id === selectedCard.id);
+            if (updated) setSelectedCard(updated);
+          }
+        }
+      }, PIPELINE_POLL_MS);
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [pipeline, selectedAssessment, selectedCard]);
 
   const handleAssessmentSelect = (id) => setSelectedAssessment(id);
 
