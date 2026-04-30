@@ -11,6 +11,7 @@ export default function VerifyCandidateInvite() {
   const [candidateData, setCandidateData] = useState(null)
   const [error, setError] = useState('')
   const [isStarting, setIsStarting] = useState(false)
+  const [isBooting, setIsBooting] = useState(false)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -34,6 +35,9 @@ export default function VerifyCandidateInvite() {
     try {
       const result = await startInviteSession(token)
       if (result?.workspace_url) {
+        // Wait for Theia container to finish booting before redirecting
+        setIsBooting(true)
+        await new Promise(resolve => setTimeout(resolve, 20000))
         window.location.href = result.workspace_url
         return
       }
@@ -133,7 +137,9 @@ export default function VerifyCandidateInvite() {
                 onClick={handleStartAssessment}
                 disabled={isStarting}
               >
-                {isStarting ? (
+                {isBooting ? (
+                  <><Loader className="w-4 h-4 animate-spin" />Preparing workspace...</>
+                ) : isStarting ? (
                   <><Loader className="w-4 h-4 animate-spin" />Starting...</>
                 ) : (
                   <><span>Start Assessment</span><ArrowRight className="w-4 h-4" /></>
