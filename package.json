@@ -4,10 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode local",
     "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "build:dev": "vite build --mode dev",
+    "build:prod": "vite build --mode prod",
+    "preview": "vite preview",
+    "lint": "eslint ."
   },
   "dependencies": {
     "axios": "^1.13.6",
