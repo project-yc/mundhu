@@ -73,10 +73,10 @@ export default function RecruiterDashboard() {
     finally { setStatsLoading(false); }
   };
 
-  const handleCreated = useCallback((newAssessment) => {
-    setAssessments(prev => [...prev, newAssessment]);
-    setSuccess('Assessment created successfully!');
+  const handleCreated = useCallback(() => {
+    fetchAssessments();
     fetchStats();
+    setSuccess('Assessment created successfully!');
     setTimeout(() => setSuccess(''), 4000);
   }, []);
 
