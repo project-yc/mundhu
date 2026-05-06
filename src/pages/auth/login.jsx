@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Lock, LogIn, AlertCircle, CheckCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, CheckCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import Particles from '../../components/particles/Particles';
 
 const loginUser = async (email, password) => {
   try {
@@ -77,6 +78,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -116,121 +118,358 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-navy-50/40 flex items-center justify-center p-4">
-      {/* Left brand panel */}
-      <div className="hidden lg:flex lg:w-1/2 lg:max-w-lg flex-col justify-center pr-16">
-        <div className="w-10 h-10 bg-navy-700 rounded-lg flex items-center justify-center mb-8">
-          <LogIn className="w-5 h-5 text-white" />
-        </div>
-        <h1 className="text-display text-navy-900 mb-3">Welcome back to <br />mundhu</h1>
-        <p className="text-sm text-navy-800/50 leading-relaxed max-w-sm">
-          Sign in to manage your recruitment assessments, invite candidates, and track progress.
-        </p>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+        .login-root {
+          font-family: 'Inter', sans-serif;
+        }
+
+        @keyframes card-rise {
+          from { opacity: 0; transform: translateY(24px) scale(0.98); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes fade-in {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        .card-rise { animation: card-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        .fade-in   { animation: fade-in 0.8s ease both; }
+
+        .glass-card {
+          background: rgba(12, 12, 15, 0.72);
+          backdrop-filter: blur(20px) saturate(160%);
+          -webkit-backdrop-filter: blur(20px) saturate(160%);
+          border: 1px solid rgba(255,255,255,0.07);
+          box-shadow:
+            0 0 0 1px rgba(6,182,212,0.06),
+            0 24px 64px rgba(0,0,0,0.6),
+            0 8px 24px rgba(0,0,0,0.4);
+        }
+
+        .login-input {
+          width: 100%;
+          padding: 0.65rem 0.875rem 0.65rem 2.6rem;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 10px;
+          font-size: 0.875rem;
+          color: #F4F4F5;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+          outline: none;
+          font-family: 'Inter', sans-serif;
+          letter-spacing: 0.01em;
+        }
+        .login-input::placeholder { color: #3F3F46; }
+        .login-input:hover  {
+          border-color: rgba(255,255,255,0.14);
+          background: rgba(255,255,255,0.06);
+        }
+        .login-input:focus  {
+          border-color: rgba(6,182,212,0.5);
+          background: rgba(6,182,212,0.04);
+          box-shadow: 0 0 0 3px rgba(6,182,212,0.1), inset 0 0 0 1px rgba(6,182,212,0.08);
+        }
+        .login-input.password-input {
+          padding-right: 2.75rem;
+        }
+
+        .login-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          padding: 0.7rem 1rem;
+          background: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%);
+          border: none;
+          border-radius: 10px;
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: #030712;
+          cursor: pointer;
+          letter-spacing: 0.02em;
+          transition: opacity 0.15s ease, box-shadow 0.2s ease, transform 0.1s ease;
+          font-family: 'Inter', sans-serif;
+          position: relative;
+          overflow: hidden;
+        }
+        .login-btn::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+          pointer-events: none;
+        }
+        .login-btn:hover:not(:disabled) {
+          box-shadow: 0 0 0 1px rgba(6,182,212,0.3), 0 8px 24px rgba(6,182,212,0.3);
+          opacity: 0.92;
+        }
+        .login-btn:active:not(:disabled) { transform: scale(0.99); }
+        .login-btn:disabled {
+          opacity: 0.35;
+          cursor: not-allowed;
+        }
+
+        .toggle-pw {
+          position: absolute;
+          right: 0.75rem;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          color: #52525B;
+          display: flex;
+          align-items: center;
+          transition: color 0.15s ease;
+        }
+        .toggle-pw:hover { color: #A1A1AA; }
+
+        .brand-mark {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 0 20px rgba(6,182,212,0.35);
+          flex-shrink: 0;
+        }
+
+        .separator {
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+        }
+
+        .status-banner {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.625rem;
+          padding: 0.625rem 0.875rem;
+          border-radius: 8px;
+          font-size: 0.8125rem;
+          line-height: 1.5;
+        }
+      `}</style>
+
+      {/* Full-screen particles layer */}
+      <div style={{ position: 'fixed', inset: 0, background: '#080A0E', zIndex: 0 }}>
+        <Particles
+          particleColors={['#06B6D4', '#22D3EE', '#7DD3FC', '#ffffff']}
+          particleCount={180}
+          particleSpread={9}
+          speed={0.04}
+          particleBaseSize={72}
+          sizeRandomness={1.2}
+          alphaParticles={true}
+          moveParticlesOnHover={true}
+          particleHoverFactor={0.6}
+          disableRotation={false}
+          cameraDistance={20}
+          pixelRatio={typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2) : 1}
+        />
+
+        {/* radial vignette — keeps the center dimmer so card pops */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(ellipse 70% 70% at 50% 50%, transparent 20%, rgba(8,10,14,0.75) 100%)',
+          pointerEvents: 'none',
+        }} />
+
+        {/* top glow bloom */}
+        <div style={{
+          position: 'absolute',
+          top: '-10%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '600px',
+          height: '300px',
+          background: 'radial-gradient(ellipse, rgba(6,182,212,0.07) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
       </div>
 
-      {/* Login card */}
-      <div className="w-full max-w-sm">
-        <div className="bg-white border border-navy-900/8 rounded-card shadow-elevated p-8">
-          {/* Mobile header */}
-          <div className="lg:hidden mb-6">
-            <div className="w-9 h-9 bg-navy-700 rounded-lg flex items-center justify-center mb-4">
-              <LogIn className="w-4 h-4 text-white" />
+      {/* Page content */}
+      <div
+        className="login-root min-h-screen flex items-center justify-center p-6"
+        style={{ position: 'relative', zIndex: 1 }}
+      >
+        <div className="card-rise w-full max-w-sm">
+
+          {/* Brand header */}
+          <div className="fade-in mb-8 text-center" style={{ animationDelay: '0.1s' }}>
+            <div className="inline-flex items-center justify-center mb-5">
+              <span style={{
+                fontFamily: "'Space Mono', monospace",
+                fontWeight: 700,
+                fontSize: '1.75rem',
+                color: '#F4F4F5',
+                letterSpacing: '-0.04em',
+                lineHeight: 1,
+              }}>
+                tru<span style={{ color: '#06B6D4' }}>dev</span><span style={{ color: '#22D3EE', opacity: 0.6 }}>_</span>
+              </span>
             </div>
-            <h1 className="text-lg font-bold text-navy-900">Sign in</h1>
-            <p className="text-sm text-navy-800/50 mt-1">Continue to your dashboard</p>
+
+            <h1 style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: '1.25rem', color: '#E4E4E7', letterSpacing: '-0.02em', marginBottom: '0.375rem' }}>
+              Welcome back
+            </h1>
+            <p style={{ fontSize: '0.875rem', color: '#52525B', letterSpacing: '0.01em' }}>
+              Sign in to continue to your workspace
+            </p>
           </div>
 
-          {/* Desktop header */}
-          <div className="hidden lg:block mb-6">
-            <h2 className="text-base font-semibold text-navy-900">Sign in to your account</h2>
+          {/* Beta pill */}
+          <div className="fade-in flex justify-center mb-6" style={{ animationDelay: '0.15s' }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+              fontFamily: "'Space Mono', monospace",
+              fontSize: '0.6875rem',
+              fontWeight: 400,
+              padding: '0.3rem 0.875rem', borderRadius: '4px',
+              background: 'rgba(6,182,212,0.06)',
+              border: '1px solid rgba(6,182,212,0.14)',
+              color: '#22D3EE',
+              letterSpacing: '0.04em',
+            }}>
+              <span style={{
+                width: '5px', height: '5px', borderRadius: '50%',
+                background: '#06B6D4',
+                boxShadow: '0 0 6px rgba(6,182,212,0.9)',
+                flexShrink: 0,
+              }} />
+              beta / invited_only
+            </span>
           </div>
 
-          <div className="space-y-4">
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-navy-900 mb-1.5">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-800/30" />
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                  className="input-field pl-10"
-                />
-              </div>
-            </div>
+          {/* Glass card */}
+          <div className="glass-card rounded-2xl p-7" style={{ animationDelay: '0.2s' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
 
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-navy-900 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-800/30" />
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="input-field pl-10"
-                />
+              {/* Email field */}
+              <div>
+                <label htmlFor="email" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 500, color: '#A1A1AA', marginBottom: '0.5rem', letterSpacing: '0.02em' }}>
+                  Email address
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Mail style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', width: '15px', height: '15px', color: '#3F3F46', pointerEvents: 'none' }} />
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    required
+                    className="login-input"
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Error */}
-            {error && (
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-rose-50 border border-rose-200/60 rounded-lg animate-fadeIn">
-                <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
-                <p className="text-xs text-rose-700 font-medium">{error}</p>
+              {/* Password field */}
+              <div>
+                <label htmlFor="password" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 500, color: '#A1A1AA', marginBottom: '0.5rem', letterSpacing: '0.02em' }}>
+                  Password
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Lock style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', width: '15px', height: '15px', color: '#3F3F46', pointerEvents: 'none' }} />
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="login-input password-input"
+                  />
+                  <button
+                    type="button"
+                    className="toggle-pw"
+                    onClick={() => setShowPassword(v => !v)}
+                    tabIndex={-1}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword
+                      ? <EyeOff style={{ width: '15px', height: '15px' }} />
+                      : <Eye style={{ width: '15px', height: '15px' }} />}
+                  </button>
+                </div>
               </div>
-            )}
 
-            {/* Success */}
-            {success && (
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-emerald-50 border border-emerald-200/60 rounded-lg animate-fadeIn">
-                <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                <p className="text-xs text-emerald-700 font-medium">{success}</p>
-              </div>
-            )}
-
-            {/* Submit */}
-            <button
-              onClick={handleSubmit}
-              disabled={loading}
-              className="btn-primary w-full justify-center mt-1"
-            >
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-4 h-4" />
-                  Sign In
-                </>
+              {/* Error banner */}
+              {error && (
+                <div
+                  className="status-banner"
+                  style={{ background: 'rgba(244,63,94,0.07)', border: '1px solid rgba(244,63,94,0.16)', color: '#FDA4AF' }}
+                >
+                  <AlertCircle style={{ width: '14px', height: '14px', marginTop: '1px', flexShrink: 0, color: '#F43F5E' }} />
+                  <span>{error}</span>
+                </div>
               )}
-            </button>
+
+              {/* Success banner */}
+              {success && (
+                <div
+                  className="status-banner"
+                  style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.16)', color: '#6EE7B7' }}
+                >
+                  <CheckCircle style={{ width: '14px', height: '14px', marginTop: '1px', flexShrink: 0, color: '#10B981' }} />
+                  <span>{success}</span>
+                </div>
+              )}
+
+              <div className="separator" />
+
+              {/* Submit */}
+              <button onClick={handleSubmit} disabled={loading} className="login-btn">
+                {loading ? (
+                  <>
+                    <div style={{
+                      width: '14px', height: '14px', borderRadius: '50%',
+                      border: '2px solid rgba(3,7,18,0.25)',
+                      borderTopColor: '#030712',
+                      animation: 'spin 0.7s linear infinite',
+                    }} />
+                    Signing in…
+                  </>
+                ) : (
+                  <>
+                    Sign in
+                    <ArrowRight style={{ width: '14px', height: '14px' }} />
+                  </>
+                )}
+              </button>
+
+            </div>
           </div>
 
           {/* Footer */}
-          <div className="mt-6 pt-5 border-t border-navy-900/6">
-            <p className="text-center text-xs text-navy-800/40">
-              Don't have an account?{' '}
-              <Link to="/signup" className="text-navy-700 font-semibold hover:text-navy-900 transition-colors">
-                Sign up
-              </Link>
-            </p>
-          </div>
+          <p className="fade-in mt-6 text-center" style={{ fontSize: '0.8125rem', color: '#3F3F46', animationDelay: '0.3s' }}>
+            Don&apos;t have an account?{' '}
+            <Link
+              to="/waitlist"
+              style={{ color: '#71717A', fontWeight: 500, transition: 'color 0.15s ease', textDecoration: 'none' }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#E4E4E7'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#71717A'; }}
+            >
+              Request access
+            </Link>
+          </p>
+
+          <p className="fade-in mt-4 text-center" style={{ fontSize: '0.75rem', color: '#27272A', animationDelay: '0.35s' }}>
+            © 2026 TruDev
+          </p>
+
         </div>
       </div>
-    </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
+    </>
   );
 }

@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import './App.css'
 import LoginPage from './pages/auth/login'
 import SignupPage from './pages/auth/signup'
+import WaitlistPage from './pages/auth/waitlist'
 import RecruiterDashboard from './pages/recruiter/RecruiterDashboard'
 import AssessmentDetailScreen from './pages/recruiter/AssessmentDetailScreen'
 import RecruiterLayout from './pages/recruiter/RecruiterLayout'
@@ -41,6 +42,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/waitlist" element={<WaitlistPage />} />
         <Route 
           path="/admin" 
           element={
