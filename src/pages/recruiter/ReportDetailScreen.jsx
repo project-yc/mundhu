@@ -10,9 +10,9 @@ import { getSessionReport } from '../../api/recruiter/assessment.jsx';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const SIGNAL_CFG = {
-  green:  { color: '#10B981', bg: '#022C22', border: '#065F46', icon: CheckCircle,    label: 'Strong'   },
-  yellow: { color: '#F59E0B', bg: '#1C150A', border: '#78350F', icon: AlertTriangle,  label: 'Moderate' },
-  red:    { color: '#F43F5E', bg: '#1C0813', border: '#881337', icon: XCircle,        label: 'Weak'     },
+  green:  { color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC', icon: CheckCircle,    label: 'Strong'   },
+  yellow: { color: '#D97706', bg: '#FFFBEB', border: '#FCD34D', icon: AlertTriangle,  label: 'Moderate' },
+  red:    { color: '#DC2626', bg: '#FEF2F2', border: '#FCA5A5', icon: XCircle,        label: 'Weak'     },
 };
 
 const SUBSCORE_LABELS = {
@@ -27,7 +27,7 @@ function formatSubscoreLabel(key) {
 }
 
 function SignalCard({ label, signal, score, summary, subscores, icon: Icon }) {
-  const cfg = SIGNAL_CFG[signal] || { color: '#52525B', bg: '#17171A', border: '#27272A', icon: Target, label: 'N/A' };
+  const cfg = SIGNAL_CFG[signal] || { color: '#64748B', bg: '#F1F5F9', border: '#E2E8F0', icon: Target, label: 'N/A' };
   const SigIcon = cfg.icon;
   const subscoreEntries = subscores && typeof subscores === 'object'
     ? Object.entries(subscores).filter(([, v]) => typeof v === 'number')
@@ -37,7 +37,7 @@ function SignalCard({ label, signal, score, summary, subscores, icon: Icon }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Icon className="w-4 h-4" style={{ color: cfg.color }} />
-          <span className="text-[12px] font-bold text-[#E4E4E7]">{label}</span>
+          <span className="text-[12px] font-bold text-text-primary">{label}</span>
         </div>
         <div className="flex items-center gap-2">
           {score !== undefined && score !== null && (
@@ -49,13 +49,13 @@ function SignalCard({ label, signal, score, summary, subscores, icon: Icon }) {
           </span>
         </div>
       </div>
-      {summary && <p className="text-[12px] text-[#A1A1AA] leading-relaxed">{summary}</p>}
+      {summary && <p className="text-[12px] text-text-secondary leading-relaxed">{summary}</p>}
       {subscoreEntries.length > 0 && (
-        <div className="pt-2 mt-2 border-t border-[#27272A]/60 grid grid-cols-2 gap-x-4 gap-y-1">
+        <div className="pt-2 mt-2 border-t border-border-default/60 grid grid-cols-2 gap-x-4 gap-y-1">
           {subscoreEntries.map(([key, value]) => (
             <div key={key} className="flex items-center justify-between text-[11px]">
-              <span className="text-[#71717A]">{formatSubscoreLabel(key)}</span>
-              <span className="font-mono text-[#E4E4E7]">{value}<span className="text-[#52525B]">/100</span></span>
+              <span className="text-text-secondary">{formatSubscoreLabel(key)}</span>
+              <span className="font-mono text-text-primary">{value}<span className="text-text-secondary">/100</span></span>
             </div>
           ))}
         </div>
@@ -64,23 +64,23 @@ function SignalCard({ label, signal, score, summary, subscores, icon: Icon }) {
   );
 }
 
-function Section({ title, icon: Icon, color = '#06B6D4', defaultOpen = false, children }) {
+function Section({ title, icon: Icon, color = '#22D3EE', defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-xl border border-[#27272A] overflow-hidden">
+    <div className="rounded-xl border border-border-default overflow-hidden">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-5 py-4 bg-[#111113] hover:bg-[#17171A] transition-colors"
+        className="w-full flex items-center justify-between px-5 py-4 bg-surface hover:bg-surface-muted transition-colors"
       >
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}15`, border: `1px solid ${color}30` }}>
             <Icon className="w-3.5 h-3.5" style={{ color }} />
           </div>
-          <span className="text-[13px] font-bold text-[#E4E4E7]">{title}</span>
+          <span className="text-[13px] font-bold text-text-primary">{title}</span>
         </div>
-        {open ? <ChevronUp className="w-4 h-4 text-[#52525B]" /> : <ChevronDown className="w-4 h-4 text-[#52525B]" />}
+        {open ? <ChevronUp className="w-4 h-4 text-text-secondary" /> : <ChevronDown className="w-4 h-4 text-text-secondary" />}
       </button>
-      {open && <div className="p-5 border-t border-[#27272A] bg-[#0C0C0E]">{children}</div>}
+      {open && <div className="p-5 border-t border-border-default bg-page">{children}</div>}
     </div>
   );
 }
@@ -114,18 +114,18 @@ export default function ReportDetailScreen() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-full min-h-[400px]">
-      <Loader className="w-6 h-6 text-[#06B6D4] animate-spin" />
+      <Loader className="w-6 h-6 text-brand animate-spin" />
     </div>
   );
 
   if (error) return (
     <div className="p-6 max-w-[900px] mx-auto">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[13px] text-[#52525B] hover:text-[#A1A1AA] mb-6 transition-colors">
+      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[13px] text-text-secondary hover:text-text-secondary mb-6 transition-colors">
         <ArrowLeft className="w-4 h-4" />Back
       </button>
-      <div className="flex items-center gap-3 px-4 py-3 bg-[#1C0813] border border-[#881337] rounded-xl">
-        <AlertCircle className="w-4 h-4 text-[#F43F5E] flex-shrink-0" />
-        <p className="text-[13px] text-[#F43F5E]">{error}</p>
+      <div className="flex items-center gap-3 px-4 py-3 bg-error-bg border border-error-border rounded-xl">
+        <AlertCircle className="w-4 h-4 text-error flex-shrink-0" />
+        <p className="text-[13px] text-error">{error}</p>
       </div>
     </div>
   );
@@ -141,41 +141,41 @@ export default function ReportDetailScreen() {
   const probes = report.interview_probes   || [];
   const growth = report.growth_edges       || [];
 
-  const overallColor = report.overall_score >= 75 ? '#10B981' : report.overall_score >= 50 ? '#F59E0B' : '#F43F5E';
+  const overallColor = report.overall_score >= 75 ? '#16A34A' : report.overall_score >= 50 ? '#D97706' : '#DC2626';
 
   return (
     <div className="p-6 max-w-[900px] mx-auto space-y-6">
       {/* Top bar */}
       <div className="flex items-center justify-between">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[13px] text-[#52525B] hover:text-[#A1A1AA] transition-colors">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[13px] text-text-secondary hover:text-text-secondary transition-colors">
           <ArrowLeft className="w-4 h-4" />Back to Candidates
         </button>
         <button
           onClick={() => downloadReport(report, '')}
-          className="flex items-center gap-2 px-3.5 py-2 bg-[#111113] border border-[#27272A] text-[#A1A1AA] text-[12px] font-semibold rounded-lg hover:border-[#3F3F46] hover:text-[#E4E4E7] transition-all"
+          className="flex items-center gap-2 px-3.5 py-2 bg-surface border border-border-default text-text-secondary text-[12px] font-semibold rounded-lg hover:border-border-strong hover:text-text-primary transition-all"
         >
           <Download className="w-3.5 h-3.5" />Download JSON
         </button>
       </div>
 
       {/* Hero score card */}
-      <div className="rounded-2xl border border-[#27272A] bg-[#111113] p-6">
+      <div className="rounded-2xl border border-border-default bg-surface p-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-[11px] font-semibold text-[#52525B] uppercase tracking-[0.14em] mb-2">Overall Score</p>
+            <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-[0.14em] mb-2">Overall Score</p>
             <div className="flex items-end gap-3">
               <span className="text-[56px] font-bold leading-none font-display" style={{ color: overallColor }}>
                 {report.overall_score ?? '—'}
               </span>
-              <span className="text-[18px] text-[#3F3F46] mb-2 font-display">/100</span>
+              <span className="text-[18px] text-text-muted mb-2 font-display">/100</span>
             </div>
-            <p className="text-[13px] text-[#52525B] mt-1">Session ID: <span className="text-[#3F3F46] font-mono text-[11px]">{sessionId}</span></p>
+            <p className="text-[13px] text-text-secondary mt-1">Session ID: <span className="text-text-muted font-mono text-[11px]">{sessionId}</span></p>
           </div>
           <div className="flex flex-col items-end gap-2">
             <span className={`px-3 py-1.5 rounded-xl text-[12px] font-bold border ${
-              report.status === 'completed' ? 'bg-[#022C22] border-[#065F46] text-[#10B981]' : 'bg-[#1C150A] border-[#78350F] text-[#F59E0B]'
+              report.status === 'completed' ? 'bg-success-bg border-success-border text-success' : 'bg-warning-bg border-warning-border text-warning'
             }`}>{(report.status || 'pending').toUpperCase()}</span>
-            {report.no_verdict && <span className="text-[11px] text-[#52525B]">Evidence-based · No auto-verdict</span>}
+            {report.no_verdict && <span className="text-[11px] text-text-secondary">Evidence-based · No auto-verdict</span>}
           </div>
         </div>
       </div>
@@ -188,9 +188,9 @@ export default function ReportDetailScreen() {
         {ai ? (
           <SignalCard label="AI Collaboration" signal={ai.signal} score={ai.score} summary={ai.summary} subscores={ai.subscores} icon={MessageSquare} />
         ) : (
-          <div className="rounded-xl border border-[#27272A] p-4 bg-[#111113] flex items-center gap-3">
-            <MessageSquare className="w-4 h-4 text-[#3F3F46]" />
-            <span className="text-[12px] text-[#3F3F46]">AI was disabled for this session</span>
+          <div className="rounded-xl border border-border-default p-4 bg-surface flex items-center gap-3">
+            <MessageSquare className="w-4 h-4 text-text-muted" />
+            <span className="text-[12px] text-text-muted">AI was disabled for this session</span>
           </div>
         )}
       </div>
@@ -200,13 +200,13 @@ export default function ReportDetailScreen() {
         <Section title="Behavioral Evidence" icon={TrendingUp} color="#10B981" defaultOpen>
           <div className="space-y-3">
             {bev.map((ev, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-[#111113] border border-[#27272A]">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#06B6D4] flex-shrink-0 mt-2" />
+              <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-surface border border-border-default">
+                <div className="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0 mt-2" />
                 <div className="min-w-0">
                   {ev.dimension && (
-                    <span className="text-[10px] font-semibold text-[#52525B] uppercase tracking-wider block mb-0.5">{ev.dimension.replace(/_/g, ' ')}</span>
+                    <span className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider block mb-0.5">{ev.dimension.replace(/_/g, ' ')}</span>
                   )}
-                  <p className="text-[13px] text-[#E4E4E7] leading-relaxed">{ev.observation}</p>
+                  <p className="text-[13px] text-text-primary leading-relaxed">{ev.observation}</p>
                 </div>
               </div>
             ))}
@@ -221,21 +221,21 @@ export default function ReportDetailScreen() {
             {growth.map((g, i) => {
               const isObj = g && typeof g === 'object';
               return (
-                <div key={i} className="p-3 rounded-xl bg-[#1C150A] border border-[#78350F]/40 space-y-2">
+                <div key={i} className="p-3 rounded-xl bg-warning-bg border border-warning-border/40 space-y-2">
                   <div className="flex items-start gap-3">
-                    <span className="w-5 h-5 rounded-full bg-[#78350F]/40 text-[#F59E0B] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                    <p className="text-[13px] text-[#E4E4E7] leading-relaxed">{isObj ? g.moment : g}</p>
+                    <span className="w-5 h-5 rounded-full bg-[#78350F]/40 text-warning text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                    <p className="text-[13px] text-text-primary leading-relaxed">{isObj ? g.moment : g}</p>
                   </div>
                   {isObj && g.alternative && (
                     <div className="ml-8 space-y-1">
                       <p className="text-[10px] font-semibold text-[#78350F] uppercase tracking-wider">Better approach</p>
-                      <p className="text-[12px] text-[#A1A1AA] leading-relaxed">{g.alternative}</p>
+                      <p className="text-[12px] text-text-secondary leading-relaxed">{g.alternative}</p>
                     </div>
                   )}
                   {isObj && g.why && (
                     <div className="ml-8 space-y-1">
-                      <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-wider">Why it matters</p>
-                      <p className="text-[12px] text-[#71717A] leading-relaxed">{g.why}</p>
+                      <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider">Why it matters</p>
+                      <p className="text-[12px] text-text-secondary leading-relaxed">{g.why}</p>
                     </div>
                   )}
                 </div>
@@ -250,9 +250,9 @@ export default function ReportDetailScreen() {
         <Section title="Interview Probes" icon={MessageSquare} color="#A78BFA">
           <div className="space-y-2">
             {probes.map((p, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-[#111113] border border-[#27272A]">
+              <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-surface border border-border-default">
                 <span className="text-[11px] font-bold text-[#A78BFA] flex-shrink-0 mt-0.5">Q{i + 1}</span>
-                <p className="text-[13px] text-[#E4E4E7] leading-relaxed">{p}</p>
+                <p className="text-[13px] text-text-primary leading-relaxed">{p}</p>
               </div>
             ))}
           </div>

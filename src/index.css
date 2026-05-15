@@ -3,6 +3,58 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════
+   GLOBAL THEME TOKENS (CSS variables)
+   Defaults match RECRUITER_PALETTE in src/theme/palette.js.
+   At runtime, RecruiterThemeProvider overrides these for the
+   recruiter app shell (and, if branded, swaps the brand-* family).
+   ═══════════════════════════════════════════════════════ */
+:root {
+  /* Surfaces */
+  --color-page:           #F8FAFC;
+  --color-surface:        #FFFFFF;
+  --color-surface-muted:  #F1F5F9;
+  --color-surface-hover:  #F8FAFC;
+
+  /* Borders */
+  --color-border:         #E2E8F0;
+  --color-border-strong:  #CBD5E1;
+  --color-border-subtle:  #EEF2F6;
+
+  /* Text */
+  --color-text-primary:   #0F172A;
+  --color-text-secondary: #64748B;
+  --color-text-muted:     #94A3B8;
+  --color-text-faint:     #CBD5E1;
+
+  /* Brand accent (overridden per-org at runtime) */
+  --color-brand:           #22D3EE;
+  --color-brand-hover:     #06B6D4;
+  --color-brand-deep:      #0E7490;
+  --color-brand-navy:      #0C4A6E;
+  --color-brand-tint:      #CFFAFE;
+  --color-brand-tint-light:#E0F9FC;
+  --color-brand-border:    #0E7490;
+  --color-on-brand:        #0C4A6E;
+
+  /* Status */
+  --color-success:        #16A34A;
+  --color-success-bg:     #F0FDF4;
+  --color-success-border: #86EFAC;
+
+  --color-warning:        #D97706;
+  --color-warning-bg:     #FFFBEB;
+  --color-warning-border: #FCD34D;
+
+  --color-error:          #DC2626;
+  --color-error-bg:       #FEF2F2;
+  --color-error-border:   #FCA5A5;
+
+  --color-info:           #0E7490;
+  --color-info-bg:        #CFFAFE;
+  --color-info-border:    #67E8F9;
+}
+
+/* ═══════════════════════════════════════════════════════
    MUNDHU — Series A Design System
    Color palette: Navy (#0F2854) / Blue (#1C4D8D) / 
    Accent (#4988C4) / Surface (#BDE8F5)

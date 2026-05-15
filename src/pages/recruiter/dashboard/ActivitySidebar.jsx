@@ -17,9 +17,9 @@ function ActivityFeed({ assessments }) {
   }, [assessments]);
 
   const iconMap = {
-    submitted: { icon: CheckCircle, color: '#10B981' },
-    active:    { icon: Activity,    color: '#F59E0B' },
-    invited:   { icon: Mail,        color: '#06B6D4' },
+    submitted: { icon: CheckCircle, color: '#16A34A' },
+    active:    { icon: Activity,    color: '#D97706' },
+    invited:   { icon: Mail,        color: '#22D3EE' },
   };
   const labelMap = {
     submitted: (n, count) => `${count} candidate${count > 1 ? 's' : ''} submitted in "${n}"`,
@@ -29,23 +29,23 @@ function ActivityFeed({ assessments }) {
 
   if (events.length === 0) return (
     <div className="py-6 text-center">
-      <p className="text-[12px] text-[#3F3F46]">No activity yet.</p>
-      <p className="text-[11px] text-[#27272A] mt-1">Invite candidates to get started.</p>
+      <p className="text-[12px] text-text-muted">No activity yet.</p>
+      <p className="text-[11px] text-text-faint mt-1">Invite candidates to get started.</p>
     </div>
   );
 
   return (
-    <div className="space-y-0 divide-y divide-[#1C1C20]">
+    <div className="space-y-0 divide-y divide-border-subtle">
       {events.map((ev, i) => {
         const { icon: Icon, color } = iconMap[ev.type];
         return (
-          <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-[#111113] transition-colors duration-100">
+          <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-surface transition-colors duration-100">
             <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: `${color}15` }}>
               <Icon className="w-3 h-3" style={{ color }} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[12px] text-[#A1A1AA] leading-snug">{labelMap[ev.type](ev.name, ev.count)}</p>
-              <p className="text-[11px] text-[#3F3F46] mt-0.5">{formatDate(ev.created_at)}</p>
+              <p className="text-[12px] text-text-secondary leading-snug">{labelMap[ev.type](ev.name, ev.count)}</p>
+              <p className="text-[11px] text-text-muted mt-0.5">{formatDate(ev.created_at)}</p>
             </div>
           </div>
         );
@@ -59,19 +59,19 @@ export default function ActivitySidebar({ assessments, metricsData, totalAssessm
     <div className="w-[280px] flex-shrink-0 space-y-4">
 
       {/* Completion rate */}
-      <div className="rounded-xl border border-[#27272A] bg-[#111113] overflow-hidden">
-        <div className="px-4 py-3 border-b border-[#27272A]">
+      <div className="rounded-xl border border-border-default bg-surface overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-default">
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-3.5 h-3.5 text-[#06B6D4]" />
-            <p className="text-[11px] font-bold text-[#E4E4E7] uppercase tracking-[0.12em]">Completion Rate</p>
+            <TrendingUp className="w-3.5 h-3.5 text-brand" />
+            <p className="text-[11px] font-bold text-text-primary uppercase tracking-[0.12em]">Completion Rate</p>
           </div>
         </div>
         <div className="p-4 space-y-3">
           {[
-            { label: 'Invited',   key: 'invited',     color: '#06B6D4' },
-            { label: 'Started',   key: 'in_progress', color: '#F59E0B' },
-            { label: 'Submitted', key: 'submitted',   color: '#10B981' },
-            { label: 'Expired',   key: 'expired',     color: '#3F3F46' },
+            { label: 'Invited',   key: 'invited',     color: '#22D3EE' },
+            { label: 'Started',   key: 'in_progress', color: '#D97706' },
+            { label: 'Submitted', key: 'submitted',   color: '#16A34A' },
+            { label: 'Expired',   key: 'expired',     color: '#CBD5E1' },
           ].map(({ label, key, color }) => {
             const val = metricsData[key] || 0;
             const total = metricsData.total || 1;
@@ -79,37 +79,37 @@ export default function ActivitySidebar({ assessments, metricsData, totalAssessm
             return (
               <div key={key}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] text-[#A1A1AA]">{label}</span>
-                  <span className="text-[11px] font-bold text-[#E4E4E7]">{val} <span className="font-normal text-[#52525B]">({pct}%)</span></span>
+                  <span className="text-[11px] text-text-secondary">{label}</span>
+                  <span className="text-[11px] font-bold text-text-primary">{val} <span className="font-normal text-text-secondary">({pct}%)</span></span>
                 </div>
-                <div className="h-1 bg-[#1C1C20] rounded-full overflow-hidden">
+                <div className="h-1 bg-surface-muted rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: color }} />
                 </div>
               </div>
             );
           })}
           {metricsData.total === 0 && (
-            <p className="text-[12px] text-[#3F3F46] text-center py-2">No candidates yet.</p>
+            <p className="text-[12px] text-text-muted text-center py-2">No candidates yet.</p>
           )}
         </div>
       </div>
 
       {/* Assessment health */}
-      <div className="rounded-xl border border-[#27272A] bg-[#111113] overflow-hidden">
-        <div className="px-4 py-3 border-b border-[#27272A]">
+      <div className="rounded-xl border border-border-default bg-surface overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-default">
           <div className="flex items-center gap-2">
-            <UserCheck className="w-3.5 h-3.5 text-[#06B6D4]" />
-            <p className="text-[11px] font-bold text-[#E4E4E7] uppercase tracking-[0.12em]">Assessment Health</p>
+            <UserCheck className="w-3.5 h-3.5 text-brand" />
+            <p className="text-[11px] font-bold text-text-primary uppercase tracking-[0.12em]">Assessment Health</p>
           </div>
         </div>
         <div className="p-4 space-y-2">
           {[
-            { label: 'Ready to send',   value: readyAssessments,                                                              color: '#10B981' },
-            { label: 'Need a task',     value: totalAssessments - readyAssessments,                                           color: '#F59E0B' },
-            { label: 'Have candidates', value: assessments.filter(a => (a.candidate_counts?.total || 0) > 0).length,         color: '#06B6D4' },
+            { label: 'Ready to send',   value: readyAssessments,                                                              color: '#16A34A' },
+            { label: 'Need a task',     value: totalAssessments - readyAssessments,                                           color: '#D97706' },
+            { label: 'Have candidates', value: assessments.filter(a => (a.candidate_counts?.total || 0) > 0).length,         color: '#22D3EE' },
           ].map(({ label, value, color }) => (
-            <div key={label} className="flex items-center justify-between py-1.5 border-b border-[#1C1C20] last:border-0">
-              <span className="text-[12px] text-[#A1A1AA]">{label}</span>
+            <div key={label} className="flex items-center justify-between py-1.5 border-b border-border-subtle last:border-0">
+              <span className="text-[12px] text-text-secondary">{label}</span>
               <span className="text-[13px] font-bold font-display" style={{ color }}>{value}</span>
             </div>
           ))}
@@ -117,11 +117,11 @@ export default function ActivitySidebar({ assessments, metricsData, totalAssessm
       </div>
 
       {/* Activity feed */}
-      <div className="rounded-xl border border-[#27272A] bg-[#111113] overflow-hidden">
-        <div className="px-4 py-3 border-b border-[#27272A]">
+      <div className="rounded-xl border border-border-default bg-surface overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-default">
           <div className="flex items-center gap-2">
-            <Activity className="w-3.5 h-3.5 text-[#06B6D4]" />
-            <p className="text-[11px] font-bold text-[#E4E4E7] uppercase tracking-[0.12em]">Activity</p>
+            <Activity className="w-3.5 h-3.5 text-brand" />
+            <p className="text-[11px] font-bold text-text-primary uppercase tracking-[0.12em]">Activity</p>
           </div>
         </div>
         <ActivityFeed assessments={assessments} />

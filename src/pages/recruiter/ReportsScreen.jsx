@@ -15,10 +15,10 @@ function getInitials(name) {
 }
 
 function ScorePill({ score }) {
-  if (score === null || score === undefined) return <span className="text-[11px] text-[#3F3F46]">—</span>;
-  const color = score >= 75 ? '#10B981' : score >= 50 ? '#F59E0B' : '#F43F5E';
-  const bg    = score >= 75 ? '#022C22' : score >= 50 ? '#1C150A' : '#1C0813';
-  const border= score >= 75 ? '#065F46' : score >= 50 ? '#78350F' : '#881337';
+  if (score === null || score === undefined) return <span className="text-[11px] text-text-muted">—</span>;
+  const color = score >= 75 ? '#16A34A' : score >= 50 ? '#D97706' : '#DC2626';
+  const bg    = score >= 75 ? '#F0FDF4' : score >= 50 ? '#FFFBEB' : '#FEF2F2';
+  const border= score >= 75 ? '#86EFAC' : score >= 50 ? '#FCD34D' : '#FCA5A5';
   return (
     <span className="inline-flex items-center text-[12px] font-bold px-2.5 py-1 rounded-lg font-display"
       style={{ color, backgroundColor: bg, border: `1px solid ${border}` }}>
@@ -27,24 +27,24 @@ function ScorePill({ score }) {
   );
 }
 
-const SIGNAL_COLORS = { green: '#10B981', yellow: '#F59E0B', red: '#F43F5E' };
+const SIGNAL_COLORS = { green: '#16A34A', yellow: '#D97706', red: '#DC2626' };
 function SignalDot({ signal }) {
-  return <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: SIGNAL_COLORS[signal] || '#3F3F46' }} />;
+  return <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: SIGNAL_COLORS[signal] || '#CBD5E1' }} />;
 }
 
 function SortIcon({ col, sortBy, sortDir }) {
   if (sortBy !== col) return <ChevronDown className="w-3 h-3 opacity-20" />;
   return sortDir === 'desc'
-    ? <ChevronDown className="w-3 h-3 text-[#06B6D4]" />
-    : <ChevronUp className="w-3 h-3 text-[#06B6D4]" />;
+    ? <ChevronDown className="w-3 h-3 text-brand" />
+    : <ChevronUp className="w-3 h-3 text-brand" />;
 }
 
 const REPORT_STATUS_CFG = {
-  not_requested: { label: 'Not started',     color: '#52525B', bg: '#17171A', border: '#27272A' },
-  pending:       { label: 'Queued',           color: '#F59E0B', bg: '#1C150A', border: '#78350F' },
-  processing:    { label: 'Generating…',      color: '#06B6D4', bg: '#083344', border: '#0E7490' },
-  completed:     { label: 'Ready',            color: '#10B981', bg: '#022C22', border: '#065F46' },
-  failed:        { label: 'Failed',           color: '#F43F5E', bg: '#1C0813', border: '#881337' },
+  not_requested: { label: 'Not started',     color: '#64748B', bg: '#F1F5F9', border: '#E2E8F0' },
+  pending:       { label: 'Queued',           color: '#D97706', bg: '#FFFBEB', border: '#FCD34D' },
+  processing:    { label: 'Generating…',      color: '#22D3EE', bg: '#CFFAFE', border: '#0E7490' },
+  completed:     { label: 'Ready',            color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC' },
+  failed:        { label: 'Failed',           color: '#DC2626', bg: '#FEF2F2', border: '#FCA5A5' },
 };
 
 function ReportStatusBadge({ status }) {
@@ -161,13 +161,13 @@ export default function ReportsScreen() {
     <div className="p-6 max-w-[1100px] mx-auto">
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-[20px] font-bold text-[#FAFAFA] font-display tracking-tight">Reports</h1>
-          <p className="text-[13px] text-[#52525B] mt-0.5">Candidate assessment reports — scored and ranked by performance.</p>
+          <h1 className="text-[20px] font-bold text-text-primary font-display tracking-tight">Reports</h1>
+          <p className="text-[13px] text-text-secondary mt-0.5">Candidate assessment reports — scored and ranked by performance.</p>
         </div>
         {pendingCount > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1C150A] border border-[#78350F] rounded-lg">
-            <Loader className="w-3 h-3 text-[#F59E0B] animate-spin" />
-            <span className="text-[11px] font-semibold text-[#F59E0B]">{pendingCount} generating…</span>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-warning-bg border border-warning-border rounded-lg">
+            <Loader className="w-3 h-3 text-warning animate-spin" />
+            <span className="text-[11px] font-semibold text-warning">{pendingCount} generating…</span>
           </div>
         )}
       </div>
@@ -175,38 +175,38 @@ export default function ReportsScreen() {
       {/* Assessment selector */}
       <div className="mb-5">
         {assLoading ? (
-          <div className="flex items-center gap-2 text-[13px] text-[#52525B]"><Loader className="w-3.5 h-3.5 animate-spin" />Loading…</div>
+          <div className="flex items-center gap-2 text-[13px] text-text-secondary"><Loader className="w-3.5 h-3.5 animate-spin" />Loading…</div>
         ) : (
-          <div className="flex items-center gap-2 px-3 py-2 bg-[#111113] border border-[#27272A] rounded-lg w-fit">
-            <Filter className="w-3.5 h-3.5 text-[#52525B]" />
+          <div className="flex items-center gap-2 px-3 py-2 bg-surface border border-border-default rounded-lg w-fit">
+            <Filter className="w-3.5 h-3.5 text-text-secondary" />
             <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
-              className="bg-transparent text-[13px] text-[#E4E4E7] focus:outline-none cursor-pointer min-w-[220px]">
-              {assessments.map(a => <option key={a.id} value={a.id} className="bg-[#111113]">{a.name}</option>)}
+              className="bg-transparent text-[13px] text-text-primary focus:outline-none cursor-pointer min-w-[220px]">
+              {assessments.map(a => <option key={a.id} value={a.id} className="bg-surface">{a.name}</option>)}
             </select>
           </div>
         )}
       </div>
 
       {error && (
-        <div className="mb-5 flex items-center gap-3 px-4 py-3 bg-[#1C0813] border border-[#881337] rounded-xl">
-          <AlertCircle className="w-4 h-4 text-[#F43F5E] flex-shrink-0" />
-          <p className="text-[13px] text-[#F43F5E]">{error}</p>
+        <div className="mb-5 flex items-center gap-3 px-4 py-3 bg-error-bg border border-error-border rounded-xl">
+          <AlertCircle className="w-4 h-4 text-error flex-shrink-0" />
+          <p className="text-[13px] text-error">{error}</p>
         </div>
       )}
 
       {/* Stats */}
       {!loading && submitted.length > 0 && (
-        <div className="grid grid-cols-4 gap-px bg-[#27272A] rounded-xl overflow-hidden border border-[#27272A] mb-5">
+        <div className="grid grid-cols-4 gap-px bg-border-default rounded-xl overflow-hidden border border-border-default mb-5">
           {[
-            { label: 'Submitted',    value: submitted.length,    color: '#FAFAFA',  sub: 'total' },
-            { label: 'Reports Ready',value: withReports.length,  color: '#10B981',  sub: 'completed' },
-            { label: 'Generating',   value: pendingCount,        color: '#F59E0B',  sub: 'in progress' },
-            { label: 'Avg Score',    value: avgScore !== null ? avgScore : '—', color: avgScore >= 75 ? '#10B981' : avgScore >= 50 ? '#F59E0B' : '#F43F5E', sub: 'overall' },
+            { label: 'Submitted',    value: submitted.length,    color: '#0F172A',  sub: 'total' },
+            { label: 'Reports Ready',value: withReports.length,  color: '#16A34A',  sub: 'completed' },
+            { label: 'Generating',   value: pendingCount,        color: '#D97706',  sub: 'in progress' },
+            { label: 'Avg Score',    value: avgScore !== null ? avgScore : '—', color: avgScore >= 75 ? '#16A34A' : avgScore >= 50 ? '#D97706' : '#DC2626', sub: 'overall' },
           ].map(({ label, value, color, sub }) => (
-            <div key={label} className="bg-[#0C0C0E] px-5 py-4">
-              <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em] mb-2">{label}</p>
+            <div key={label} className="bg-page px-5 py-4">
+              <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em] mb-2">{label}</p>
               <p className="text-[24px] font-bold leading-none mb-1 font-display" style={{ color }}>{value}</p>
-              <p className="text-[11px] text-[#3F3F46]">{sub}</p>
+              <p className="text-[11px] text-text-muted">{sub}</p>
             </div>
           ))}
         </div>
@@ -214,12 +214,12 @@ export default function ReportsScreen() {
 
       {/* Toolbar */}
       <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <div className="flex items-center gap-2 px-3 py-2 bg-[#111113] border border-[#27272A] rounded-lg flex-1 min-w-[180px] focus-within:border-[#3F3F46]">
-          <Search className="w-3.5 h-3.5 text-[#52525B] flex-shrink-0" />
+        <div className="flex items-center gap-2 px-3 py-2 bg-surface border border-border-default rounded-lg flex-1 min-w-[180px] focus-within:border-border-strong">
+          <Search className="w-3.5 h-3.5 text-text-secondary flex-shrink-0" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports…"
-            className="flex-1 bg-transparent text-[13px] text-[#E4E4E7] placeholder:text-[#52525B] focus:outline-none" />
+            className="flex-1 bg-transparent text-[13px] text-text-primary placeholder:text-text-secondary focus:outline-none" />
         </div>
-        <div className="flex items-center gap-0.5 bg-[#111113] border border-[#27272A] rounded-lg p-1">
+        <div className="flex items-center gap-0.5 bg-surface border border-border-default rounded-lg p-1">
           {[
             { key: 'all',     label: 'All' },
             { key: 'high',    label: '75+' },
@@ -228,63 +228,63 @@ export default function ReportsScreen() {
             { key: 'pending', label: 'Generating' },
           ].map(({ key, label }) => (
             <button key={key} onClick={() => setScoreFilter(key)}
-              className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${scoreFilter === key ? 'bg-[#1C1C20] text-[#E4E4E7]' : 'text-[#52525B] hover:text-[#A1A1AA]'}`}>
+              className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${scoreFilter === key ? 'bg-surface-muted text-text-primary' : 'text-text-secondary hover:text-text-secondary'}`}>
               {label}
             </button>
           ))}
         </div>
       </div>
 
-      {loading && <div className="flex justify-center py-24"><Loader className="w-5 h-5 text-[#06B6D4] animate-spin" /></div>}
+      {loading && <div className="flex justify-center py-24"><Loader className="w-5 h-5 text-brand animate-spin" /></div>}
 
       {!loading && submitted.length === 0 && !error && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-[#111113] border border-[#27272A] flex items-center justify-center mb-4">
-            <FileText className="w-5 h-5 text-[#3F3F46]" />
+          <div className="w-12 h-12 rounded-2xl bg-surface border border-border-default flex items-center justify-center mb-4">
+            <FileText className="w-5 h-5 text-text-muted" />
           </div>
-          <p className="text-[15px] font-bold text-[#E4E4E7] font-display mb-1">No submissions yet</p>
-          <p className="text-[13px] text-[#52525B]">Reports are generated automatically when candidates submit.</p>
+          <p className="text-[15px] font-bold text-text-primary font-display mb-1">No submissions yet</p>
+          <p className="text-[13px] text-text-secondary">Reports are generated automatically when candidates submit.</p>
         </div>
       )}
 
       {!loading && filtered.length > 0 && (
-        <div className="rounded-xl border border-[#27272A] overflow-hidden">
+        <div className="rounded-xl border border-border-default overflow-hidden">
           {/* Head */}
-          <div className="grid grid-cols-[32px_minmax(0,1fr)_180px_120px_180px_140px_120px] gap-3 items-center px-5 py-3 bg-[#111113] border-b border-[#27272A]">
-            <p className="text-[10px] font-semibold text-[#3F3F46] uppercase tracking-[0.14em]">#</p>
-            <button onClick={() => toggle('name')} className="flex items-center gap-1 text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em] hover:text-[#A1A1AA]">
+          <div className="grid grid-cols-[32px_minmax(0,1fr)_180px_120px_180px_140px_120px] gap-3 items-center px-5 py-3 bg-surface border-b border-border-default">
+            <p className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.14em]">#</p>
+            <button onClick={() => toggle('name')} className="flex items-center gap-1 text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em] hover:text-text-secondary">
               Candidate<SortIcon col="name" sortBy={sortBy} sortDir={sortDir} />
             </button>
-            <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em]">Assessment</p>
-            <button onClick={() => toggle('score')} className="flex items-center gap-1 text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em] hover:text-[#A1A1AA]">
+            <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em]">Assessment</p>
+            <button onClick={() => toggle('score')} className="flex items-center gap-1 text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em] hover:text-text-secondary">
               Score<SortIcon col="score" sortBy={sortBy} sortDir={sortDir} />
             </button>
-            <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em]">Signals</p>
-            <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em]">Report</p>
-            <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em] text-right">Action</p>
+            <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em]">Signals</p>
+            <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em]">Report</p>
+            <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em] text-right">Action</p>
           </div>
 
-          <div className="divide-y divide-[#1C1C20]">
+          <div className="divide-y divide-border-subtle">
             {filtered.map((c, idx) => {
               const dims = c.dimensions || {};
               const assessmentName = assessments.find(a => String(a.id) === selectedId)?.name || '—';
               const canView = c.report_status === 'completed' && c.session_id;
               return (
-                <div key={c.id} className="grid grid-cols-[32px_minmax(0,1fr)_180px_120px_180px_140px_120px] gap-3 items-center px-5 py-4 hover:bg-[#111113] transition-colors">
-                  <span className="text-[12px] font-bold text-[#52525B] font-display">{idx + 1}</span>
+                <div key={c.id} className="grid grid-cols-[32px_minmax(0,1fr)_180px_120px_180px_140px_120px] gap-3 items-center px-5 py-4 hover:bg-surface transition-colors">
+                  <span className="text-[12px] font-bold text-text-secondary font-display">{idx + 1}</span>
 
                   {/* Candidate */}
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-[#17171A] border border-[#27272A] flex items-center justify-center text-[11px] font-bold text-[#A1A1AA] flex-shrink-0 font-display">
+                    <div className="w-8 h-8 rounded-full bg-surface-muted border border-border-default flex items-center justify-center text-[11px] font-bold text-text-secondary flex-shrink-0 font-display">
                       {getInitials(c.candidate_name)}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[13px] font-semibold text-[#E4E4E7] truncate">{c.candidate_name || 'Unknown'}</p>
-                      <p className="text-[11px] text-[#52525B] truncate">{c.candidate_email}</p>
+                      <p className="text-[13px] font-semibold text-text-primary truncate">{c.candidate_name || 'Unknown'}</p>
+                      <p className="text-[11px] text-text-secondary truncate">{c.candidate_email}</p>
                     </div>
                   </div>
 
-                  <p className="text-[12px] text-[#A1A1AA] truncate">{assessmentName}</p>
+                  <p className="text-[12px] text-text-secondary truncate">{assessmentName}</p>
                   <ScorePill score={c.overall_score} />
 
                   {/* Signals */}
@@ -298,12 +298,12 @@ export default function ReportsScreen() {
                         ].map(({ key, label }) => (
                           <div key={key} className="flex items-center gap-1" title={`${label}: ${dims[key]?.signal || '?'}`}>
                             <SignalDot signal={dims[key]?.signal} />
-                            <span className="text-[10px] text-[#52525B]">{label}</span>
+                            <span className="text-[10px] text-text-secondary">{label}</span>
                           </div>
                         ))}
                       </>
                     ) : (
-                      <span className="text-[11px] text-[#3F3F46]">—</span>
+                      <span className="text-[11px] text-text-muted">—</span>
                     )}
                   </div>
 
@@ -314,12 +314,12 @@ export default function ReportsScreen() {
                     {canView ? (
                       <button
                         onClick={() => navigate(`/recruiter/reports/${selectedId}/${c.session_id}`)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#083344] border border-[#0E7490] text-[#06B6D4] text-[11px] font-semibold rounded-lg hover:bg-[#0a3d52] hover:border-[#06B6D4] transition-all"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-tint border border-brand-border text-brand text-[11px] font-semibold rounded-lg hover:bg-brand-tint-light hover:border-brand transition-all"
                       >
                         <FileText className="w-3 h-3" />View
                       </button>
                     ) : (
-                      <span className="text-[11px] text-[#3F3F46]">—</span>
+                      <span className="text-[11px] text-text-muted">—</span>
                     )}
                   </div>
                 </div>
@@ -327,8 +327,8 @@ export default function ReportsScreen() {
             })}
           </div>
 
-          <div className="px-5 py-3 bg-[#111113] border-t border-[#27272A]">
-            <p className="text-[11px] text-[#3F3F46]">{withReports.length} ready · {pendingCount} generating · {submitted.length - withReports.length - pendingCount} not started</p>
+          <div className="px-5 py-3 bg-surface border-t border-border-default">
+            <p className="text-[11px] text-text-muted">{withReports.length} ready · {pendingCount} generating · {submitted.length - withReports.length - pendingCount} not started</p>
           </div>
         </div>
       )}

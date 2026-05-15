@@ -1,4 +1,4 @@
-﻿// REDESIGNED — dark theme matching user flow
+// REDESIGNED � dark theme matching user flow
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { getAssessmentById, sendCandidateInvites } from '../../api/recruiter/assessment';
 
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 function DarkInput({ value, onChange, placeholder, type = 'text', onKeyDown }) {
   return (
     <input
@@ -17,7 +17,7 @@ function DarkInput({ value, onChange, placeholder, type = 'text', onKeyDown }) {
       onChange={onChange}
       onKeyDown={onKeyDown}
       placeholder={placeholder}
-      className="w-full px-3.5 py-2.5 bg-[#040914] border border-[#1a3050] rounded-xl text-sm text-[#edf4ff] placeholder:text-[#354e68] focus:outline-none focus:border-[#18d3ff] focus:ring-1 focus:ring-[#18d3ff]/20 transition-all duration-150"
+      className="w-full px-3.5 py-2.5 bg-page border border-border-default rounded-xl text-sm text-text-primary placeholder:text-text-faint focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all duration-150"
     />
   );
 }
@@ -146,24 +146,24 @@ export default function InviteCandidate() {
   const removeCandidateRow = (id) => setCandidates(candidates.filter((c) => c.id !== id));
   const goBack = () => navigate('/recruiter/dashboard');
 
-  // ── Loading ──
+  // -- Loading --
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#040914] flex items-center justify-center">
-        <Loader className="w-6 h-6 text-[#18d3ff] animate-spin" />
+      <div className="min-h-screen bg-page flex items-center justify-center">
+        <Loader className="w-6 h-6 text-brand animate-spin" />
       </div>
     );
   }
 
-  // ── Assessment not found ──
+  // -- Assessment not found --
   if (!selectedAssessment) {
     return (
-      <div className="min-h-screen bg-[#040914] flex items-center justify-center p-4">
-        <div className="max-w-sm w-full rounded-2xl border border-[#0e1f38] bg-[#070f20] p-10 text-center">
-          <AlertCircle className="w-12 h-12 text-[#ff8fa5] mx-auto mb-4" />
-          <h1 className="text-lg font-semibold text-[#edf4ff] mb-2">Assessment Not Found</h1>
-          <p className="text-sm text-[#4a5f7a] mb-6">The requested assessment could not be found.</p>
-          <button onClick={goBack} className="px-5 py-2.5 bg-[#18d3ff] text-[#040914] text-sm font-semibold rounded-lg hover:bg-[#06B6D4] transition-colors duration-150">
+      <div className="min-h-screen bg-page flex items-center justify-center p-4">
+        <div className="max-w-sm w-full rounded-2xl border border-border-default bg-surface p-10 text-center">
+          <AlertCircle className="w-12 h-12 text-error mx-auto mb-4" />
+          <h1 className="text-lg font-semibold text-text-primary mb-2">Assessment Not Found</h1>
+          <p className="text-sm text-text-muted mb-6">The requested assessment could not be found.</p>
+          <button onClick={goBack} className="px-5 py-2.5 bg-brand text-on-brand text-sm font-semibold rounded-lg hover:bg-brand transition-colors duration-150">
             Back to Dashboard
           </button>
         </div>
@@ -173,19 +173,19 @@ export default function InviteCandidate() {
 
   const task = selectedAssessment.tasks?.[0];
 
-  // ─────────────────────────────────────────────────────
+  // -----------------------------------------------------
   // INVITE LINKS VIEW
-  // ─────────────────────────────────────────────────────
+  // -----------------------------------------------------
   if (showInviteLinks) {
     return (
-      <div className="min-h-screen bg-[#040914] text-[#edf4ff]">
-        <header className="sticky top-0 z-40 border-b border-[#0e1f38] bg-[#040914]/95 backdrop-blur-md">
+      <div className="min-h-screen bg-page text-text-primary">
+        <header className="sticky top-0 z-40 border-b border-border-default bg-surface/95 backdrop-blur-md">
           <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <Zap className="w-4 h-4 text-[#18d3ff]" strokeWidth={2.5} />
-              <span className="text-sm font-bold tracking-[0.08em] text-[#edf4ff]">MUNDHU</span>
+              <Zap className="w-4 h-4 text-brand" strokeWidth={2.5} />
+              <span className="text-sm font-bold tracking-[0.08em] text-text-primary">MUNDHU</span>
             </div>
-            <button onClick={goBack} className="flex items-center gap-2 text-sm text-[#7a8aa8] hover:text-[#edf4ff] hover:bg-[#0d1e38] px-3 py-2 rounded-lg transition-all duration-150">
+            <button onClick={goBack} className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-muted px-3 py-2 rounded-lg transition-all duration-150">
               <ArrowLeft className="w-4 h-4" />
               Dashboard
             </button>
@@ -194,15 +194,15 @@ export default function InviteCandidate() {
 
         <main className="max-w-3xl mx-auto px-6 py-10">
           {/* Success banner */}
-          <div className="rounded-2xl border border-[#1a4a28] bg-[#041a10] px-6 py-5 mb-8 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-[#052010] border border-[#1a4a28] flex items-center justify-center flex-shrink-0">
-              <CheckCircle className="w-5 h-5 text-[#4ade80]" />
+          <div className="rounded-2xl border border-success-border bg-success-bg px-6 py-5 mb-8 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-success-bg border border-success-border flex items-center justify-center flex-shrink-0">
+              <CheckCircle className="w-5 h-5 text-success" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-semibold text-[#edf4ff]">Invitations Sent</h2>
-              <p className="text-sm text-[#4a5f7a] mt-0.5">{inviteLinks.length} unique invite link{inviteLinks.length !== 1 ? 's' : ''} generated for <span className="text-[#94A3B8] font-medium">{selectedAssessment.name}</span></p>
+              <h2 className="text-base font-semibold text-text-primary">Invitations Sent</h2>
+              <p className="text-sm text-text-muted mt-0.5">{inviteLinks.length} unique invite link{inviteLinks.length !== 1 ? 's' : ''} generated for <span className="text-text-secondary font-medium">{selectedAssessment.name}</span></p>
             </div>
-            <button onClick={downloadInviteLinks} className="flex items-center gap-2 px-4 py-2 border border-[#1a3050] text-[#94A3B8] text-xs font-semibold rounded-lg hover:border-[#18d3ff] hover:text-[#18d3ff] transition-all duration-150 flex-shrink-0">
+            <button onClick={downloadInviteLinks} className="flex items-center gap-2 px-4 py-2 border border-border-default text-text-secondary text-xs font-semibold rounded-lg hover:border-brand hover:text-brand transition-all duration-150 flex-shrink-0">
               <Download className="w-3.5 h-3.5" />
               Export CSV
             </button>
@@ -211,22 +211,22 @@ export default function InviteCandidate() {
           {/* Links list */}
           <div className="space-y-2.5">
             {inviteLinks.map((link) => (
-              <div key={link.id} className="rounded-xl border border-[#0e1f38] bg-[#070f20] px-5 py-4 flex items-center gap-4">
-                <div className="w-8 h-8 rounded-lg bg-[#07253a] border border-[#0e4a6c] flex items-center justify-center flex-shrink-0 text-[13px] font-bold text-[#18d3ff]">
+              <div key={link.id} className="rounded-xl border border-border-default bg-surface px-5 py-4 flex items-center gap-4">
+                <div className="w-8 h-8 rounded-lg bg-brand-tint border border-brand-border flex items-center justify-center flex-shrink-0 text-[13px] font-bold text-brand">
                   {link.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[#edf4ff] truncate">{link.name}</p>
-                  <p className="text-xs text-[#4a5f7a] truncate">{link.email}</p>
-                  <p className="text-[11px] text-[#354e68] font-mono truncate mt-1">{link.inviteLink}</p>
+                  <p className="text-sm font-semibold text-text-primary truncate">{link.name}</p>
+                  <p className="text-xs text-text-muted truncate">{link.email}</p>
+                  <p className="text-[11px] text-text-faint font-mono truncate mt-1">{link.inviteLink}</p>
                 </div>
                 <button
                   onClick={() => copyToClipboard(link.inviteLink, link.id)}
                   title="Copy invite link"
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-150 flex-shrink-0 ${
                     copiedLink === link.id
-                      ? 'bg-[#041a10] border-[#1a4a28] text-[#4ade80]'
-                      : 'bg-[#07253a] border-[#0e4a6c] text-[#18d3ff] hover:bg-[#0a3552] hover:border-[#18d3ff]'
+                      ? 'bg-success-bg border-success-border text-success'
+                      : 'bg-brand-tint border-brand-border text-brand hover:bg-[#0a3552] hover:border-brand'
                   }`}
                 >
                   {copiedLink === link.id ? <><CheckCheck className="w-3.5 h-3.5" />Copied</> : <><Copy className="w-3.5 h-3.5" />Copy Link</>}
@@ -236,11 +236,11 @@ export default function InviteCandidate() {
           </div>
 
           <div className="mt-8 flex items-center justify-center gap-3">
-            <button onClick={() => { setCandidates([]); setInviteLinks([]); setShowInviteLinks(false); }} className="flex items-center gap-2 px-4 py-2.5 border border-[#1a3050] text-[#94A3B8] text-sm font-semibold rounded-lg hover:border-[#18d3ff] hover:text-[#18d3ff] transition-all duration-150">
+            <button onClick={() => { setCandidates([]); setInviteLinks([]); setShowInviteLinks(false); }} className="flex items-center gap-2 px-4 py-2.5 border border-border-default text-text-secondary text-sm font-semibold rounded-lg hover:border-brand hover:text-brand transition-all duration-150">
               <Plus className="w-4 h-4" />
               Invite More
             </button>
-            <button onClick={goBack} className="flex items-center gap-2 px-4 py-2.5 bg-[#07253a] border border-[#0e4a6c] text-[#18d3ff] text-sm font-semibold rounded-lg hover:bg-[#0a3552] hover:border-[#18d3ff] transition-all duration-150">
+            <button onClick={goBack} className="flex items-center gap-2 px-4 py-2.5 bg-brand-tint border border-brand-border text-brand text-sm font-semibold rounded-lg hover:bg-[#0a3552] hover:border-brand transition-all duration-150">
               <ArrowLeft className="w-4 h-4" />
               Back to Dashboard
             </button>
@@ -250,27 +250,27 @@ export default function InviteCandidate() {
     );
   }
 
-  // ─────────────────────────────────────────────────────
+  // -----------------------------------------------------
   // MAIN INVITE FLOW
-  // ─────────────────────────────────────────────────────
+  // -----------------------------------------------------
   return (
-    <div className="min-h-screen bg-[#040914] text-[#edf4ff]">
+    <div className="min-h-screen bg-page text-text-primary">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-[#0e1f38] bg-[#040914]/95 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-border-default bg-surface/95 backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center gap-4">
-          <button onClick={goBack} className="flex items-center gap-2 text-sm text-[#7a8aa8] hover:text-[#edf4ff] hover:bg-[#0d1e38] px-3 py-2 rounded-lg transition-all duration-150 flex-shrink-0">
+          <button onClick={goBack} className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-muted px-3 py-2 rounded-lg transition-all duration-150 flex-shrink-0">
             <ArrowLeft className="w-4 h-4" />
             Back
           </button>
           <div className="w-px h-5 bg-[#0e1f38]" />
           <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-semibold text-[#edf4ff] truncate">{selectedAssessment.name}</h1>
-            <p className="text-[11px] text-[#4a5f7a]">Invite candidates to this assessment</p>
+            <h1 className="text-sm font-semibold text-text-primary truncate">{selectedAssessment.name}</h1>
+            <p className="text-[11px] text-text-muted">Invite candidates to this assessment</p>
           </div>
           <button
             onClick={handleSendInvites}
             disabled={candidates.length === 0 || inviteLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-[#18d3ff] text-[#040914] text-sm font-semibold rounded-lg hover:bg-[#06B6D4] transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+            className="flex items-center gap-2 px-4 py-2 bg-brand text-on-brand text-sm font-semibold rounded-lg hover:bg-brand transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
           >
             {inviteLoading ? (
               <><Loader className="w-4 h-4 animate-spin" />Sending...</>
@@ -284,26 +284,26 @@ export default function InviteCandidate() {
       <main className="max-w-5xl mx-auto px-6 py-8">
         {/* Toasts */}
         {success && (
-          <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-[#041a10] border border-[#1a4a28] rounded-xl animate-fadeIn">
-            <CheckCircle className="w-4 h-4 text-[#4ade80] flex-shrink-0" />
-            <p className="text-sm text-[#4ade80] font-medium">{success}</p>
+          <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-success-bg border border-success-border rounded-xl animate-fadeIn">
+            <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
+            <p className="text-sm text-success font-medium">{success}</p>
           </div>
         )}
         {error && (
           <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-[#1b0f15] border border-[#6a2335] rounded-xl animate-fadeIn">
-            <AlertCircle className="w-4 h-4 text-[#ff8fa5] flex-shrink-0" />
-            <p className="text-sm text-[#ff8fa5] font-medium">{error}</p>
+            <AlertCircle className="w-4 h-4 text-error flex-shrink-0" />
+            <p className="text-sm text-error font-medium">{error}</p>
           </div>
         )}
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* ── Left: Add candidates ── */}
+          {/* -- Left: Add candidates -- */}
           <div className="lg:col-span-2 space-y-4">
             {/* Manual add form */}
-            <div className="rounded-xl border border-[#0e1f38] bg-[#070f20] p-5">
+            <div className="rounded-xl border border-border-default bg-surface p-5">
               <div className="flex items-center gap-2 mb-4">
-                <Users className="w-4 h-4 text-[#18d3ff]" />
-                <h2 className="text-sm font-semibold text-[#edf4ff]">Add Candidates</h2>
+                <Users className="w-4 h-4 text-brand" />
+                <h2 className="text-sm font-semibold text-text-primary">Add Candidates</h2>
               </div>
 
               {/* Inline form */}
@@ -323,7 +323,7 @@ export default function InviteCandidate() {
                 />
                 <button
                   onClick={handleAddCandidate}
-                  className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 bg-[#18d3ff] text-[#040914] text-sm font-semibold rounded-xl hover:bg-[#06B6D4] transition-colors duration-150 active:scale-[0.97]"
+                  className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 bg-brand text-on-brand text-sm font-semibold rounded-xl hover:bg-brand transition-colors duration-150 active:scale-[0.97]"
                 >
                   <Plus className="w-4 h-4" />
                   Add
@@ -333,19 +333,19 @@ export default function InviteCandidate() {
               {/* Divider */}
               <div className="relative my-4">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-[#0e1f38]" />
+                  <div className="w-full border-t border-border-default" />
                 </div>
                 <div className="relative flex justify-center">
-                  <span className="px-3 bg-[#070f20] text-[11px] font-medium text-[#354e68] uppercase tracking-wider">or import</span>
+                  <span className="px-3 bg-surface text-[11px] font-medium text-text-faint uppercase tracking-wider">or import</span>
                 </div>
               </div>
 
               {/* CSV Upload */}
-              <label className="flex items-center justify-center gap-2.5 px-4 py-5 border border-dashed border-[#1a3050] hover:border-[#18d3ff]/50 rounded-xl cursor-pointer transition-all duration-150 group bg-[#040914]/40 hover:bg-[#07253a]/20">
-                <Upload className="w-4 h-4 text-[#4a5f7a] group-hover:text-[#18d3ff] transition-colors" />
+              <label className="flex items-center justify-center gap-2.5 px-4 py-5 border border-dashed border-border-default hover:border-brand/50 rounded-xl cursor-pointer transition-all duration-150 group bg-page/40 hover:bg-brand-tint/20">
+                <Upload className="w-4 h-4 text-text-muted group-hover:text-brand transition-colors" />
                 <div className="text-center">
-                  <span className="text-sm font-medium text-[#7a8aa8] group-hover:text-[#94A3B8] transition-colors block">Upload CSV file</span>
-                  <span className="text-[11px] text-[#354e68]">Format: Name, Email (one per row)</span>
+                  <span className="text-sm font-medium text-text-secondary group-hover:text-text-secondary transition-colors block">Upload CSV file</span>
+                  <span className="text-[11px] text-text-faint">Format: Name, Email (one per row)</span>
                 </div>
                 <input type="file" accept=".csv,.xlsx,.xls" onChange={handleParseCSV} className="hidden" />
               </label>
@@ -353,22 +353,22 @@ export default function InviteCandidate() {
 
             {/* Candidate list */}
             {candidates.length > 0 && (
-              <div className="rounded-xl border border-[#0e1f38] bg-[#070f20] p-5 animate-fadeIn">
+              <div className="rounded-xl border border-border-default bg-surface p-5 animate-fadeIn">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-[11px] font-semibold tracking-[0.15em] text-[#4a5f7a] uppercase">Candidates ({candidates.length})</p>
-                  <button onClick={() => setCandidates([])} className="text-[11px] text-[#3a4f6a] hover:text-[#ff8fa5] transition-colors duration-150">Clear all</button>
+                  <p className="text-[11px] font-semibold tracking-[0.15em] text-text-muted uppercase">Candidates ({candidates.length})</p>
+                  <button onClick={() => setCandidates([])} className="text-[11px] text-[#3a4f6a] hover:text-error transition-colors duration-150">Clear all</button>
                 </div>
                 <div className="max-h-80 overflow-y-auto space-y-1.5 pr-1">
                   {candidates.map((candidate) => (
-                    <div key={candidate.id} className="flex items-center gap-3 px-4 py-3 bg-[#040914]/60 border border-[#0e1f38] rounded-lg hover:border-[#1a3050] transition-colors duration-150 group">
-                      <div className="w-7 h-7 rounded-lg bg-[#07253a] border border-[#0e4a6c] flex items-center justify-center flex-shrink-0 text-[12px] font-bold text-[#18d3ff]">
+                    <div key={candidate.id} className="flex items-center gap-3 px-4 py-3 bg-page/60 border border-border-default rounded-lg hover:border-border-default transition-colors duration-150 group">
+                      <div className="w-7 h-7 rounded-lg bg-brand-tint border border-brand-border flex items-center justify-center flex-shrink-0 text-[12px] font-bold text-brand">
                         {candidate.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[#edf4ff] truncate">{candidate.name}</p>
-                        <p className="text-xs text-[#4a5f7a] truncate">{candidate.email}</p>
+                        <p className="text-sm font-medium text-text-primary truncate">{candidate.name}</p>
+                        <p className="text-xs text-text-muted truncate">{candidate.email}</p>
                       </div>
-                      <button onClick={() => removeCandidateRow(candidate.id)} className="p-1.5 text-[#3a4f6a] hover:text-[#ff8fa5] hover:bg-[#1b0f15] rounded-md transition-all duration-150 opacity-0 group-hover:opacity-100">
+                      <button onClick={() => removeCandidateRow(candidate.id)} className="p-1.5 text-[#3a4f6a] hover:text-error hover:bg-[#1b0f15] rounded-md transition-all duration-150 opacity-0 group-hover:opacity-100">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -378,36 +378,36 @@ export default function InviteCandidate() {
             )}
 
             {candidates.length === 0 && (
-              <div className="rounded-xl border border-dashed border-[#0e1f38] p-10 text-center">
+              <div className="rounded-xl border border-dashed border-border-default p-10 text-center">
                 <Users className="w-8 h-8 text-[#1a3050] mx-auto mb-3" />
-                <p className="text-sm text-[#4a5f7a] font-medium">No candidates added yet</p>
-                <p className="text-xs text-[#354e68] mt-1">Add manually above or import from CSV</p>
+                <p className="text-sm text-text-muted font-medium">No candidates added yet</p>
+                <p className="text-xs text-text-faint mt-1">Add manually above or import from CSV</p>
               </div>
             )}
           </div>
 
-          {/* ── Right: Summary ── */}
+          {/* -- Right: Summary -- */}
           <div className="space-y-4 lg:sticky lg:top-20 h-fit">
             {/* Assessment card */}
-            <div className="rounded-xl border border-[#0e1f38] bg-[#070f20] p-5">
-              <p className="text-[11px] font-semibold tracking-[0.15em] text-[#4a5f7a] uppercase mb-4">Assessment</p>
+            <div className="rounded-xl border border-border-default bg-surface p-5">
+              <p className="text-[11px] font-semibold tracking-[0.15em] text-text-muted uppercase mb-4">Assessment</p>
               <div className="space-y-3">
                 <div>
-                  <p className="text-[11px] text-[#4a5f7a] mb-1">Name</p>
-                  <p className="text-sm font-semibold text-[#edf4ff]">{selectedAssessment.name}</p>
+                  <p className="text-[11px] text-text-muted mb-1">Name</p>
+                  <p className="text-sm font-semibold text-text-primary">{selectedAssessment.name}</p>
                 </div>
                 <div className="flex gap-3">
-                  <div className="flex-1 rounded-lg bg-[#040914]/60 border border-[#0e1f38] px-3 py-2.5">
-                    <p className="text-[11px] text-[#4a5f7a]">Duration</p>
-                    <p className="text-sm font-semibold text-[#edf4ff] flex items-center gap-1 mt-0.5">
-                      <Clock className="w-3.5 h-3.5 text-[#18d3ff]" />{selectedAssessment.duration_minutes}m
+                  <div className="flex-1 rounded-lg bg-page/60 border border-border-default px-3 py-2.5">
+                    <p className="text-[11px] text-text-muted">Duration</p>
+                    <p className="text-sm font-semibold text-text-primary flex items-center gap-1 mt-0.5">
+                      <Clock className="w-3.5 h-3.5 text-brand" />{selectedAssessment.duration_minutes}m
                     </p>
                   </div>
                   {task && (
-                    <div className="flex-1 rounded-lg bg-[#040914]/60 border border-[#0e1f38] px-3 py-2.5">
-                      <p className="text-[11px] text-[#4a5f7a]">Task</p>
-                      <p className="text-sm font-semibold text-[#edf4ff] flex items-center gap-1 mt-0.5 truncate">
-                        <Code className="w-3.5 h-3.5 text-[#18d3ff] flex-shrink-0" />{task.title}
+                    <div className="flex-1 rounded-lg bg-page/60 border border-border-default px-3 py-2.5">
+                      <p className="text-[11px] text-text-muted">Task</p>
+                      <p className="text-sm font-semibold text-text-primary flex items-center gap-1 mt-0.5 truncate">
+                        <Code className="w-3.5 h-3.5 text-brand flex-shrink-0" />{task.title}
                       </p>
                     </div>
                   )}
@@ -415,7 +415,7 @@ export default function InviteCandidate() {
                 {task?.tags?.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {task.tags.map((tag, idx) => (
-                      <span key={idx} className="text-[11px] px-2 py-0.5 rounded-full bg-[#07253a] border border-[#0e4a6c] text-[#18d3ff]">{tag}</span>
+                      <span key={idx} className="text-[11px] px-2 py-0.5 rounded-full bg-brand-tint border border-brand-border text-brand">{tag}</span>
                     ))}
                   </div>
                 )}
@@ -423,19 +423,19 @@ export default function InviteCandidate() {
             </div>
 
             {/* Candidate count */}
-            <div className={`rounded-xl border p-5 transition-all duration-200 ${candidates.length > 0 ? 'border-[#0e4a6c] bg-[#07253a]' : 'border-[#0e1f38] bg-[#070f20]'}`}>
-              <p className="text-[11px] font-semibold tracking-[0.15em] text-[#4a5f7a] uppercase mb-2">Ready to Invite</p>
-              <p className={`text-4xl font-bold tracking-tight ${candidates.length > 0 ? 'text-[#18d3ff]' : 'text-[#1a3050]'}`}>
+            <div className={`rounded-xl border p-5 transition-all duration-200 ${candidates.length > 0 ? 'border-brand-border bg-brand-tint' : 'border-border-default bg-surface'}`}>
+              <p className="text-[11px] font-semibold tracking-[0.15em] text-text-muted uppercase mb-2">Ready to Invite</p>
+              <p className={`text-4xl font-bold tracking-tight ${candidates.length > 0 ? 'text-brand' : 'text-[#1a3050]'}`}>
                 {candidates.length}
               </p>
-              <p className="text-xs text-[#4a5f7a] mt-1">candidate{candidates.length !== 1 ? 's' : ''}</p>
+              <p className="text-xs text-text-muted mt-1">candidate{candidates.length !== 1 ? 's' : ''}</p>
             </div>
 
             {/* Send button */}
             <button
               onClick={handleSendInvites}
               disabled={candidates.length === 0 || inviteLoading}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-[#18d3ff] text-[#040914] text-sm font-bold rounded-xl hover:bg-[#06B6D4] transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-brand text-on-brand text-sm font-bold rounded-xl hover:bg-brand transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {inviteLoading ? (
                 <><Loader className="w-4 h-4 animate-spin" />Sending Invites...</>

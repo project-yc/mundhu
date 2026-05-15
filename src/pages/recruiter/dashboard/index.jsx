@@ -90,27 +90,27 @@ export default function RecruiterDashboard() {
 
       {/* Toasts */}
       {success && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-[#022C22] border border-[#065F46] rounded-xl animate-fadeIn">
-          <CheckCircle className="w-4 h-4 text-[#10B981] flex-shrink-0" />
-          <p className="text-[13px] font-medium text-[#10B981]">{success}</p>
+        <div className="flex items-center gap-3 px-4 py-3 bg-success-bg border border-success-border rounded-xl animate-fadeIn">
+          <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
+          <p className="text-[13px] font-medium text-success">{success}</p>
         </div>
       )}
       {error && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-[#1C0813] border border-[#881337] rounded-xl animate-fadeIn">
-          <AlertCircle className="w-4 h-4 text-[#F43F5E] flex-shrink-0" />
-          <p className="text-[13px] font-medium text-[#F43F5E]">{error}</p>
+        <div className="flex items-center gap-3 px-4 py-3 bg-error-bg border border-error-border rounded-xl animate-fadeIn">
+          <AlertCircle className="w-4 h-4 text-error flex-shrink-0" />
+          <p className="text-[13px] font-medium text-error">{error}</p>
         </div>
       )}
 
       {/* Page header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-bold text-[#FAFAFA] tracking-tight font-display">Assessments</h1>
-          <p className="text-[13px] text-[#52525B] mt-0.5">Configure and track technical assessments across all candidates.</p>
+          <h1 className="text-xl font-bold text-text-primary tracking-tight font-display">Assessments</h1>
+          <p className="text-[13px] text-text-secondary mt-0.5">Configure and track technical assessments across all candidates.</p>
         </div>
         <button
           onClick={() => setShowWizard(true)}
-          className="flex items-center gap-2 px-3.5 py-2 bg-[#06B6D4] hover:bg-[#0891B2] text-[#0C0C0E] text-[12px] font-bold rounded-lg transition-colors duration-150 active:scale-[0.97] flex-shrink-0"
+          className="flex items-center gap-2 px-3.5 py-2 bg-brand hover:bg-brand-hover text-on-brand text-[12px] font-bold rounded-lg transition-colors duration-150 active:scale-[0.97] flex-shrink-0"
         >
           <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
           New Assessment

@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom';
 
 const ROLE_HOME = {
+  ORG_ADMIN: '/recruiter/dashboard',
   ADMIN: '/admin',
   RECRUITER: '/recruiter/dashboard',
   USER: '/user/dashboard',
@@ -14,7 +15,7 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Always keep admins in their area
+  // Always keep system admins in their area (ORG_ADMIN goes through normal routing)
   if (userRole === 'ADMIN') {
     return <Navigate to="/admin" replace />;
   }

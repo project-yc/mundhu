@@ -7,6 +7,52 @@ export default {
   theme: {
     extend: {
       colors: {
+        // ── Semantic tokens (driven by CSS variables) ──────────────────────
+        // Defaults live in src/index.css :root and are overridden at runtime
+        // by RecruiterThemeProvider (see src/theme/). Use these tokens in all
+        // recruiter screens — never hard-code hex values.
+        page:           'var(--color-page)',
+        surface:        'var(--color-surface)',
+        'surface-muted':'var(--color-surface-muted)',
+        'surface-hover':'var(--color-surface-hover)',
+        'border-default': 'var(--color-border)',
+        'border-strong':  'var(--color-border-strong)',
+        'border-subtle':  'var(--color-border-subtle)',
+        'text-primary':   'var(--color-text-primary)',
+        'text-secondary': 'var(--color-text-secondary)',
+        'text-muted':     'var(--color-text-muted)',
+        'text-faint':     'var(--color-text-faint)',
+        brand: {
+          DEFAULT:    'var(--color-brand)',
+          hover:      'var(--color-brand-hover)',
+          deep:       'var(--color-brand-deep)',
+          navy:       'var(--color-brand-navy)',
+          tint:       'var(--color-brand-tint)',
+          'tint-light':'var(--color-brand-tint-light)',
+          border:     'var(--color-brand-border)',
+        },
+        'on-brand': 'var(--color-on-brand)',
+        success: {
+          DEFAULT: 'var(--color-success)',
+          bg:      'var(--color-success-bg)',
+          border:  'var(--color-success-border)',
+        },
+        warning: {
+          DEFAULT: 'var(--color-warning)',
+          bg:      'var(--color-warning-bg)',
+          border:  'var(--color-warning-border)',
+        },
+        error: {
+          DEFAULT: 'var(--color-error)',
+          bg:      'var(--color-error-bg)',
+          border:  'var(--color-error-border)',
+        },
+        info: {
+          DEFAULT: 'var(--color-info)',
+          bg:      'var(--color-info-bg)',
+          border:  'var(--color-info-border)',
+        },
+
         // Legacy navy (kept for other pages)
         navy: {
           900: '#0F2854',

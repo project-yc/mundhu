@@ -27,10 +27,10 @@ function getInitials(name) {
 }
 
 const STATUS_CONFIG = {
-  'Invited':     { color: '#06B6D4', bg: '#083344', border: '#0E7490', label: 'Invited' },
-  'In Progress': { color: '#F59E0B', bg: '#1C150A', border: '#78350F', label: 'Active' },
-  'Submitted':   { color: '#10B981', bg: '#022C22', border: '#065F46', label: 'Submitted' },
-  'Expired':     { color: '#52525B', bg: '#17171A', border: '#27272A', label: 'Expired'  },
+  'Invited':     { color: '#22D3EE', bg: '#CFFAFE', border: '#0E7490', label: 'Invited' },
+  'In Progress': { color: '#D97706', bg: '#FFFBEB', border: '#FCD34D', label: 'Active' },
+  'Submitted':   { color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC', label: 'Submitted' },
+  'Expired':     { color: '#64748B', bg: '#F1F5F9', border: '#E2E8F0', label: 'Expired'  },
 };
 
 function StatusBadge({ status }) {
@@ -44,17 +44,17 @@ function StatusBadge({ status }) {
   );
 }
 
-const SIGNAL_COLORS = { green: '#10B981', yellow: '#F59E0B', red: '#F43F5E', null: '#3F3F46' };
+const SIGNAL_COLORS = { green: '#16A34A', yellow: '#D97706', red: '#DC2626', null: '#CBD5E1' };
 
 function SignalDot({ signal }) {
   return <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: SIGNAL_COLORS[signal] || SIGNAL_COLORS.null }} />;
 }
 
 function ScorePill({ score }) {
-  if (score === null || score === undefined) return <span className="text-[11px] text-[#3F3F46]">—</span>;
-  const color = score >= 75 ? '#10B981' : score >= 50 ? '#F59E0B' : '#F43F5E';
-  const bg    = score >= 75 ? '#022C22' : score >= 50 ? '#1C150A' : '#1C0813';
-  const border= score >= 75 ? '#065F46' : score >= 50 ? '#78350F' : '#881337';
+  if (score === null || score === undefined) return <span className="text-[11px] text-text-muted">—</span>;
+  const color = score >= 75 ? '#16A34A' : score >= 50 ? '#D97706' : '#DC2626';
+  const bg    = score >= 75 ? '#F0FDF4' : score >= 50 ? '#FFFBEB' : '#FEF2F2';
+  const border= score >= 75 ? '#86EFAC' : score >= 50 ? '#FCD34D' : '#FCA5A5';
   return (
     <span className="inline-flex items-center gap-1 text-[12px] font-bold px-2.5 py-1 rounded-lg font-display"
       style={{ color, backgroundColor: bg, border: `1px solid ${border}` }}>
@@ -68,7 +68,7 @@ function RankBadge({ rank }) {
   const styles = rank === 1 ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
                : rank === 2 ? 'bg-zinc-400/10 text-zinc-300 border-zinc-400/30'
                : rank === 3 ? 'bg-orange-700/10 text-orange-400 border-orange-700/30'
-               : 'bg-[#111113] text-[#52525B] border-[#27272A]';
+               : 'bg-surface text-text-secondary border-border-default';
   return (
     <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-[11px] font-bold border font-display ${styles}`}>
       #{rank}
@@ -181,7 +181,7 @@ export default function CandidatesScreen() {
 
   const SortIcon = ({ col }) => {
     if (sortBy !== col) return <ChevronUp className="w-3 h-3 opacity-20" />;
-    return sortDir === 'asc' ? <ChevronUp className="w-3 h-3 text-[#06B6D4]" /> : <ChevronDown className="w-3 h-3 text-[#06B6D4]" />;
+    return sortDir === 'asc' ? <ChevronUp className="w-3 h-3 text-brand" /> : <ChevronDown className="w-3 h-3 text-brand" />;
   };
 
   return (
@@ -189,52 +189,52 @@ export default function CandidatesScreen() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-[20px] font-bold text-[#FAFAFA] font-display tracking-tight">Candidates</h1>
-          <p className="text-[13px] text-[#52525B] mt-0.5">Ranked candidates with performance scores for each assessment.</p>
+          <h1 className="text-[20px] font-bold text-text-primary font-display tracking-tight">Candidates</h1>
+          <p className="text-[13px] text-text-secondary mt-0.5">Ranked candidates with performance scores for each assessment.</p>
         </div>
       </div>
 
       {/* Assessment selector */}
       <div className="mb-5">
         {assLoading ? (
-          <div className="flex items-center gap-2 text-[13px] text-[#52525B]"><Loader className="w-3.5 h-3.5 animate-spin" />Loading assessments…</div>
+          <div className="flex items-center gap-2 text-[13px] text-text-secondary"><Loader className="w-3.5 h-3.5 animate-spin" />Loading assessments…</div>
         ) : (
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2 px-3 py-2 bg-[#111113] border border-[#27272A] rounded-lg">
-              <Filter className="w-3.5 h-3.5 text-[#52525B]" />
+            <div className="flex items-center gap-2 px-3 py-2 bg-surface border border-border-default rounded-lg">
+              <Filter className="w-3.5 h-3.5 text-text-secondary" />
               <select
                 value={selectedId}
                 onChange={e => setSelectedId(e.target.value)}
-                className="bg-transparent text-[13px] text-[#E4E4E7] focus:outline-none cursor-pointer min-w-[200px]"
+                className="bg-transparent text-[13px] text-text-primary focus:outline-none cursor-pointer min-w-[200px]"
               >
-                {assessments.map(a => <option key={a.id} value={a.id} className="bg-[#111113]">{a.name}</option>)}
+                {assessments.map(a => <option key={a.id} value={a.id} className="bg-surface">{a.name}</option>)}
               </select>
             </div>
-            {assessmentName && <span className="text-[12px] text-[#52525B]">· {assessmentName}</span>}
+            {assessmentName && <span className="text-[12px] text-text-secondary">· {assessmentName}</span>}
           </div>
         )}
       </div>
 
       {error && (
-        <div className="mb-5 flex items-center gap-3 px-4 py-3 bg-[#1C0813] border border-[#881337] rounded-xl">
-          <AlertCircle className="w-4 h-4 text-[#F43F5E] flex-shrink-0" />
-          <p className="text-[13px] font-medium text-[#F43F5E]">{error}</p>
+        <div className="mb-5 flex items-center gap-3 px-4 py-3 bg-error-bg border border-error-border rounded-xl">
+          <AlertCircle className="w-4 h-4 text-error flex-shrink-0" />
+          <p className="text-[13px] font-medium text-error">{error}</p>
         </div>
       )}
 
       {/* Stats row */}
       {!loading && candidates.length > 0 && (
-        <div className="grid grid-cols-4 gap-px bg-[#27272A] rounded-xl overflow-hidden border border-[#27272A] mb-5">
+        <div className="grid grid-cols-4 gap-px bg-border-default rounded-xl overflow-hidden border border-border-default mb-5">
           {[
-            { label: 'Total',     value: total,     color: '#FAFAFA',   sub: 'candidates' },
-            { label: 'Submitted', value: submitted,  color: '#10B981',   sub: 'completed'  },
-            { label: 'Scored',    value: scored,     color: '#06B6D4',   sub: 'with report'},
-            { label: 'Avg Score', value: avgScore !== null ? avgScore : '—', color: avgScore >= 75 ? '#10B981' : avgScore >= 50 ? '#F59E0B' : '#F43F5E', sub: 'overall' },
+            { label: 'Total',     value: total,     color: '#0F172A',   sub: 'candidates' },
+            { label: 'Submitted', value: submitted,  color: '#16A34A',   sub: 'completed'  },
+            { label: 'Scored',    value: scored,     color: '#22D3EE',   sub: 'with report'},
+            { label: 'Avg Score', value: avgScore !== null ? avgScore : '—', color: avgScore >= 75 ? '#16A34A' : avgScore >= 50 ? '#D97706' : '#DC2626', sub: 'overall' },
           ].map(({ label, value, color, sub }) => (
-            <div key={label} className="bg-[#0C0C0E] px-5 py-4">
-              <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em] mb-2">{label}</p>
+            <div key={label} className="bg-page px-5 py-4">
+              <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em] mb-2">{label}</p>
               <p className="text-[24px] font-bold leading-none mb-1 font-display" style={{ color }}>{value}</p>
-              <p className="text-[11px] text-[#3F3F46]">{sub}</p>
+              <p className="text-[11px] text-text-muted">{sub}</p>
             </div>
           ))}
         </div>
@@ -242,15 +242,15 @@ export default function CandidatesScreen() {
 
       {/* Toolbar */}
       <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <div className="flex items-center gap-2 px-3 py-2 bg-[#111113] border border-[#27272A] rounded-lg flex-1 min-w-[180px] focus-within:border-[#3F3F46]">
-          <Search className="w-3.5 h-3.5 text-[#52525B] flex-shrink-0" />
+        <div className="flex items-center gap-2 px-3 py-2 bg-surface border border-border-default rounded-lg flex-1 min-w-[180px] focus-within:border-border-strong">
+          <Search className="w-3.5 h-3.5 text-text-secondary flex-shrink-0" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or email…"
-            className="flex-1 bg-transparent text-[13px] text-[#E4E4E7] placeholder:text-[#52525B] focus:outline-none" />
+            className="flex-1 bg-transparent text-[13px] text-text-primary placeholder:text-text-secondary focus:outline-none" />
         </div>
-        <div className="flex items-center gap-0.5 bg-[#111113] border border-[#27272A] rounded-lg p-1">
+        <div className="flex items-center gap-0.5 bg-surface border border-border-default rounded-lg p-1">
           {['all', 'Invited', 'In Progress', 'Submitted', 'Expired'].map(s => (
             <button key={s} onClick={() => setStatusFilter(s)}
-              className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${statusFilter === s ? 'bg-[#1C1C20] text-[#E4E4E7]' : 'text-[#52525B] hover:text-[#A1A1AA]'}`}>
+              className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${statusFilter === s ? 'bg-surface-muted text-text-primary' : 'text-text-secondary hover:text-text-secondary'}`}>
               {s === 'all' ? 'All' : s === 'In Progress' ? 'Active' : s}
             </button>
           ))}
@@ -258,57 +258,57 @@ export default function CandidatesScreen() {
       </div>
 
       {/* Loading */}
-      {loading && <div className="flex justify-center py-24"><Loader className="w-5 h-5 text-[#06B6D4] animate-spin" /></div>}
+      {loading && <div className="flex justify-center py-24"><Loader className="w-5 h-5 text-brand animate-spin" /></div>}
 
       {/* Empty */}
       {!loading && !error && candidates.length === 0 && selectedId && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-[#111113] border border-[#27272A] flex items-center justify-center mb-4">
-            <Users className="w-5 h-5 text-[#3F3F46]" />
+          <div className="w-12 h-12 rounded-2xl bg-surface border border-border-default flex items-center justify-center mb-4">
+            <Users className="w-5 h-5 text-text-muted" />
           </div>
-          <p className="text-[15px] font-bold text-[#E4E4E7] font-display mb-1">No candidates yet</p>
-          <p className="text-[13px] text-[#52525B]">Invite candidates to this assessment to see them here.</p>
+          <p className="text-[15px] font-bold text-text-primary font-display mb-1">No candidates yet</p>
+          <p className="text-[13px] text-text-secondary">Invite candidates to this assessment to see them here.</p>
         </div>
       )}
 
       {/* Table */}
       {!loading && filtered.length > 0 && (
-        <div className="rounded-xl border border-[#27272A] overflow-hidden">
+        <div className="rounded-xl border border-border-default overflow-hidden">
           {/* Head */}
-          <div className="grid grid-cols-[40px_minmax(0,1fr)_100px_120px_200px_100px_120px] gap-3 items-center px-5 py-3 bg-[#111113] border-b border-[#27272A]">
-            <p className="text-[10px] font-semibold text-[#3F3F46] uppercase tracking-[0.14em]">#</p>
-            <button onClick={() => toggle('name')} className="flex items-center gap-1 text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em] hover:text-[#A1A1AA]">
+          <div className="grid grid-cols-[40px_minmax(0,1fr)_100px_120px_200px_100px_120px] gap-3 items-center px-5 py-3 bg-surface border-b border-border-default">
+            <p className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.14em]">#</p>
+            <button onClick={() => toggle('name')} className="flex items-center gap-1 text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em] hover:text-text-secondary">
               Candidate<SortIcon col="name" />
             </button>
-            <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em]">Status</p>
-            <button onClick={() => toggle('score')} className="flex items-center gap-1 text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em] hover:text-[#A1A1AA]">
+            <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em]">Status</p>
+            <button onClick={() => toggle('score')} className="flex items-center gap-1 text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em] hover:text-text-secondary">
               Score<SortIcon col="score" />
             </button>
-            <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em]">Dimensions</p>
-            <button onClick={() => toggle('invited')} className="flex items-center gap-1 text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em] hover:text-[#A1A1AA]">
+            <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em]">Dimensions</p>
+            <button onClick={() => toggle('invited')} className="flex items-center gap-1 text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em] hover:text-text-secondary">
               Invited<SortIcon col="invited" />
             </button>
-            <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-[0.14em] text-right">Report</p>
+            <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em] text-right">Report</p>
           </div>
 
           {/* Rows */}
-          <div className="divide-y divide-[#1C1C20]">
+          <div className="divide-y divide-border-subtle">
             {filtered.map((c, idx) => {
               const dims = c.dimensions;
               const hasReport = c.report_status === 'completed' && c.session_id;
               return (
-                <div key={c.id} className="grid grid-cols-[40px_minmax(0,1fr)_100px_120px_200px_100px_120px] gap-3 items-center px-5 py-4 hover:bg-[#111113] transition-colors group">
+                <div key={c.id} className="grid grid-cols-[40px_minmax(0,1fr)_100px_120px_200px_100px_120px] gap-3 items-center px-5 py-4 hover:bg-surface transition-colors group">
                   {/* Rank */}
                   <RankBadge rank={c.rank} />
 
                   {/* Candidate */}
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-[#17171A] border border-[#27272A] flex items-center justify-center text-[11px] font-bold text-[#A1A1AA] flex-shrink-0 font-display">
+                    <div className="w-8 h-8 rounded-full bg-surface-muted border border-border-default flex items-center justify-center text-[11px] font-bold text-text-secondary flex-shrink-0 font-display">
                       {getInitials(c.candidate_name)}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[13px] font-semibold text-[#E4E4E7] truncate leading-none">{c.candidate_name || 'Unknown'}</p>
-                      <p className="text-[11px] text-[#52525B] truncate mt-0.5 flex items-center gap-1">
+                      <p className="text-[13px] font-semibold text-text-primary truncate leading-none">{c.candidate_name || 'Unknown'}</p>
+                      <p className="text-[11px] text-text-secondary truncate mt-0.5 flex items-center gap-1">
                         <Mail className="w-2.5 h-2.5 flex-shrink-0" />{c.candidate_email}
                       </p>
                     </div>
@@ -331,35 +331,35 @@ export default function CandidatesScreen() {
                         ].map(({ key, label }) => (
                           <div key={key} className="flex items-center gap-1" title={`${label}: ${dims[key]?.signal || 'N/A'}`}>
                             <SignalDot signal={dims[key]?.signal} />
-                            <span className="text-[10px] text-[#52525B]">{label}</span>
+                            <span className="text-[10px] text-text-secondary">{label}</span>
                           </div>
                         ))}
                       </>
                     ) : (
-                      <span className="text-[11px] text-[#3F3F46]">No report yet</span>
+                      <span className="text-[11px] text-text-muted">No report yet</span>
                     )}
                   </div>
 
                   {/* Invited */}
-                  <p className="text-[11px] text-[#52525B]">{formatDate(c.invited_at)}</p>
+                  <p className="text-[11px] text-text-secondary">{formatDate(c.invited_at)}</p>
 
                   {/* Report action */}
                   <div className="flex justify-end">
                     {hasReport ? (
                       <button
                         onClick={() => navigate(`/recruiter/reports/${selectedId}/${c.session_id}`)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#083344] border border-[#0E7490] text-[#06B6D4] text-[11px] font-semibold rounded-lg hover:bg-[#0a3d52] hover:border-[#06B6D4] transition-all"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-tint border border-brand-border text-brand text-[11px] font-semibold rounded-lg hover:bg-brand-tint-light hover:border-brand transition-all"
                       >
                         <FileText className="w-3 h-3" />View
                       </button>
                     ) : c.report_status === 'processing' ? (
-                      <span className="flex items-center gap-1 text-[11px] text-[#06B6D4]"><Loader className="w-3 h-3 animate-spin" />Generating…</span>
+                      <span className="flex items-center gap-1 text-[11px] text-brand"><Loader className="w-3 h-3 animate-spin" />Generating…</span>
                     ) : c.report_status === 'pending' ? (
-                      <span className="flex items-center gap-1 text-[11px] text-[#F59E0B]"><Clock className="w-3 h-3" />Queued</span>
+                      <span className="flex items-center gap-1 text-[11px] text-warning"><Clock className="w-3 h-3" />Queued</span>
                     ) : c.report_status === 'failed' ? (
-                      <span className="flex items-center gap-1 text-[11px] text-[#F43F5E]"><XCircle className="w-3 h-3" />Failed</span>
+                      <span className="flex items-center gap-1 text-[11px] text-error"><XCircle className="w-3 h-3" />Failed</span>
                     ) : (
-                      <span className="text-[11px] text-[#3F3F46]">—</span>
+                      <span className="text-[11px] text-text-muted">—</span>
                     )}
                   </div>
                 </div>
@@ -368,8 +368,8 @@ export default function CandidatesScreen() {
           </div>
 
           {/* Footer */}
-          <div className="px-5 py-3 bg-[#111113] border-t border-[#27272A]">
-            <p className="text-[11px] text-[#3F3F46]">{filtered.length} of {total} candidate{total !== 1 ? 's' : ''} · Ranked by overall score</p>
+          <div className="px-5 py-3 bg-surface border-t border-border-default">
+            <p className="text-[11px] text-text-muted">{filtered.length} of {total} candidate{total !== 1 ? 's' : ''} · Ranked by overall score</p>
           </div>
         </div>
       )}

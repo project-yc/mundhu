@@ -14,6 +14,7 @@ import ReportDetailScreen from './pages/recruiter/ReportDetailScreen'
 import InviteScreen from './pages/recruiter/InviteScreen'
 import InviteCandidate from './pages/recruiter/InviteCandidate'
 import VerifyCandidateInvite from './pages/recruiter/VerifyCandidateInvite'
+import OnboardingPage from './pages/recruiter/onboarding/OnboardingPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import UserDashboardPage from './users/pages/UserDashboardPage'
 import UserSimulationsPage from './users/pages/UserSimulationsPage'
@@ -26,12 +27,28 @@ import UserSkillRoadmapPage from './users/pages/UserSkillRoadmapPage'
 import UserSettingsPage from './users/pages/UserSettingsPage'
 import ProtectedRoute from './utils/ProtectedRoute'
 import AdminRoute from './utils/AdminRoute'
+import { RecruiterThemeProvider } from './theme/RecruiterThemeProvider'
 
 function RoleBasedRedirect() {
   const token = localStorage.getItem('authToken');
   const userRole = localStorage.getItem('userRole');
+  const org = (() => { try { return JSON.parse(localStorage.getItem('org') || '{}'); } catch { return {}; } })();
+
   if (!token) return <Navigate to="/login" replace />;
-  if (userRole === 'ADMIN') return <Navigate to="/admin" replace />;
+
+  if (userRole === 'ORG_ADMIN' || userRole === 'ADMIN') {
+    // ORG_ADMIN = recruiter who created a workspace
+    if (org?.org_id) {
+      return org.is_onboarded === false
+        ? <Navigate to="/recruiter/onboarding" replace />
+        : <Navigate to="/recruiter/dashboard" replace />;
+    }
+    // System admin (no org context) — only for legacy ADMIN role
+    if (userRole === 'ADMIN') return <Navigate to="/admin" replace />;
+    // ORG_ADMIN with no org somehow — send to onboarding
+    return <Navigate to="/recruiter/onboarding" replace />;
+  }
+
   if (userRole === 'RECRUITER') return <Navigate to="/recruiter/dashboard" replace />;
   return <Navigate to="/user/dashboard" replace />;
 }
@@ -42,6 +59,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/recruiter/signup" element={<SignupPage />} />
         <Route path="/waitlist" element={<WaitlistPage />} />
         <Route 
           path="/admin" 
@@ -199,11 +217,14 @@ function App() {
           path="/:assessmentId/invite" 
           element={
             <ProtectedRoute requiredRole="RECRUITER">
-              <InviteCandidate />
+              <RecruiterThemeProvider>
+                <InviteCandidate />
+              </RecruiterThemeProvider>
             </ProtectedRoute>
           } 
         />
         <Route path="/invite/:token" element={<VerifyCandidateInvite />} />
+        <Route path="/recruiter/onboarding" element={<OnboardingPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

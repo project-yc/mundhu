@@ -1,115 +1,263 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Lock, AlertCircle, CheckCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { CANDIDATE_PALETTE as CP, RECRUITER_PALETTE as RP } from '../../theme/palette';
 import Particles from '../../components/particles/Particles';
 
-const loginUser = async (email, password) => {
-  try {
-    const response = await fetch('/api/auth/v1/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
+// ─── Accent shortcuts ────────────────────────────────────────────────────────
+const DEV_ACCENT        = CP.brand;                   // #18D3FF
+const REC_ACCENT        = CP.recruiterAccent;         // #A78BFA
+const REC_ACCENT_DIM    = CP.recruiterAccentDim;
+const REC_ACCENT_GLOW   = CP.recruiterAccentGlow;
+const REC_ACCENT_BORDER = CP.recruiterAccentBorder;
 
-    // Parse JSON once
-    const data = await response.json();
-    console.log('Login response:', data);
+// ─── API helpers ─────────────────────────────────────────────────────────────
+async function doLogin(role, email, password) {
+  const endpoint = role === 'dev'
+    ? '/api/auth/v1/developer/login'
+    : '/api/auth/v1/recruiter/login';
+  const res  = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || data.message || data.error || `Error ${res.status}`);
+  return data;
+}
 
-    if (!response.ok) {
-      const errorMessage = data.message || data.error || `HTTP Error: ${response.status}`;
-      throw new Error(errorMessage);
-    }
+function storeAuthData(data) {
+  const tokens       = data.tokens || data;
+  const accessToken  = tokens.access_token  || data.access_token;
+  const refreshToken = tokens.refresh_token || data.refresh_token;
+  if (!accessToken) return null;
+  localStorage.setItem('authToken',    accessToken);
+  localStorage.setItem('refreshToken', refreshToken);
+  if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+  if (data.org)  localStorage.setItem('org',  JSON.stringify(data.org));
+  const role = data.role || data.user?.role || null;
+  if (role) localStorage.setItem('userRole', role);
+  else      localStorage.removeItem('userRole');
+  return role;
+}
 
-    // Handle both response formats
-    // New format: { tokens: { access_token, refresh_token }, user, org, role }
-    // Old format: { access_token, refresh_token, user }
-    const tokens = data.tokens || data;
-    const accessToken = tokens.access_token || data.access_token;
-    const refreshToken = tokens.refresh_token || data.refresh_token;
-
-    console.log('=== LOGIN DEBUG ===');
-    console.log('Full login response:', JSON.stringify(data, null, 2));
-    console.log('Access token:', accessToken ? 'exists' : 'missing');
-    console.log('Role from data.role:', data.role);
-
-    if (accessToken) {
-      localStorage.setItem('authToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      
-      // Store user info
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user));
-      }
-      
-      // Store role - check multiple possible locations
-      const userRole = data.role || data.user?.role || null;
-      console.log('Detected user role:', userRole);
-      
-      if (userRole) {
-        console.log('Storing user role:', userRole);
-        localStorage.setItem('userRole', userRole);
-      } else {
-        console.warn('No role found in response! Response structure:', Object.keys(data));
-        // Don't store null/undefined
-        localStorage.removeItem('userRole');
-      }
-      
-      // Store org info
-      if (data.org) {
-        localStorage.setItem('org', JSON.stringify(data.org));
-      }
-      
-      console.log('=== END LOGIN DEBUG ===');
-    }
-    return data;
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error('Unable to connect to the server. Please check your connection.');
-    }
-    throw error;
+function resolveRedirect(userRole) {
+  if (userRole === 'ORG_ADMIN' || userRole === 'ADMIN') {
+    const org = (() => { try { return JSON.parse(localStorage.getItem('org') || '{}'); } catch { return {}; } })();
+    if (org?.org_id) return org.is_onboarded === false ? '/recruiter/onboarding' : '/recruiter/dashboard';
+    if (userRole === 'ADMIN') return '/admin';
+    return '/recruiter/onboarding';
   }
-};
+  if (userRole === 'RECRUITER') return '/recruiter/dashboard';
+  return '/user/dashboard';
+}
 
+// ─── Icons ────────────────────────────────────────────────────────────────────
+function DevIcon({ color = 'currentColor' }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="4,5 1,8 4,11" />
+      <polyline points="12,5 15,8 12,11" />
+      <line x1="9" y1="3" x2="7" y2="13" />
+    </svg>
+  );
+}
+
+function RecruiterIcon({ color = 'currentColor' }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="5" r="3" />
+      <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+    </svg>
+  );
+}
+
+function EnvelopeIcon({ color }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="3" width="14" height="10" rx="2" />
+      <polyline points="1,3 8,9 15,3" />
+    </svg>
+  );
+}
+
+function LockIcon({ color }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="7" width="10" height="8" rx="1.5" />
+      <path d="M5 7V5a3 3 0 0 1 6 0v2" />
+    </svg>
+  );
+}
+
+function EyeIcon({ color }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 8c1.7-3.3 4-5 7-5s5.3 1.7 7 5c-1.7 3.3-4 5-7 5s-5.3-1.7-7-5z" />
+      <circle cx="8" cy="8" r="2" />
+    </svg>
+  );
+}
+
+function EyeSlashIcon({ color }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <line x1="1" y1="1" x2="15" y2="15" />
+      <path d="M6.4 3.2A7 7 0 0 1 8 3c3 0 5.3 1.7 7 5a11.7 11.7 0 0 1-1.6 2.4M3.5 4.5C2.2 5.5 1.3 6.7 1 8c1.7 3.3 4 5 7 5a7 7 0 0 0 3.9-1.3" />
+      <path d="M5.6 5.6a3 3 0 0 0 4.8 3.8" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon({ color, size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <line x1="2" y1="8" x2="14" y2="8" />
+      <polyline points="9,3 14,8 9,13" />
+    </svg>
+  );
+}
+
+// ─── Left panel (always dark) ─────────────────────────────────────────────────
+function LeftPanel() {
+  return (
+    <div style={{
+      position: 'relative', overflow: 'hidden',
+      width: '46%', flexShrink: 0,
+      background: 'linear-gradient(135deg, #070F20 0%, #0A1628 100%)',
+      borderRight: `1px solid ${CP.border}`,
+      padding: '56px 52px',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      {/* Decorative glows */}
+      <div style={{ position: 'absolute', top: -120, right: -120, width: 340, height: 340, borderRadius: '50%', background: 'radial-gradient(circle, rgba(24,211,255,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: -100, left: -80, width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
+
+      {/* Wordmark */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 500, fontSize: 20, color: CP.textPrimary, letterSpacing: '-0.03em', display: 'flex', alignItems: 'center' }}>
+          <span>tru</span>
+          <span style={{ color: CP.brand }}>dev</span>
+          <span style={{
+            display: 'inline-block', width: 2, height: 18, background: CP.brand,
+            marginLeft: 3, verticalAlign: 'middle',
+            animation: 'blink 1.1s step-end infinite',
+          }} />
+        </span>
+        <span style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 10, color: CP.brand,
+          border: `1px solid ${CP.brandBorder}`,
+          background: CP.brandTint,
+          padding: '3px 8px', borderRadius: 4,
+          letterSpacing: '0.04em',
+        }}>beta</span>
+      </div>
+
+      {/* Hero */}
+      <div style={{ marginTop: 48, position: 'relative', zIndex: 1 }}>
+        <p style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 11, color: CP.brand,
+          letterSpacing: '0.14em', textTransform: 'uppercase',
+          margin: '0 0 14px',
+        }}>
+          Real Engineering. Verified Talent.
+        </p>
+        <h1 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 36, color: CP.textPrimary, lineHeight: 1.2, margin: 0 }}>
+          <span style={{ fontWeight: 300 }}>Assessments that</span>
+          <br />
+          <span style={{ fontWeight: 600 }}>reflect actual work</span>
+        </h1>
+        <p style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: 14, color: CP.textSecondary,
+          marginTop: 16, maxWidth: 340, lineHeight: 1.65,
+        }}>
+          Evaluate engineers on the problems they'll actually face — not
+          contrived puzzles. Build your team with confidence.
+        </p>
+      </div>
+
+      {/* Role chips */}
+      <div style={{ marginTop: 36, display: 'flex', gap: 10, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
+        {[
+          { label: 'For Developers', dot: DEV_ACCENT,  border: 'rgba(24,211,255,0.2)', bg: 'rgba(24,211,255,0.06)' },
+          { label: 'For Recruiters', dot: REC_ACCENT,  border: REC_ACCENT_BORDER,      bg: REC_ACCENT_DIM         },
+        ].map(({ label, dot, border, bg }) => (
+          <div key={label} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+            border: `1px solid ${border}`, background: bg,
+            borderRadius: 999, padding: '7px 14px',
+            fontSize: 12, fontWeight: 500, color: CP.textSecondary,
+            fontFamily: "'DM Sans', sans-serif",
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: dot, flexShrink: 0 }} />
+            {label}
+          </div>
+        ))}
+      </div>
+
+      {/* Stats */}
+      <div style={{ marginTop: 'auto', paddingTop: 48, display: 'flex', gap: 36, position: 'relative', zIndex: 1 }}>
+        {[['2.4k+', 'Assessments run'], ['98%', 'Signal accuracy'], ['0 DSA', 'No puzzle grind']].map(([num, label]) => (
+          <div key={label}>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, color: CP.textPrimary, fontWeight: 500 }}>{num}</div>
+            <div style={{ fontSize: 11, color: CP.textFaint, marginTop: 3 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [role,       setRole]       = useState('dev');
+  const [email,      setEmail]      = useState('');
+  const [password,   setPassword]   = useState('');
+  const [showPw,     setShowPw]     = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [loading,    setLoading]    = useState(false);
+  const [error,      setError]      = useState('');
+  const [success,    setSuccess]    = useState('');
+  const [emailFocus, setEmailFocus] = useState(false);
+  const [passFocus,  setPassFocus]  = useState(false);
+
+  const isDev       = role === 'dev';
+  const palette     = isDev ? CP : RP;
+  const accentColor = isDev ? DEV_ACCENT : REC_ACCENT;
+  const accentDim   = isDev ? CP.brandTint : REC_ACCENT_DIM;
+  const accentGlow  = isDev ? 'rgba(24,211,255,0.25)' : REC_ACCENT_GLOW;
+
+  const switchRole = (r) => { setRole(r); setError(''); setSuccess(''); };
+
+  const baseInput = {
+    width: '100%', height: 46,
+    background: palette.surfaceMuted,
+    border: `1px solid ${palette.border}`,
+    borderRadius: 10,
+    padding: '0 14px 0 42px',
+    fontSize: 13.5,
+    fontFamily: "'DM Sans', sans-serif",
+    color: palette.textPrimary,
+    outline: 'none',
+    transition: 'border-color 0.2s, box-shadow 0.2s, background 0.2s',
+    boxSizing: 'border-box',
+  };
+
+  const inputStyle = (focused) => focused
+    ? { ...baseInput, borderColor: accentColor, background: isDev ? 'rgba(255,255,255,0.03)' : palette.surfaceHover, boxShadow: `0 0 0 3px ${accentGlow}` }
+    : baseInput;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-    setLoading(true);
-
+    if (!email || !password) { setError('Email and password are required.'); return; }
+    setError(''); setSuccess(''); setLoading(true);
     try {
-      const response = await loginUser(email, password);
-      setSuccess('Login successful! Redirecting...');
-      setEmail('');
-      setPassword('');
-      console.log('Login response:', response);
-      console.log('Checking role for redirect:', response.role);
-      
-      // Redirect based on role after 1 second
-      setTimeout(() => {
-        const userRole = response.role || localStorage.getItem('userRole');
-        console.log('Role for redirect decision:', userRole);
-        
-        if (userRole === 'ADMIN') {
-          console.log('Redirecting to admin dashboard');
-          window.location.href = '/admin';
-        } else if (userRole === 'RECRUITER') {
-          console.log('Redirecting to recruiter dashboard');
-          window.location.href = '/recruiter/dashboard';
-        } else {
-          console.log('Redirecting to user dashboard');
-          window.location.href = '/user/dashboard';
-        }
-      }, 1000);
+      const data     = await doLogin(role, email, password);
+      const userRole = storeAuthData(data);
+      setSuccess('Login successful! Redirecting…');
+      setTimeout(() => { window.location.href = resolveRedirect(userRole); }, 900);
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
@@ -117,323 +265,335 @@ export default function LoginPage() {
     }
   };
 
+  const toggleActiveStyle = (r) => r === 'dev'
+    ? { color: DEV_ACCENT, background: CP.brandTint,  border: `1px solid ${CP.brandBorder}` }
+    : { color: REC_ACCENT, background: REC_ACCENT_DIM, border: `1px solid ${REC_ACCENT_BORDER}` };
+  const toggleInactiveStyle = { color: palette.textMuted, background: 'transparent', border: '1px solid transparent' };
+
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
-
-        @keyframes card-rise {
-          from { opacity: 0; transform: translateY(20px) scale(0.985); }
-          to   { opacity: 1; transform: translateY(0)    scale(1);     }
-        }
-        .card-rise { animation: card-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
-
-        .glass-card {
-          background: rgba(11, 11, 14, 0.78);
-          backdrop-filter: blur(24px) saturate(160%);
-          -webkit-backdrop-filter: blur(24px) saturate(160%);
-          border: 1px solid rgba(255,255,255,0.07);
-          box-shadow:
-            0 0 0 1px rgba(6,182,212,0.05),
-            0 32px 72px rgba(0,0,0,0.65),
-            0 8px 24px rgba(0,0,0,0.35);
-        }
-
-        .login-input {
-          width: 100%;
-          padding: 0.6rem 0.875rem 0.6rem 2.5rem;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 9px;
-          font-size: 0.8125rem;
-          color: #F4F4F5;
-          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-          outline: none;
-          font-family: 'Inter', sans-serif;
-          letter-spacing: 0.01em;
-        }
-        .login-input::placeholder { color: #3F3F46; }
-        .login-input:hover { border-color: rgba(255,255,255,0.13); background: rgba(255,255,255,0.055); }
-        .login-input:focus {
-          border-color: rgba(6,182,212,0.45);
-          background: rgba(6,182,212,0.035);
-          box-shadow: 0 0 0 3px rgba(6,182,212,0.09), inset 0 0 0 1px rgba(6,182,212,0.07);
-        }
-        .login-input.password-input { padding-right: 2.5rem; }
-
-        .login-btn {
-          width: 100%;
-          display: flex; align-items: center; justify-content: center; gap: 0.45rem;
-          padding: 0.65rem 1rem;
-          background: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%);
-          border: none; border-radius: 9px;
-          font-size: 0.8125rem; font-weight: 600; color: #030712;
-          cursor: pointer; letter-spacing: 0.02em;
-          transition: opacity 0.15s, box-shadow 0.2s, transform 0.1s;
-          font-family: 'Inter', sans-serif;
-          position: relative; overflow: hidden;
-        }
-        .login-btn::before {
-          content: ''; position: absolute; inset: 0;
-          background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, transparent 55%);
-          pointer-events: none;
-        }
-        .login-btn:hover:not(:disabled) {
-          box-shadow: 0 0 0 1px rgba(6,182,212,0.28), 0 6px 20px rgba(6,182,212,0.28);
-          opacity: 0.91;
-        }
-        .login-btn:active:not(:disabled) { transform: scale(0.99); }
-        .login-btn:disabled { opacity: 0.33; cursor: not-allowed; }
-
-        .toggle-pw {
-          position: absolute; right: 0.7rem; top: 50%; transform: translateY(-50%);
-          background: none; border: none; padding: 0; cursor: pointer;
-          color: #52525B; display: flex; align-items: center;
-          transition: color 0.15s;
-        }
-        .toggle-pw:hover { color: #A1A1AA; }
-
-        .waitlist-strip {
-          display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
-          padding: 0.875rem 1rem;
-          border-radius: 10px;
-          background: rgba(6,182,212,0.03);
-          border: 1px solid rgba(6,182,212,0.1);
-          transition: border-color 0.22s, background 0.22s;
-          cursor: default;
-        }
-        .waitlist-strip:hover {
-          border-color: rgba(6,182,212,0.22);
-          background: rgba(6,182,212,0.05);
-        }
-
-        .waitlist-link {
-          display: inline-flex; align-items: center; gap: 0.375rem;
-          padding: 0.4rem 0.875rem;
-          border: 1px solid rgba(6,182,212,0.3);
-          border-radius: 7px;
-          font-size: 0.75rem; font-weight: 600;
-          color: #22D3EE; text-decoration: none;
-          font-family: 'Inter', sans-serif; letter-spacing: 0.02em;
-          white-space: nowrap; flex-shrink: 0;
-          transition: background 0.16s, border-color 0.16s, box-shadow 0.16s, color 0.16s;
-        }
-        .waitlist-link:hover {
-          background: rgba(6,182,212,0.08);
-          border-color: rgba(6,182,212,0.5);
-          box-shadow: 0 0 16px rgba(6,182,212,0.15);
-          color: #67E8F9;
-        }
-
-        .status-banner {
-          display: flex; align-items: flex-start; gap: 0.575rem;
-          padding: 0.55rem 0.8rem; border-radius: 8px;
-          font-size: 0.78rem; line-height: 1.5;
-        }
-
-        .sep {
-          height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
-        }
-
-        @keyframes pulse-dot {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0.3; }
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+        @keyframes blink    { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes spin     { to { transform: rotate(360deg); } }
+        @keyframes pulse-dot{ 0%,100%{opacity:1} 50%{opacity:0.3} }
+        *, *::before, *::after { box-sizing: border-box; }
       `}</style>
 
-      {/* Fixed background — particles layer */}
-      <div style={{ position: 'fixed', inset: 0, background: '#080A0E', zIndex: 0 }}>
+      {/* Full-viewport dark canvas */}
+      <div style={{ position: 'fixed', inset: 0, background: CP.pageBg, zIndex: 0 }}>
         <Particles
           particleColors={['#ffffff', '#ffffff', '#ffffff']}
-          particleCount={180}
-          particleSpread={9}
-          speed={0.04}
-          particleBaseSize={110}
-          sizeRandomness={1.2}
-          alphaParticles={false}
-          moveParticlesOnHover={true}
-          particleHoverFactor={0.6}
-          disableRotation={false}
+          particleCount={180} particleSpread={9} speed={0.04}
+          particleBaseSize={110} sizeRandomness={1.2}
+          alphaParticles={false} moveParticlesOnHover={true}
+          particleHoverFactor={0.6} disableRotation={false}
           cameraDistance={20}
           pixelRatio={typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2) : 1}
         />
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'radial-gradient(ellipse 70% 70% at 50% 50%, transparent 20%, rgba(8,10,14,0.75) 100%)',
-          pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)',
-          width: '600px', height: '300px',
-          background: 'radial-gradient(ellipse, rgba(6,182,212,0.07) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 70% at 50% 50%, transparent 20%, rgba(4,9,20,0.75) 100%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)', width: 600, height: 300, background: 'radial-gradient(ellipse, rgba(24,211,255,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
       </div>
 
-      {/* Fixed viewport shell — no scroll possible */}
+      {/* Centered shell */}
       <div style={{
         position: 'fixed', inset: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '1.25rem',
-        zIndex: 1,
-        fontFamily: "'Inter', sans-serif",
+        padding: '1.25rem', zIndex: 1,
+        fontFamily: "'DM Sans', sans-serif",
       }}>
-        <div className="card-rise" style={{ width: '100%', maxWidth: '384px' }}>
+        <div style={{
+          width: '100%', maxWidth: 1060,
+          borderRadius: 20, overflow: 'hidden',
+          display: 'flex',
+          border: `1px solid ${CP.border}`,
+          boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.35)',
+        }}>
 
-          {/* ── Single glass card containing everything ── */}
-          <div className="glass-card" style={{ borderRadius: '20px', padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
+          {/* Left panel */}
+          <LeftPanel />
 
-            {/* Top bar: brand + beta pill */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{
-                fontFamily: "'Space Mono', monospace",
-                fontWeight: 700, fontSize: '1.25rem',
-                color: '#F4F4F5', letterSpacing: '-0.04em', lineHeight: 1,
+          {/* Right panel */}
+          <div style={{
+            flex: 1, padding: '48px 44px',
+            background: palette.surface,
+            display: 'flex', flexDirection: 'column',
+            transition: 'background 0.25s',
+          }}>
+
+            {/* Role toggle */}
+            <div style={{ marginBottom: 32 }}>
+              <p style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+                color: palette.textMuted, margin: '0 0 10px',
               }}>
-                tru<span style={{ color: '#06B6D4' }}>dev</span>
-                <span style={{ color: '#22D3EE', opacity: 0.55 }}>_</span>
-              </span>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                fontFamily: "'Space Mono', monospace",
-                fontSize: '0.625rem', fontWeight: 400,
-                padding: '0.25rem 0.625rem', borderRadius: '4px',
-                background: 'rgba(6,182,212,0.06)',
-                border: '1px solid rgba(6,182,212,0.13)',
-                color: '#22D3EE', letterSpacing: '0.04em',
+                I am signing in as
+              </p>
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 1fr',
+                background: palette.surfaceMuted,
+                border: `1px solid ${palette.border}`,
+                borderRadius: 12, padding: 4, gap: 4,
               }}>
-                <span style={{
-                  width: '4px', height: '4px', borderRadius: '50%',
-                  background: '#06B6D4', boxShadow: '0 0 5px rgba(6,182,212,0.9)',
-                }} />
-                beta
-              </span>
+                {[
+                  { r: 'dev', label: 'Developer', icon: <DevIcon color={isDev ? DEV_ACCENT : palette.textMuted} /> },
+                  { r: 'rec', label: 'Recruiter',  icon: <RecruiterIcon color={!isDev ? REC_ACCENT : palette.textMuted} /> },
+                ].map(({ r, label, icon }) => {
+                  const active = role === r;
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => switchRole(r)}
+                      style={{
+                        height: 44, borderRadius: 9,
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: 13, fontWeight: 500,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        cursor: 'pointer', transition: 'all 0.2s ease',
+                        ...(active ? toggleActiveStyle(r) : toggleInactiveStyle),
+                      }}
+                    >
+                      {icon}
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Greeting */}
-            <div>
-              <h1 style={{ fontWeight: 600, fontSize: '1.0625rem', color: '#E4E4E7', letterSpacing: '-0.02em', marginBottom: '0.2rem', margin: 0 }}>
-                Welcome back
-              </h1>
-              <p style={{ fontSize: '0.8rem', color: '#52525B', marginTop: '0.25rem', margin: '0.25rem 0 0' }}>
-                Sign in to continue to your workspace
+            {/* Heading */}
+            <div style={{ marginBottom: 28 }}>
+              <h2 style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 22, fontWeight: 500,
+                color: palette.textPrimary, letterSpacing: '-0.3px',
+                margin: 0,
+              }}>
+                {isDev ? 'Welcome back' : 'Good to see you'}
+              </h2>
+              <p style={{ fontSize: 13, color: palette.textSecondary, marginTop: 6 }}>
+                Sign in to your{' '}
+                <span style={{ color: accentColor }}>{isDev ? 'developer' : 'recruiter'}</span>{' '}
+                workspace
               </p>
             </div>
 
-            <div className="sep" />
-
-            {/* Email */}
-            <div>
-              <label htmlFor="email" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 500, color: '#71717A', marginBottom: '0.4rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
-                Email
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Mail style={{ position: 'absolute', left: '0.7rem', top: '50%', transform: 'translateY(-50%)', width: '14px', height: '14px', color: '#3F3F46', pointerEvents: 'none' }} />
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  required
-                  className="login-input"
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <label htmlFor="password" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 500, color: '#71717A', marginBottom: '0.4rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
-                Password
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Lock style={{ position: 'absolute', left: '0.7rem', top: '50%', transform: 'translateY(-50%)', width: '14px', height: '14px', color: '#3F3F46', pointerEvents: 'none' }} />
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="login-input password-input"
-                />
-                <button
-                  type="button"
-                  className="toggle-pw"
-                  onClick={() => setShowPassword(v => !v)}
-                  tabIndex={-1}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword
-                    ? <EyeOff style={{ width: '14px', height: '14px' }} />
-                    : <Eye    style={{ width: '14px', height: '14px' }} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Error banner */}
+            {/* Status banners */}
             {error && (
-              <div className="status-banner" style={{ background: 'rgba(244,63,94,0.07)', border: '1px solid rgba(244,63,94,0.15)', color: '#FDA4AF' }}>
-                <AlertCircle style={{ width: '13px', height: '13px', marginTop: '1px', flexShrink: 0, color: '#F43F5E' }} />
-                <span>{error}</span>
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 8,
+                padding: '9px 12px', borderRadius: 8, marginBottom: 18,
+                background: palette.errorBg, border: `1px solid ${palette.errorBorder}`,
+                fontSize: 13, color: palette.error, lineHeight: 1.5,
+              }}>
+                <span style={{ flexShrink: 0, marginTop: 1 }}>⚠</span>
+                {error}
               </div>
             )}
-
-            {/* Success banner */}
             {success && (
-              <div className="status-banner" style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.15)', color: '#6EE7B7' }}>
-                <CheckCircle style={{ width: '13px', height: '13px', marginTop: '1px', flexShrink: 0, color: '#10B981' }} />
-                <span>{success}</span>
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 8,
+                padding: '9px 12px', borderRadius: 8, marginBottom: 18,
+                background: palette.successBg, border: `1px solid ${palette.successBorder}`,
+                fontSize: 13, color: palette.success, lineHeight: 1.5,
+              }}>
+                <span style={{ flexShrink: 0, marginTop: 1 }}>✓</span>
+                {success}
               </div>
             )}
 
-            {/* Sign in button */}
-            <button onClick={handleSubmit} disabled={loading} className="login-btn">
-              {loading ? (
-                <>
-                  <div style={{
-                    width: '13px', height: '13px', borderRadius: '50%',
-                    border: '2px solid rgba(3,7,18,0.2)', borderTopColor: '#030712',
-                    animation: 'spin 0.7s linear infinite',
-                  }} />
-                  Signing in…
-                </>
-              ) : (
-                <>Sign in <ArrowRight style={{ width: '13px', height: '13px' }} /></>
-              )}
-            </button>
+            {/* Form */}
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-            {/* ── Waitlist strip ── */}
-            <div className="waitlist-strip">
+              {/* Email */}
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.2rem' }}>
-                  <span style={{
-                    width: '5px', height: '5px', borderRadius: '50%',
-                    background: '#10B981', boxShadow: '0 0 5px rgba(16,185,129,0.8)',
-                    animation: 'pulse-dot 2s ease infinite', flexShrink: 0,
-                  }} />
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', color: '#22D3EE', letterSpacing: '0.06em' }}>
-                    EARLY ACCESS · OPEN
+                <label style={{
+                  display: 'block', fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase',
+                  color: palette.textMuted, marginBottom: 7,
+                }}>Email</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}>
+                    <EnvelopeIcon color={emailFocus ? accentColor : palette.textFaint} />
                   </span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    onFocus={() => setEmailFocus(true)}
+                    onBlur={() => setEmailFocus(false)}
+                    placeholder="you@company.com"
+                    autoComplete="email"
+                    required
+                    style={inputStyle(emailFocus)}
+                  />
                 </div>
-                <p style={{ fontSize: '0.78rem', color: '#71717A', margin: 0, lineHeight: 1.5 }}>
-                  New to TruDev? Get early access.
-                </p>
               </div>
-              <Link to="/waitlist" className="waitlist-link">
-                Join waitlist <ArrowRight style={{ width: '11px', height: '11px' }} />
-              </Link>
+
+              {/* Password */}
+              <div>
+                <label style={{
+                  display: 'block', fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase',
+                  color: palette.textMuted, marginBottom: 7,
+                }}>Password</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}>
+                    <LockIcon color={passFocus ? accentColor : palette.textFaint} />
+                  </span>
+                  <input
+                    type={showPw ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    onFocus={() => setPassFocus(true)}
+                    onBlur={() => setPassFocus(false)}
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    required
+                    style={{ ...inputStyle(passFocus), paddingRight: 42 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw(v => !v)}
+                    tabIndex={-1}
+                    aria-label={showPw ? 'Hide password' : 'Show password'}
+                    style={{
+                      position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex',
+                    }}
+                  >
+                    {showPw ? <EyeSlashIcon color={palette.textMuted} /> : <EyeIcon color={palette.textMuted} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember + Forgot */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: palette.textSecondary, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} style={{ accentColor }} />
+                  Remember me
+                </label>
+                <a href="/forgot-password" style={{ fontSize: 12, color: palette.textMuted, textDecoration: 'none' }}>
+                  Forgot password?
+                </a>
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  width: '100%', height: 48,
+                  background: accentColor,
+                  color: isDev ? CP.onBrand : '#1A0050',
+                  borderRadius: 10, border: 'none',
+                  fontSize: 14, fontWeight: 600,
+                  fontFamily: "'DM Sans', sans-serif",
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.65 : 1,
+                  transition: 'opacity 0.2s, transform 0.15s',
+                  marginTop: 4,
+                }}
+                onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = '0.88'; }}
+                onMouseLeave={e => { if (!loading) e.currentTarget.style.opacity = '1'; }}
+                onMouseDown={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.99)'; }}
+                onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+              >
+                {loading ? (
+                  <>
+                    <div style={{
+                      width: 15, height: 15, borderRadius: '50%', flexShrink: 0,
+                      border: `2px solid ${isDev ? 'rgba(4,9,20,0.2)' : 'rgba(26,0,80,0.2)'}`,
+                      borderTopColor: isDev ? CP.onBrand : '#1A0050',
+                      animation: 'spin 0.7s linear infinite',
+                    }} />
+                    Signing in…
+                  </>
+                ) : (
+                  <>
+                    Sign in
+                    <ArrowRightIcon color={isDev ? CP.onBrand : '#1A0050'} />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Divider */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0', color: palette.textFaint, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
+              <span style={{ flex: 1, height: 1, background: palette.border }} />
+              OR
+              <span style={{ flex: 1, height: 1, background: palette.border }} />
             </div>
+
+            {/* Bottom — waitlist (dev) or signup CTA (recruiter) */}
+            {isDev ? (
+              <div style={{
+                background: CP.surfaceMuted,
+                border: `1px solid ${CP.border}`,
+                borderRadius: 10, padding: '13px 16px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span style={{
+                      width: 7, height: 7, borderRadius: '50%',
+                      background: CP.success, boxShadow: `0 0 6px ${CP.success}`,
+                      flexShrink: 0, animation: 'pulse-dot 2s ease infinite',
+                    }} />
+                    <strong style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: CP.success, letterSpacing: '0.06em' }}>
+                      EARLY ACCESS · OPEN
+                    </strong>
+                  </div>
+                  <p style={{ fontSize: 12, color: CP.textSecondary, margin: 0, lineHeight: 1.5 }}>
+                    New to TruDev? Get early access.
+                  </p>
+                </div>
+                <Link
+                  to="/waitlist"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    color: DEV_ACCENT, border: `1px solid ${DEV_ACCENT}40`,
+                    background: CP.brandTint,
+                    borderRadius: 7, padding: '7px 14px',
+                    fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                    textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+                  }}
+                >
+                  Join waitlist
+                  <ArrowRightIcon color={DEV_ACCENT} size={11} />
+                </Link>
+              </div>
+            ) : (
+              <div style={{
+                background: RP.surfaceMuted,
+                border: `1px solid ${RP.border}`,
+                borderRadius: 10, padding: '13px 16px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              }}>
+                <p style={{ fontSize: 13, color: RP.textSecondary, margin: 0, lineHeight: 1.5 }}>
+                  Don't have a recruiter account?
+                </p>
+                <Link
+                  to="/recruiter/signup"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    color: REC_ACCENT, border: `1px solid ${REC_ACCENT}40`,
+                    background: REC_ACCENT_DIM,
+                    borderRadius: 7, padding: '7px 14px',
+                    fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                    textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+                  }}
+                >
+                  Sign up free
+                  <ArrowRightIcon color={REC_ACCENT} size={11} />
+                </Link>
+              </div>
+            )}
 
           </div>
-
-          {/* Copyright — outside card, very subtle */}
-          <p style={{ textAlign: 'center', fontSize: '0.6875rem', color: '#27272A', marginTop: '1rem', fontFamily: "'Inter', sans-serif" }}>
-            © 2026 TruDev
-          </p>
-
         </div>
       </div>
     </>
