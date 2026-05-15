@@ -4,7 +4,7 @@ import { User, Mail, Briefcase, AlertCircle, CheckCircle, ArrowRight, ChevronDow
 import Particles from '../../components/particles/Particles';
 
 const GOOGLE_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbzr1ChWXgQY9arA-DyCrVoTaARe3_A5oqwxiLN7O4805OFX3vC3oa_KgflfVM89ZARy/exec';
+  'https://script.google.com/macros/s/AKfycbwNNETuoVxgwfB7lE6wxu5lvV1WdfWuFZHuGrbYQKrgGJHWtXdX3X8JggbVsK-b-RMz/exec';
 
 const ROLES = [
   { value: 'developer', label: 'Developer' },
@@ -33,22 +33,19 @@ export default function WaitlistPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(GOOGLE_SCRIPT_URL, {
+      // Google Apps Script doesn't handle CORS preflight. Using mode:'no-cors' sends a
+      // simple request (no preflight), which GAS accepts. The response will be opaque
+      // (unreadable), so we show success as soon as the fetch resolves without throwing.
+      await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ name, email, designation }),
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setSuccess(true);
-      } else {
-        setError(data.message || 'Something went wrong. Please try again.');
-      }
-    } catch (err) {
-      // Google Apps Script CORS can throw even on success — treat network errors leniently
-      console.error(err);
       setSuccess(true);
+    } catch (err) {
+      console.error(err);
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -212,13 +209,13 @@ export default function WaitlistPage() {
       {/* Background */}
       <div style={{ position: 'fixed', inset: 0, background: '#080A0E', zIndex: 0 }}>
         <Particles
-          particleColors={['#06B6D4', '#22D3EE', '#7DD3FC', '#ffffff']}
+          particleColors={['#ffffff', '#ffffff', '#ffffff']}
           particleCount={180}
           particleSpread={9}
           speed={0.04}
-          particleBaseSize={72}
+          particleBaseSize={110}
           sizeRandomness={1.2}
-          alphaParticles={true}
+          alphaParticles={false}
           moveParticlesOnHover={true}
           particleHoverFactor={0.6}
           disableRotation={false}
@@ -342,7 +339,7 @@ export default function WaitlistPage() {
                 {/* Email */}
                 <div>
                   <label htmlFor="wl-email" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 500, color: '#A1A1AA', marginBottom: '0.5rem', letterSpacing: '0.02em' }}>
-                    Work email
+                    Email
                   </label>
                   <div style={{ position: 'relative' }}>
                     <Mail style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', width: '15px', height: '15px', color: '#3F3F46', pointerEvents: 'none' }} />
@@ -351,7 +348,7 @@ export default function WaitlistPage() {
                       type="email"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
-                      placeholder="alex@company.com"
+                      placeholder="alex@gmail.com"
                       required
                       className="wl-input"
                     />

@@ -122,354 +122,320 @@ export default function LoginPage() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
 
-        .login-root {
-          font-family: 'Inter', sans-serif;
-        }
-
         @keyframes card-rise {
-          from { opacity: 0; transform: translateY(24px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
+          from { opacity: 0; transform: translateY(20px) scale(0.985); }
+          to   { opacity: 1; transform: translateY(0)    scale(1);     }
         }
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-        .card-rise { animation: card-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
-        .fade-in   { animation: fade-in 0.8s ease both; }
+        .card-rise { animation: card-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
         .glass-card {
-          background: rgba(12, 12, 15, 0.72);
-          backdrop-filter: blur(20px) saturate(160%);
-          -webkit-backdrop-filter: blur(20px) saturate(160%);
+          background: rgba(11, 11, 14, 0.78);
+          backdrop-filter: blur(24px) saturate(160%);
+          -webkit-backdrop-filter: blur(24px) saturate(160%);
           border: 1px solid rgba(255,255,255,0.07);
           box-shadow:
-            0 0 0 1px rgba(6,182,212,0.06),
-            0 24px 64px rgba(0,0,0,0.6),
-            0 8px 24px rgba(0,0,0,0.4);
+            0 0 0 1px rgba(6,182,212,0.05),
+            0 32px 72px rgba(0,0,0,0.65),
+            0 8px 24px rgba(0,0,0,0.35);
         }
 
         .login-input {
           width: 100%;
-          padding: 0.65rem 0.875rem 0.65rem 2.6rem;
+          padding: 0.6rem 0.875rem 0.6rem 2.5rem;
           background: rgba(255,255,255,0.04);
           border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 10px;
-          font-size: 0.875rem;
+          border-radius: 9px;
+          font-size: 0.8125rem;
           color: #F4F4F5;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
           outline: none;
           font-family: 'Inter', sans-serif;
           letter-spacing: 0.01em;
         }
         .login-input::placeholder { color: #3F3F46; }
-        .login-input:hover  {
-          border-color: rgba(255,255,255,0.14);
-          background: rgba(255,255,255,0.06);
+        .login-input:hover { border-color: rgba(255,255,255,0.13); background: rgba(255,255,255,0.055); }
+        .login-input:focus {
+          border-color: rgba(6,182,212,0.45);
+          background: rgba(6,182,212,0.035);
+          box-shadow: 0 0 0 3px rgba(6,182,212,0.09), inset 0 0 0 1px rgba(6,182,212,0.07);
         }
-        .login-input:focus  {
-          border-color: rgba(6,182,212,0.5);
-          background: rgba(6,182,212,0.04);
-          box-shadow: 0 0 0 3px rgba(6,182,212,0.1), inset 0 0 0 1px rgba(6,182,212,0.08);
-        }
-        .login-input.password-input {
-          padding-right: 2.75rem;
-        }
+        .login-input.password-input { padding-right: 2.5rem; }
 
         .login-btn {
           width: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          padding: 0.7rem 1rem;
+          display: flex; align-items: center; justify-content: center; gap: 0.45rem;
+          padding: 0.65rem 1rem;
           background: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%);
-          border: none;
-          border-radius: 10px;
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: #030712;
-          cursor: pointer;
-          letter-spacing: 0.02em;
-          transition: opacity 0.15s ease, box-shadow 0.2s ease, transform 0.1s ease;
+          border: none; border-radius: 9px;
+          font-size: 0.8125rem; font-weight: 600; color: #030712;
+          cursor: pointer; letter-spacing: 0.02em;
+          transition: opacity 0.15s, box-shadow 0.2s, transform 0.1s;
           font-family: 'Inter', sans-serif;
-          position: relative;
-          overflow: hidden;
+          position: relative; overflow: hidden;
         }
         .login-btn::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+          content: ''; position: absolute; inset: 0;
+          background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, transparent 55%);
           pointer-events: none;
         }
         .login-btn:hover:not(:disabled) {
-          box-shadow: 0 0 0 1px rgba(6,182,212,0.3), 0 8px 24px rgba(6,182,212,0.3);
-          opacity: 0.92;
+          box-shadow: 0 0 0 1px rgba(6,182,212,0.28), 0 6px 20px rgba(6,182,212,0.28);
+          opacity: 0.91;
         }
         .login-btn:active:not(:disabled) { transform: scale(0.99); }
-        .login-btn:disabled {
-          opacity: 0.35;
-          cursor: not-allowed;
-        }
+        .login-btn:disabled { opacity: 0.33; cursor: not-allowed; }
 
         .toggle-pw {
-          position: absolute;
-          right: 0.75rem;
-          top: 50%;
-          transform: translateY(-50%);
-          background: none;
-          border: none;
-          padding: 0;
-          cursor: pointer;
-          color: #52525B;
-          display: flex;
-          align-items: center;
-          transition: color 0.15s ease;
+          position: absolute; right: 0.7rem; top: 50%; transform: translateY(-50%);
+          background: none; border: none; padding: 0; cursor: pointer;
+          color: #52525B; display: flex; align-items: center;
+          transition: color 0.15s;
         }
         .toggle-pw:hover { color: #A1A1AA; }
 
-        .brand-mark {
-          width: 36px;
-          height: 36px;
+        .waitlist-strip {
+          display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+          padding: 0.875rem 1rem;
           border-radius: 10px;
-          background: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 0 20px rgba(6,182,212,0.35);
-          flex-shrink: 0;
+          background: rgba(6,182,212,0.03);
+          border: 1px solid rgba(6,182,212,0.1);
+          transition: border-color 0.22s, background 0.22s;
+          cursor: default;
+        }
+        .waitlist-strip:hover {
+          border-color: rgba(6,182,212,0.22);
+          background: rgba(6,182,212,0.05);
         }
 
-        .separator {
+        .waitlist-link {
+          display: inline-flex; align-items: center; gap: 0.375rem;
+          padding: 0.4rem 0.875rem;
+          border: 1px solid rgba(6,182,212,0.3);
+          border-radius: 7px;
+          font-size: 0.75rem; font-weight: 600;
+          color: #22D3EE; text-decoration: none;
+          font-family: 'Inter', sans-serif; letter-spacing: 0.02em;
+          white-space: nowrap; flex-shrink: 0;
+          transition: background 0.16s, border-color 0.16s, box-shadow 0.16s, color 0.16s;
+        }
+        .waitlist-link:hover {
+          background: rgba(6,182,212,0.08);
+          border-color: rgba(6,182,212,0.5);
+          box-shadow: 0 0 16px rgba(6,182,212,0.15);
+          color: #67E8F9;
+        }
+
+        .status-banner {
+          display: flex; align-items: flex-start; gap: 0.575rem;
+          padding: 0.55rem 0.8rem; border-radius: 8px;
+          font-size: 0.78rem; line-height: 1.5;
+        }
+
+        .sep {
           height: 1px;
           background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
         }
 
-        .status-banner {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.625rem;
-          padding: 0.625rem 0.875rem;
-          border-radius: 8px;
-          font-size: 0.8125rem;
-          line-height: 1.5;
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.3; }
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
-      {/* Full-screen particles layer */}
+      {/* Fixed background — particles layer */}
       <div style={{ position: 'fixed', inset: 0, background: '#080A0E', zIndex: 0 }}>
         <Particles
-          particleColors={['#06B6D4', '#22D3EE', '#7DD3FC', '#ffffff']}
+          particleColors={['#ffffff', '#ffffff', '#ffffff']}
           particleCount={180}
           particleSpread={9}
           speed={0.04}
-          particleBaseSize={72}
+          particleBaseSize={110}
           sizeRandomness={1.2}
-          alphaParticles={true}
+          alphaParticles={false}
           moveParticlesOnHover={true}
           particleHoverFactor={0.6}
           disableRotation={false}
           cameraDistance={20}
           pixelRatio={typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2) : 1}
         />
-
-        {/* radial vignette — keeps the center dimmer so card pops */}
         <div style={{
-          position: 'absolute',
-          inset: 0,
+          position: 'absolute', inset: 0,
           background: 'radial-gradient(ellipse 70% 70% at 50% 50%, transparent 20%, rgba(8,10,14,0.75) 100%)',
           pointerEvents: 'none',
         }} />
-
-        {/* top glow bloom */}
         <div style={{
-          position: 'absolute',
-          top: '-10%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '600px',
-          height: '300px',
+          position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)',
+          width: '600px', height: '300px',
           background: 'radial-gradient(ellipse, rgba(6,182,212,0.07) 0%, transparent 70%)',
           pointerEvents: 'none',
         }} />
       </div>
 
-      {/* Page content */}
-      <div
-        className="login-root min-h-screen flex items-center justify-center p-6"
-        style={{ position: 'relative', zIndex: 1 }}
-      >
-        <div className="card-rise w-full max-w-sm">
+      {/* Fixed viewport shell — no scroll possible */}
+      <div style={{
+        position: 'fixed', inset: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '1.25rem',
+        zIndex: 1,
+        fontFamily: "'Inter', sans-serif",
+      }}>
+        <div className="card-rise" style={{ width: '100%', maxWidth: '384px' }}>
 
-          {/* Brand header */}
-          <div className="fade-in mb-8 text-center" style={{ animationDelay: '0.1s' }}>
-            <div className="inline-flex items-center justify-center mb-5">
+          {/* ── Single glass card containing everything ── */}
+          <div className="glass-card" style={{ borderRadius: '20px', padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
+
+            {/* Top bar: brand + beta pill */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{
                 fontFamily: "'Space Mono', monospace",
-                fontWeight: 700,
-                fontSize: '1.75rem',
-                color: '#F4F4F5',
-                letterSpacing: '-0.04em',
-                lineHeight: 1,
+                fontWeight: 700, fontSize: '1.25rem',
+                color: '#F4F4F5', letterSpacing: '-0.04em', lineHeight: 1,
               }}>
-                tru<span style={{ color: '#06B6D4' }}>dev</span><span style={{ color: '#22D3EE', opacity: 0.6 }}>_</span>
+                tru<span style={{ color: '#06B6D4' }}>dev</span>
+                <span style={{ color: '#22D3EE', opacity: 0.55 }}>_</span>
+              </span>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                fontFamily: "'Space Mono', monospace",
+                fontSize: '0.625rem', fontWeight: 400,
+                padding: '0.25rem 0.625rem', borderRadius: '4px',
+                background: 'rgba(6,182,212,0.06)',
+                border: '1px solid rgba(6,182,212,0.13)',
+                color: '#22D3EE', letterSpacing: '0.04em',
+              }}>
+                <span style={{
+                  width: '4px', height: '4px', borderRadius: '50%',
+                  background: '#06B6D4', boxShadow: '0 0 5px rgba(6,182,212,0.9)',
+                }} />
+                beta
               </span>
             </div>
 
-            <h1 style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: '1.25rem', color: '#E4E4E7', letterSpacing: '-0.02em', marginBottom: '0.375rem' }}>
-              Welcome back
-            </h1>
-            <p style={{ fontSize: '0.875rem', color: '#52525B', letterSpacing: '0.01em' }}>
-              Sign in to continue to your workspace
-            </p>
-          </div>
-
-          {/* Beta pill */}
-          <div className="fade-in flex justify-center mb-6" style={{ animationDelay: '0.15s' }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-              fontFamily: "'Space Mono', monospace",
-              fontSize: '0.6875rem',
-              fontWeight: 400,
-              padding: '0.3rem 0.875rem', borderRadius: '4px',
-              background: 'rgba(6,182,212,0.06)',
-              border: '1px solid rgba(6,182,212,0.14)',
-              color: '#22D3EE',
-              letterSpacing: '0.04em',
-            }}>
-              <span style={{
-                width: '5px', height: '5px', borderRadius: '50%',
-                background: '#06B6D4',
-                boxShadow: '0 0 6px rgba(6,182,212,0.9)',
-                flexShrink: 0,
-              }} />
-              beta / invited_only
-            </span>
-          </div>
-
-          {/* Glass card */}
-          <div className="glass-card rounded-2xl p-7" style={{ animationDelay: '0.2s' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
-
-              {/* Email field */}
-              <div>
-                <label htmlFor="email" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 500, color: '#A1A1AA', marginBottom: '0.5rem', letterSpacing: '0.02em' }}>
-                  Email address
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <Mail style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', width: '15px', height: '15px', color: '#3F3F46', pointerEvents: 'none' }} />
-                  <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@company.com"
-                    required
-                    className="login-input"
-                  />
-                </div>
-              </div>
-
-              {/* Password field */}
-              <div>
-                <label htmlFor="password" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 500, color: '#A1A1AA', marginBottom: '0.5rem', letterSpacing: '0.02em' }}>
-                  Password
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <Lock style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', width: '15px', height: '15px', color: '#3F3F46', pointerEvents: 'none' }} />
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    className="login-input password-input"
-                  />
-                  <button
-                    type="button"
-                    className="toggle-pw"
-                    onClick={() => setShowPassword(v => !v)}
-                    tabIndex={-1}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword
-                      ? <EyeOff style={{ width: '15px', height: '15px' }} />
-                      : <Eye style={{ width: '15px', height: '15px' }} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Error banner */}
-              {error && (
-                <div
-                  className="status-banner"
-                  style={{ background: 'rgba(244,63,94,0.07)', border: '1px solid rgba(244,63,94,0.16)', color: '#FDA4AF' }}
-                >
-                  <AlertCircle style={{ width: '14px', height: '14px', marginTop: '1px', flexShrink: 0, color: '#F43F5E' }} />
-                  <span>{error}</span>
-                </div>
-              )}
-
-              {/* Success banner */}
-              {success && (
-                <div
-                  className="status-banner"
-                  style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.16)', color: '#6EE7B7' }}
-                >
-                  <CheckCircle style={{ width: '14px', height: '14px', marginTop: '1px', flexShrink: 0, color: '#10B981' }} />
-                  <span>{success}</span>
-                </div>
-              )}
-
-              <div className="separator" />
-
-              {/* Submit */}
-              <button onClick={handleSubmit} disabled={loading} className="login-btn">
-                {loading ? (
-                  <>
-                    <div style={{
-                      width: '14px', height: '14px', borderRadius: '50%',
-                      border: '2px solid rgba(3,7,18,0.25)',
-                      borderTopColor: '#030712',
-                      animation: 'spin 0.7s linear infinite',
-                    }} />
-                    Signing in…
-                  </>
-                ) : (
-                  <>
-                    Sign in
-                    <ArrowRight style={{ width: '14px', height: '14px' }} />
-                  </>
-                )}
-              </button>
-
+            {/* Greeting */}
+            <div>
+              <h1 style={{ fontWeight: 600, fontSize: '1.0625rem', color: '#E4E4E7', letterSpacing: '-0.02em', marginBottom: '0.2rem', margin: 0 }}>
+                Welcome back
+              </h1>
+              <p style={{ fontSize: '0.8rem', color: '#52525B', marginTop: '0.25rem', margin: '0.25rem 0 0' }}>
+                Sign in to continue to your workspace
+              </p>
             </div>
+
+            <div className="sep" />
+
+            {/* Email */}
+            <div>
+              <label htmlFor="email" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 500, color: '#71717A', marginBottom: '0.4rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+                Email
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Mail style={{ position: 'absolute', left: '0.7rem', top: '50%', transform: 'translateY(-50%)', width: '14px', height: '14px', color: '#3F3F46', pointerEvents: 'none' }} />
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  required
+                  className="login-input"
+                />
+              </div>
+            </div>
+
+            {/* Password */}
+            <div>
+              <label htmlFor="password" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 500, color: '#71717A', marginBottom: '0.4rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+                Password
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Lock style={{ position: 'absolute', left: '0.7rem', top: '50%', transform: 'translateY(-50%)', width: '14px', height: '14px', color: '#3F3F46', pointerEvents: 'none' }} />
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="login-input password-input"
+                />
+                <button
+                  type="button"
+                  className="toggle-pw"
+                  onClick={() => setShowPassword(v => !v)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword
+                    ? <EyeOff style={{ width: '14px', height: '14px' }} />
+                    : <Eye    style={{ width: '14px', height: '14px' }} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Error banner */}
+            {error && (
+              <div className="status-banner" style={{ background: 'rgba(244,63,94,0.07)', border: '1px solid rgba(244,63,94,0.15)', color: '#FDA4AF' }}>
+                <AlertCircle style={{ width: '13px', height: '13px', marginTop: '1px', flexShrink: 0, color: '#F43F5E' }} />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* Success banner */}
+            {success && (
+              <div className="status-banner" style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.15)', color: '#6EE7B7' }}>
+                <CheckCircle style={{ width: '13px', height: '13px', marginTop: '1px', flexShrink: 0, color: '#10B981' }} />
+                <span>{success}</span>
+              </div>
+            )}
+
+            {/* Sign in button */}
+            <button onClick={handleSubmit} disabled={loading} className="login-btn">
+              {loading ? (
+                <>
+                  <div style={{
+                    width: '13px', height: '13px', borderRadius: '50%',
+                    border: '2px solid rgba(3,7,18,0.2)', borderTopColor: '#030712',
+                    animation: 'spin 0.7s linear infinite',
+                  }} />
+                  Signing in…
+                </>
+              ) : (
+                <>Sign in <ArrowRight style={{ width: '13px', height: '13px' }} /></>
+              )}
+            </button>
+
+            {/* ── Waitlist strip ── */}
+            <div className="waitlist-strip">
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.2rem' }}>
+                  <span style={{
+                    width: '5px', height: '5px', borderRadius: '50%',
+                    background: '#10B981', boxShadow: '0 0 5px rgba(16,185,129,0.8)',
+                    animation: 'pulse-dot 2s ease infinite', flexShrink: 0,
+                  }} />
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', color: '#22D3EE', letterSpacing: '0.06em' }}>
+                    EARLY ACCESS · OPEN
+                  </span>
+                </div>
+                <p style={{ fontSize: '0.78rem', color: '#71717A', margin: 0, lineHeight: 1.5 }}>
+                  New to TruDev? Get early access.
+                </p>
+              </div>
+              <Link to="/waitlist" className="waitlist-link">
+                Join waitlist <ArrowRight style={{ width: '11px', height: '11px' }} />
+              </Link>
+            </div>
+
           </div>
 
-          {/* Footer */}
-          <p className="fade-in mt-6 text-center" style={{ fontSize: '0.8125rem', color: '#3F3F46', animationDelay: '0.3s' }}>
-            Don&apos;t have an account?{' '}
-            <Link
-              to="/waitlist"
-              style={{ color: '#71717A', fontWeight: 500, transition: 'color 0.15s ease', textDecoration: 'none' }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#E4E4E7'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#71717A'; }}
-            >
-              Request access
-            </Link>
-          </p>
-
-          <p className="fade-in mt-4 text-center" style={{ fontSize: '0.75rem', color: '#27272A', animationDelay: '0.35s' }}>
+          {/* Copyright — outside card, very subtle */}
+          <p style={{ textAlign: 'center', fontSize: '0.6875rem', color: '#27272A', marginTop: '1rem', fontFamily: "'Inter', sans-serif" }}>
             © 2026 TruDev
           </p>
 
         </div>
       </div>
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
     </>
   );
 }
