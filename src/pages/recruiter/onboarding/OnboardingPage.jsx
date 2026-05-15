@@ -114,6 +114,15 @@ export default function OnboardingPage() {
 
   const handleStep3Next = () => goNext();
 
+  // Convert a File to a base64 data URL so the logo can be displayed
+  // directly from localStorage without needing a public S3 URL.
+  const readAsDataUrl = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = (e) => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
   const handleLaunch = async () => {
     setLoading(true);
     try {
@@ -121,19 +130,29 @@ export default function OnboardingPage() {
       if (step3.invites.length > 0) {
         await sendInvites(step3.invites);
       }
-      // 2. Launch (uploads logo + branding → sets is_onboarded)
+
+      // 2. Convert logo to data URL BEFORE the API call so we always have
+      //    a locally-renderable copy — the S3 URL may not be publicly readable.
+      const logoDataUrl = step2.logo ? await readAsDataUrl(step2.logo) : null;
+
+      // 3. Launch (uploads logo + branding → sets is_onboarded)
       const result = await launchWorkspace({
         logo:           step2.logo,
         brand_color:    step2.brand_color,
         candidate_name: step2.candidate_name,
         tagline:        step2.tagline,
       });
-      // 3. Update localStorage with new branding + is_onboarded flag
+
+      // 4. Update localStorage — prefer the local data URL for the logo so the
+      //    sidebar renders it immediately regardless of S3 bucket permissions.
       const org = (() => { try { return JSON.parse(localStorage.getItem('org') || '{}'); } catch { return {}; } })();
       localStorage.setItem('org', JSON.stringify({
         ...org,
         is_onboarded: true,
-        branding: result.branding,
+        branding: {
+          ...result.branding,
+          logo_url: logoDataUrl || result.branding?.logo_url || '',
+        },
       }));
       navigate('/recruiter/dashboard', { replace: true });
     } catch (e) {
