@@ -1,4 +1,4 @@
-// REDESIGNED — dark theme matching user flow
+// REDESIGNED ï¿½ dark theme matching user flow
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -183,7 +183,7 @@ export default function InviteCandidate() {
           <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <Zap className="w-4 h-4 text-brand" strokeWidth={2.5} />
-              <span className="text-sm font-bold tracking-[0.08em] text-text-primary">MUNDHU</span>
+              <span className="text-sm font-bold tracking-[0.08em] text-text-primary">Trudev</span>
             </div>
             <button onClick={goBack} className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-muted px-3 py-2 rounded-lg transition-all duration-150">
               <ArrowLeft className="w-4 h-4" />

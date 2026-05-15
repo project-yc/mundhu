@@ -141,7 +141,7 @@ function LayoutShell({ children }) {
             <div className="w-5 h-5 rounded bg-brand flex items-center justify-center">
               <Zap className="w-2.5 h-2.5 text-on-brand" strokeWidth={2.5} />
             </div>
-            <span className="text-[12px] font-bold tracking-[0.08em] text-text-primary font-display">MUNDHU</span>
+            <span className="text-[12px] font-bold tracking-[0.08em] text-text-primary font-display">Trudev</span>
           </div>
         </header>
 

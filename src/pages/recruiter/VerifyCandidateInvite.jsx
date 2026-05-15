@@ -19,7 +19,7 @@ const TOTAL_BOOT_MS = 19500
 const LOG_LINES = [
   '[boot]   Validating JWT signature... ok',
   '[auth]   Session granted for candidate',
-  '[s3]     HEAD s3://mundhu-tasks/bundle.zip → 200',
+  '[s3]     HEAD s3://Trudev-tasks/bundle.zip → 200',
   '[s3]     GET  bundle.zip (3.2 MB) → streaming',
   '[zip]    Extracting 148 files...',
   '[zip]    Binding volume mounts',
@@ -245,10 +245,10 @@ export default function VerifyCandidateInvite() {
       <div className="min-h-screen bg-[#040914] flex flex-col items-center justify-center p-4">
         <div className="flex items-center gap-2 mb-10">
           <Zap className="w-4 h-4 text-[#18d3ff]" strokeWidth={2.5} />
-          <span className="text-sm font-bold tracking-[0.08em] text-[#edf4ff]">MUNDHU</span>
+          <span className="text-sm font-bold tracking-[0.08em] text-[#edf4ff]">Trudev</span>
         </div>
         <BootScreen />
-        <p className="text-center text-[11px] text-[#354e68] mt-6">Powered by Mundhu Assessment Platform</p>
+        <p className="text-center text-[11px] text-[#354e68] mt-6">Powered by Trudev Assessment Platform</p>
       </div>
     )
   }
@@ -258,7 +258,7 @@ export default function VerifyCandidateInvite() {
       {/* Brand mark */}
       <div className="flex items-center gap-2 mb-10">
         <Zap className="w-4 h-4 text-[#18d3ff]" strokeWidth={2.5} />
-        <span className="text-sm font-bold tracking-[0.08em] text-[#edf4ff]">MUNDHU</span>
+        <span className="text-sm font-bold tracking-[0.08em] text-[#edf4ff]">Trudev</span>
       </div>
 
       <div className="w-full max-w-sm">
@@ -366,7 +366,7 @@ export default function VerifyCandidateInvite() {
           )}
         </div>
 
-        <p className="text-center text-[11px] text-[#354e68] mt-6">Powered by Mundhu Assessment Platform</p>
+        <p className="text-center text-[11px] text-[#354e68] mt-6">Powered by Trudev Assessment Platform</p>
       </div>
     </div>
   )

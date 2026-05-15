@@ -20,7 +20,7 @@ export default function OnboardingLayout({ currentStep, children }) {
             <Zap className="w-3.5 h-3.5 text-[#0C4A6E]" strokeWidth={2.5} />
           </div>
           <span className="text-[15px] font-bold tracking-[0.06em] text-[#0F172A] font-display">
-            MUNDHU
+            Trudev
           </span>
         </div>
         <div className="ml-auto text-[13px] text-[#94A3B8]">

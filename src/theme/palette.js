@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// MUNDHU — Global Color Palette
+// Trudev — Global Color Palette
 //
 // All colors used by the app live here. Two surfaces:
 //

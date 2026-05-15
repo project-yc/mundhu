@@ -195,7 +195,7 @@ export default function OnboardingPage() {
 
         {/* Footer note */}
         <p className="mt-6 text-[11px] text-[#94A3B8]">
-          &copy; {new Date().getFullYear()} Venaka &middot; Developer Portal
+          &copy; {new Date().getFullYear()} Trudev &middot; Developer Portal
         </p>
       </OnboardingLayout>
     </RecruiterThemeProvider>
