@@ -7,6 +7,10 @@ const ROLE_HOME = {
   USER: '/user/dashboard',
 };
 
+// Roles that are allowed to access RECRUITER-gated routes.
+// ORG_ADMIN is the workspace creator — a superset of RECRUITER permissions.
+const RECRUITER_FAMILY = new Set(['RECRUITER', 'ORG_ADMIN']);
+
 const ProtectedRoute = ({ children, requiredRole }) => {
   const token = localStorage.getItem('authToken');
   const userRole = localStorage.getItem('userRole');
@@ -20,11 +24,18 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     return <Navigate to="/admin" replace />;
   }
 
-  // If this route requires a specific role and the user doesn't have it,
-  // send them to their own dashboard
-  if (requiredRole && userRole !== requiredRole) {
-    const home = ROLE_HOME[userRole] || '/user/dashboard';
-    return <Navigate to={home} replace />;
+  // If a required role is specified, check access.
+  // ORG_ADMIN satisfies any RECRUITER-family route requirement.
+  if (requiredRole) {
+    const required = new Set(Array.isArray(requiredRole) ? requiredRole : [requiredRole]);
+    const allowed =
+      required.has(userRole) ||
+      (RECRUITER_FAMILY.has(userRole) && [...required].some(r => RECRUITER_FAMILY.has(r)));
+
+    if (!allowed) {
+      const home = ROLE_HOME[userRole] || '/user/dashboard';
+      return <Navigate to={home} replace />;
+    }
   }
 
   return children;

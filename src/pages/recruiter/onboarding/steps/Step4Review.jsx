@@ -66,7 +66,7 @@ export default function Step4Review({ data, loading, error }) {
               Workspace URL
             </p>
             <p className="text-[13px] font-semibold text-[#22D3EE] truncate">
-              {orgSlug}.venaka.io
+              {orgSlug}.trudev.io
             </p>
           </div>
         </div>

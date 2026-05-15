@@ -1,25 +1,25 @@
 import { useState } from 'react';
 import { Users, Plus, X, ChevronDown } from 'lucide-react';
 
-const ROLES = ['ADMIN', 'REVIEWER', 'OBSERVER'];
+const ROLES = ['RECRUITER', 'REVIEWER', 'OBSERVER'];
 
-const ROLE_LABELS = { ADMIN: 'Admin', REVIEWER: 'Reviewer', OBSERVER: 'Observer' };
+const ROLE_LABELS = { RECRUITER: 'Recruiter', REVIEWER: 'Reviewer', OBSERVER: 'Observer' };
 
 const ROLE_DESCRIPTIONS = {
-  ADMIN:    'Full access to manage environments, billing, and team settings.',
-  REVIEWER: 'Can comment on assessments, approve results, and view analytics.',
-  OBSERVER: 'Read-only access to dashboards, logs, and project status.',
+  RECRUITER: 'Can create and manage assessments, invite candidates, and view results.',
+  REVIEWER:  'Can comment on assessments, approve results, and view analytics.',
+  OBSERVER:  'Read-only access to dashboards, logs, and project status.',
 };
 
 const ROLE_COLORS = {
-  ADMIN:    'bg-[#CFFAFE] text-[#0E7490]',
-  REVIEWER: 'bg-[#F1F5F9] text-[#64748B]',
-  OBSERVER: 'bg-[#F1F5F9] text-[#64748B]',
+  RECRUITER: 'bg-[#CFFAFE] text-[#0E7490]',
+  REVIEWER:  'bg-[#F1F5F9] text-[#64748B]',
+  OBSERVER:  'bg-[#F1F5F9] text-[#64748B]',
 };
 
 export default function Step3InviteTeam({ data, onChange }) {
   const [email, setEmail]   = useState('');
-  const [role, setRole]     = useState('REVIEWER');
+  const [role, setRole]     = useState('RECRUITER');
   const [emailErr, setEmailErr] = useState('');
 
   const addInvite = () => {
