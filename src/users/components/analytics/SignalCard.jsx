@@ -27,12 +27,14 @@ function formatSubscoreLabel(key) {
   return SUBSCORE_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function SignalCard({ title, signal, summary, subscores }) {
+export default function SignalCard({ title, signal, score, summary, subscores }) {
   const normalizedSignal = SIGNAL_SCORE_MAPPING[signal] ? signal : 'red';
   const scoreData = SIGNAL_SCORE_MAPPING[normalizedSignal];
   const subscoreEntries = subscores && typeof subscores === 'object'
     ? Object.entries(subscores).filter(([, v]) => typeof v === 'number')
     : [];
+  const displayScore = typeof score === 'number' ? Math.round(score) : scoreData.score;
+  const displayScale = typeof score === 'number' ? '/100' : '/5';
 
   return (
     <article className="rounded-xl border border-[#1e2130] bg-[#13151f] p-5">
@@ -45,8 +47,8 @@ export default function SignalCard({ title, signal, summary, subscores }) {
       <p className="mb-4 min-h-10 text-sm text-gray-400">{summary || 'No summary available.'}</p>
 
       <div className="flex items-end gap-1 text-white">
-        <span className="text-4xl font-bold">{scoreData.score}</span>
-        <span className="pb-1 text-sm text-gray-400">/5</span>
+        <span className="text-4xl font-bold">{displayScore}</span>
+        <span className="pb-1 text-sm text-gray-400">{displayScale}</span>
       </div>
 
       {subscoreEntries.length > 0 && (

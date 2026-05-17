@@ -5,6 +5,7 @@ import {
   Sparkles, Layers, Clock, Tag, Upload, FileText,
   LogOut, TrendingUp, Activity, Zap, Grid, GitBranch, Pencil, TriangleAlert
 } from 'lucide-react';
+import { MessageSquare, ZapOff } from 'lucide-react';
 import {
   createAssessment,
   getAllAssessments,
@@ -44,6 +45,7 @@ export default function AdminDashboard() {
     name: '',
     description: '',
     duration_minutes: '',
+    ai_level: 'full',
   });
 
   // Task form
@@ -291,12 +293,13 @@ export default function AdminDashboard() {
       const data = await createAssessment(
         assessmentForm.name,
         assessmentForm.description,
-        parseInt(assessmentForm.duration_minutes)
+        parseInt(assessmentForm.duration_minutes),
+        { ai_level: assessmentForm.ai_level }
       );
       
       setAssessments([...assessments, data.data || data]);
       setSuccess('Assessment created successfully! ✨');
-      setAssessmentForm({ name: '', description: '', duration_minutes: '' });
+      setAssessmentForm({ name: '', description: '', duration_minutes: '', ai_level: 'full' });
       setShowCreateModal(false);
       setCreateMode('');
       setTimeout(() => setSuccess(''), 4000);
@@ -405,7 +408,7 @@ export default function AdminDashboard() {
   const closeModal = () => {
     setShowCreateModal(false);
     setCreateMode('');
-    setAssessmentForm({ name: '', description: '', duration_minutes: '' });
+    setAssessmentForm({ name: '', description: '', duration_minutes: '', ai_level: 'full' });
     setTaskForm({
       assessment_id: '',
       title: '',
@@ -707,6 +710,35 @@ export default function AdminDashboard() {
                       min="1"
                       className="input-field"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-navy-900 mb-1.5">AI Assistance</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { value: 'full', label: 'Full Agent', desc: 'Orchestrator + chat + inline completions', Icon: Sparkles },
+                        { value: 'chat_only', label: 'Chat + Inline', desc: 'Chat (manual context) + inline completions', Icon: MessageSquare },
+                        { value: 'inline_completions', label: 'Inline Only', desc: 'Code suggestions only — no chat panel', Icon: Zap },
+                        { value: 'none', label: 'No AI', desc: 'All AI features disabled', Icon: ZapOff },
+                      ].map(({ value, label, desc, Icon }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setAssessmentForm({ ...assessmentForm, ai_level: value })}
+                          className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors ${
+                            assessmentForm.ai_level === value
+                              ? 'border-cyan-500 bg-cyan-50'
+                              : 'border-navy-900/10 bg-white hover:border-navy-900/20'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <Icon className={`h-3.5 w-3.5 ${assessmentForm.ai_level === value ? 'text-cyan-600' : 'text-navy-800/40'}`} />
+                            <span className={`text-[12px] font-semibold ${assessmentForm.ai_level === value ? 'text-cyan-700' : 'text-navy-900'}`}>{label}</span>
+                          </div>
+                          <span className="text-[11px] leading-relaxed text-navy-800/55">{desc}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {error && (

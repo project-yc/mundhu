@@ -7,6 +7,7 @@ import {
   Clock, Zap, ArrowRight, Code, GitBranch, FileCode,
   Check, Tag, FolderOpen, Upload, XCircle,
   Search, ChevronDown, Copy, TrendingUp, UserCheck, Activity,
+  Sparkles, MessageSquare, ZapOff,
 } from 'lucide-react';
 import {
   createAssessment, getAllAssessments, createTask, uploadTaskZip,
@@ -248,7 +249,7 @@ export default function AssessmentsScreen() {
   const [wizardStep,    setWizardStep]    = useState(0);
   const [wizardLoading, setWizardLoading] = useState(false);
   const [wizardError,   setWizardError]   = useState('');
-  const [assessmentForm, setAssessmentForm] = useState({ name: '', description: '', duration_minutes: '' });
+  const [assessmentForm, setAssessmentForm] = useState({ name: '', description: '', duration_minutes: '', ai_level: 'full' });
   const [taskForm, setTaskForm] = useState({ title: '', description: '', tags: '', source_type: 'local', git_repo_url: '', git_branch: '' });
 
   const folderInputRef = useRef(null);
@@ -277,7 +278,7 @@ export default function AssessmentsScreen() {
 
   const openWizard = () => {
     setWizardStep(0); setWizardError('');
-    setAssessmentForm({ name: '', description: '', duration_minutes: '' });
+    setAssessmentForm({ name: '', description: '', duration_minutes: '', ai_level: 'full' });
     setTaskForm({ title: '', description: '', tags: '', source_type: 'local', git_repo_url: '', git_branch: '' });
     resetUpload();
     setShowWizard(true);
@@ -327,7 +328,12 @@ export default function AssessmentsScreen() {
     setWizardLoading(true); setWizardError('');
     try {
       const { createAssessment: ca, createTask: ct } = await import('../../api/recruiter/assessment.jsx');
-      const assessmentData = await ca(assessmentForm.name, assessmentForm.description, parseInt(assessmentForm.duration_minutes));
+      const assessmentData = await ca(
+        assessmentForm.name,
+        assessmentForm.description,
+        parseInt(assessmentForm.duration_minutes),
+        { ai_level: assessmentForm.ai_level },
+      );
       const newAssessment = assessmentData.data || assessmentData;
       const tags = taskForm.tags.split(',').map(t => t.trim()).filter(Boolean);
       const additionalInfo = folderUpload?.s3_key ? { uploaded_folder: folderUpload.fileName, file_count: folderUpload.fileCount } : {};
@@ -658,6 +664,33 @@ export default function AssessmentsScreen() {
                             ))}
                           </div>
                           <FInput type="number" value={assessmentForm.duration_minutes} onChange={e => setAssessmentForm({ ...assessmentForm, duration_minutes: e.target.value })} placeholder="Or enter custom minutes…" min="1" />
+                        </Field>
+                        <Field label="AI Assistance">
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              { value: 'full', label: 'Full Agent', desc: 'Orchestrator + chat + inline completions', Icon: Sparkles },
+                              { value: 'chat_only', label: 'Chat + Inline', desc: 'Chat (manual context) + inline completions', Icon: MessageSquare },
+                              { value: 'inline_completions', label: 'Inline Only', desc: 'Code suggestions only — no chat panel', Icon: Zap },
+                              { value: 'none', label: 'No AI', desc: 'All AI features disabled', Icon: ZapOff },
+                            ].map(({ value, label, desc, Icon }) => (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => setAssessmentForm({ ...assessmentForm, ai_level: value })}
+                                className={`flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all duration-150 ${
+                                  assessmentForm.ai_level === value
+                                    ? 'bg-[#083344] border-[#06B6D4]'
+                                    : 'bg-transparent border-[#27272A] hover:border-[#3F3F46]'
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <Icon className={`w-3.5 h-3.5 ${assessmentForm.ai_level === value ? 'text-[#06B6D4]' : 'text-[#52525B]'}`} />
+                                  <span className={`text-[12px] font-bold ${assessmentForm.ai_level === value ? 'text-[#06B6D4]' : 'text-[#A1A1AA]'}`}>{label}</span>
+                                </div>
+                                <span className="text-[10px] text-[#52525B] leading-relaxed">{desc}</span>
+                              </button>
+                            ))}
+                          </div>
                         </Field>
                       </div>
                     )}
