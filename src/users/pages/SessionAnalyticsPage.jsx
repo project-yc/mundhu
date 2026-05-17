@@ -15,7 +15,7 @@ import { getSessionAnalyticsReport, queueSessionAnalyticsReport } from '../../ap
 const SIGNAL_CARD_CONFIG = [
   { title: 'Task Execution', key: 'task_completion' },
   { title: 'Design Quality', key: 'design_quality' },
-  { title: 'Process Discipline', key: 'problem_solving' },
+  { title: 'Process Discipline', key: 'problem_solving_process' },
   { title: 'AI Collaboration', key: 'ai_collaboration' },
 ];
 
@@ -111,10 +111,80 @@ export default function SessionAnalyticsPage() {
     return {
       title: config.title,
       signal: cardData?.signal,
+      score: cardData?.score,
       summary: cardData?.summary,
       subscores: cardData?.subscores,
     };
   });
+
+  const quickScanSections = useMemo(() => {
+    if (!report) {
+      return [];
+    }
+
+    return [
+      {
+        title: 'Strengths',
+        items: Array.isArray(report.strengths) ? report.strengths.filter(Boolean) : [],
+      },
+      {
+        title: 'Quick Wins',
+        items: Array.isArray(report.quick_wins) ? report.quick_wins.filter(Boolean) : [],
+      },
+    ].filter((section) => section.items.length > 0);
+  }, [report]);
+
+  const coachingCards = useMemo(() => {
+    if (!report) {
+      return [];
+    }
+
+    return [
+      {
+        title: 'One Thing To Improve',
+        body: typeof report.one_thing === 'string' ? report.one_thing.trim() : '',
+      },
+      {
+        title: 'Next Session Focus',
+        body: typeof report.next_session_focus === 'string' ? report.next_session_focus.trim() : '',
+      },
+    ].filter((card) => card.body);
+  }, [report]);
+
+  const debuggingTimelineItems = useMemo(() => {
+    const process = report?.engineering_process || {};
+    const items = [];
+
+    const planningAssessment = typeof process.planning_assessment === 'string'
+      ? process.planning_assessment.trim()
+      : '';
+    if (planningAssessment && !planningAssessment.toLowerCase().includes('unavailable')) {
+      items.push({ stage: 'Planning', detail: planningAssessment });
+    }
+
+    const debuggingInsights = Array.isArray(process.debugging_insights)
+      ? process.debugging_insights.filter(Boolean)
+      : [];
+    debuggingInsights.forEach((detail) => {
+      items.push({ stage: 'Debugging', detail });
+    });
+
+    const approachPivots = Array.isArray(process.approach_pivots)
+      ? process.approach_pivots.filter(Boolean)
+      : [];
+    approachPivots.forEach((detail) => {
+      items.push({ stage: 'Pivot', detail });
+    });
+
+    const processSummary = typeof process.process_summary === 'string'
+      ? process.process_summary.trim()
+      : '';
+    if (processSummary) {
+      items.push({ stage: 'Outcome', detail: processSummary });
+    }
+
+    return items;
+  }, [report]);
 
   return (
     <UserPageLayout
@@ -235,9 +305,40 @@ export default function SessionAnalyticsPage() {
 
             <section className="grid grid-cols-1 gap-4 xl:grid-cols-4">
               {signalCards.map((card) => (
-                <SignalCard key={card.title} title={card.title} signal={card.signal} summary={card.summary} subscores={card.subscores} />
+                <SignalCard
+                  key={card.title}
+                  title={card.title}
+                  signal={card.signal}
+                  score={card.score}
+                  summary={card.summary}
+                  subscores={card.subscores}
+                />
               ))}
             </section>
+
+            {(quickScanSections.length > 0 || coachingCards.length > 0) && (
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                {quickScanSections.map((section) => (
+                  <article key={section.title} className="rounded-xl border border-[#1e2130] bg-[#13151f] p-5">
+                    <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-gray-500">{section.title}</p>
+                    <div className="space-y-3">
+                      {section.items.map((item, index) => (
+                        <div key={`${section.title}-${index}`} className="rounded-lg border border-[#1e2130] bg-[#0f121a] px-4 py-3 text-sm text-gray-300">
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+
+                {coachingCards.map((card) => (
+                  <article key={card.title} className="rounded-xl border border-[#1e2130] bg-[#13151f] p-5">
+                    <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-gray-500">{card.title}</p>
+                    <p className="text-sm leading-relaxed text-gray-300">{card.body}</p>
+                  </article>
+                ))}
+              </section>
+            )}
 
             <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <TimeAllocationBar timeBreakdown={report?.engineering_process?.time_breakdown} />
@@ -246,7 +347,7 @@ export default function SessionAnalyticsPage() {
 
             <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <AICollaborationPanel analysis={report?.ai_usage_analysis} />
-              <DebuggingTimeline />
+              {debuggingTimelineItems.length > 0 ? <DebuggingTimeline items={debuggingTimelineItems} /> : null}
             </section>
 
             <section className="flex flex-col gap-3">
@@ -261,12 +362,6 @@ export default function SessionAnalyticsPage() {
                   why={edge?.why}
                 />
               ))}
-
-              {(!report?.growth_edges || report.growth_edges.length === 0) && (
-                <div className="rounded-xl border border-[#1e2130] bg-[#13151f] p-5 text-sm text-gray-400">
-                  No growth edges available for this session.
-                </div>
-              )}
             </section>
           </div>
         )}
