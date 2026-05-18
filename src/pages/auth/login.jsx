@@ -120,7 +120,7 @@ function ArrowRightIcon({ color, size = 14 }) {
 // ─── Left panel (always dark) ─────────────────────────────────────────────────
 function LeftPanel() {
   return (
-    <div style={{
+    <div className="auth-left" style={{
       position: 'relative', overflow: 'hidden',
       width: '46%', flexShrink: 0,
       background: 'linear-gradient(135deg, #070F20 0%, #0A1628 100%)',
@@ -278,10 +278,17 @@ export default function LoginPage() {
         @keyframes spin     { to { transform: rotate(360deg); } }
         @keyframes pulse-dot{ 0%,100%{opacity:1} 50%{opacity:0.3} }
         *, *::before, *::after { box-sizing: border-box; }
+        @media (max-width: 768px) {
+          .auth-shell { align-items: flex-start !important; padding: 0 !important; overflow-y: auto !important; }
+          .auth-card  { flex-direction: column !important; border-radius: 0 !important; max-width: 100% !important; min-height: 100vh !important; overflow: visible !important; }
+          .auth-left  { display: none !important; }
+          .auth-right-panel { padding: 36px 20px 40px !important; }
+          .auth-mobile-wordmark { display: flex !important; }
+        }
       `}</style>
 
       {/* Full-viewport dark canvas */}
-      <div style={{ position: 'fixed', inset: 0, background: CP.pageBg, zIndex: 0 }}>
+      <div className="auth-bg" style={{ position: 'fixed', inset: 0, background: CP.pageBg, zIndex: 0 }}>
         <Particles
           particleColors={['#ffffff', '#ffffff', '#ffffff']}
           particleCount={180} particleSpread={9} speed={0.04}
@@ -296,13 +303,13 @@ export default function LoginPage() {
       </div>
 
       {/* Centered shell */}
-      <div style={{
+      <div className="auth-shell" style={{
         position: 'fixed', inset: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '1.25rem', zIndex: 1,
         fontFamily: "'DM Sans', sans-serif",
       }}>
-        <div style={{
+        <div className="auth-card" style={{
           width: '100%', maxWidth: 1060,
           borderRadius: 20, overflow: 'hidden',
           display: 'flex',
@@ -314,12 +321,22 @@ export default function LoginPage() {
           <LeftPanel />
 
           {/* Right panel */}
-          <div style={{
+          <div className="auth-right-panel" style={{
             flex: 1, padding: '48px 44px',
             background: palette.surface,
             display: 'flex', flexDirection: 'column',
             transition: 'background 0.25s',
           }}>
+
+            {/* Mobile-only wordmark */}
+            <div className="auth-mobile-wordmark" style={{ display: 'none', marginBottom: 24, alignItems: 'center', gap: 8 }}>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 500, fontSize: 20, color: palette.textPrimary, letterSpacing: '-0.03em', display: 'flex', alignItems: 'center' }}>
+                <span>tru</span>
+                <span style={{ color: accentColor }}>dev</span>
+                <span style={{ display: 'inline-block', width: 2, height: 18, background: accentColor, marginLeft: 3, verticalAlign: 'middle', animation: 'blink 1.1s step-end infinite' }} />
+              </span>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: accentColor, border: `1px solid ${accentColor}40`, background: accentDim, padding: '3px 8px', borderRadius: 4, letterSpacing: '0.04em' }}>beta</span>
+            </div>
 
             {/* Role toggle */}
             <div style={{ marginBottom: 32 }}>
