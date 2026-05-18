@@ -1,64 +1,60 @@
 ﻿// NewAssessmentWizard — 2-step modal: assessment basics → pick from task library
+// Design: compact radio rows for AI level, Linear-style task rows for selection
 import { useState, useEffect, useCallback } from 'react';
 import {
   X, Loader, AlertCircle, Check, Clock, ArrowRight,
   Sparkles, MessageSquare, Zap, ZapOff, Search, Library,
-  ChevronDown, Tag, SlidersHorizontal, CheckCircle2,
+  SlidersHorizontal, CheckCircle2,
 } from 'lucide-react';
 import { createAssessment, attachLibraryTask, getLibraryTasks } from '../../../api/recruiter/assessment.jsx';
 import { StepTrack, Field, FInput, FTextarea, DURATION_PRESETS } from './shared/FormPrimitives.jsx';
 
 const DIFFICULTY_COLORS = {
   easy:   'bg-emerald-50 text-emerald-700 border-emerald-200',
-  medium: 'bg-amber-50  text-amber-700  border-amber-200',
-  hard:   'bg-rose-50   text-rose-700   border-rose-200',
+  medium: 'bg-amber-50 text-amber-700 border-amber-200',
+  hard:   'bg-rose-50 text-rose-700 border-rose-200',
 };
 const SENIORITY_LABELS = { junior:'Junior', mid:'Mid', senior:'Senior', staff:'Staff', principal:'Principal' };
 const DOMAIN_LABELS    = { backend:'Backend', frontend:'Frontend', devops:'DevOps', data:'Data', mobile:'Mobile', security:'Security', fullstack:'Full Stack' };
 
-function TaskCard({ task, selected, onToggle }) {
+// ─── TaskRow — compact row selection (replaces oversized card) ────────────────
+function TaskRow({ task, selected, onToggle }) {
   return (
     <button
       type="button"
       onClick={() => onToggle(task)}
-      className={`w-full text-left p-4 rounded-xl border transition-all duration-150 group ${
-        selected
-          ? 'bg-brand-tint border-brand ring-1 ring-brand/20'
-          : 'bg-page border-border-default hover:border-border-strong hover:bg-surface-muted/40'
+      className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors duration-100 ${
+        selected ? 'bg-brand-tint/50' : 'hover:bg-surface-muted/40'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-text-primary leading-snug">{task.title}</p>
-          <p className="text-[11px] text-text-secondary mt-1 line-clamp-2 leading-relaxed">{task.description}</p>
-          <div className="flex flex-wrap gap-1.5 mt-2.5">
-            {task.difficulty && (
-              <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md border ${DIFFICULTY_COLORS[task.difficulty] ?? 'bg-surface-muted text-text-secondary border-border-default'}`}>
-                {task.difficulty.toUpperCase()}
-              </span>
-            )}
-            {task.seniority && (
-              <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md bg-surface-muted text-text-secondary border border-border-default">
-                {SENIORITY_LABELS[task.seniority] ?? task.seniority}
-              </span>
-            )}
-            {task.domain && (
-              <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md bg-surface-muted text-text-secondary border border-border-default">
-                {DOMAIN_LABELS[task.domain] ?? task.domain}
-              </span>
-            )}
-            {task.language && (
-              <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md bg-brand-tint text-brand border border-brand-border/40">
-                {task.language}
-              </span>
-            )}
-          </div>
-        </div>
-        <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all duration-150 mt-0.5 ${
-          selected ? 'bg-brand border-brand' : 'border-border-default group-hover:border-brand/50'
-        }`}>
-          {selected && <Check className="w-3 h-3 text-on-brand" strokeWidth={3} />}
-        </div>
+      {/* Square checkbox — more enterprise than circle */}
+      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all duration-100 ${
+        selected ? 'bg-brand border-brand' : 'border-border-default'
+      }`}>
+        {selected && <Check className="w-2.5 h-2.5 text-on-brand" strokeWidth={3} />}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-medium text-text-primary truncate leading-snug">{task.title}</p>
+        <p className="text-[11px] text-text-muted truncate mt-0.5 leading-snug">{task.description}</p>
+      </div>
+
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {task.difficulty && (
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${DIFFICULTY_COLORS[task.difficulty] ?? 'bg-surface-muted text-text-secondary border-border-default'}`}>
+            {task.difficulty}
+          </span>
+        )}
+        {task.seniority && (
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-muted text-text-secondary border border-border-default">
+            {SENIORITY_LABELS[task.seniority] ?? task.seniority}
+          </span>
+        )}
+        {task.language && (
+          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-brand-tint text-brand border border-brand-border/40">
+            {task.language}
+          </span>
+        )}
       </div>
     </button>
   );
@@ -254,19 +250,35 @@ export default function NewAssessmentWizard({ onClose, onCreated }) {
                       <FInput type="number" value={assessmentForm.duration_minutes} onChange={e => setAssessmentForm({ ...assessmentForm, duration_minutes: e.target.value })} placeholder="Or enter custom minutes…" min="1" />
                     </Field>
                     <Field label="AI Assistance">
-                      <div className="grid grid-cols-2 gap-2">
+                      {/* Compact radio list — replaces equal-weight 2×2 card grid */}
+                      <div className="border border-border-default rounded-lg overflow-hidden divide-y divide-border-default">
                         {[
-                          { value: 'full',               label: 'Full Agent',   desc: 'Orchestrator + chat + inline completions', Icon: Sparkles     },
-                          { value: 'chat_only',          label: 'Chat + Inline',desc: 'Chat (manual context) + inline completions', Icon: MessageSquare },
-                          { value: 'inline_completions', label: 'Inline Only',  desc: 'Code suggestions only — no chat panel',     Icon: Zap          },
-                          { value: 'none',               label: 'No AI',        desc: 'All AI features disabled',                  Icon: ZapOff       },
+                          { value: 'full',               label: 'Full Agent',    desc: 'Orchestrator + chat + inline completions', Icon: Sparkles     },
+                          { value: 'chat_only',          label: 'Chat + Inline', desc: 'Chat (manual context) + inline completions', Icon: MessageSquare },
+                          { value: 'inline_completions', label: 'Inline Only',   desc: 'Code suggestions only — no chat panel',     Icon: Zap          },
+                          { value: 'none',               label: 'No AI',         desc: 'All AI features disabled',                  Icon: ZapOff       },
                         ].map(({ value, label, desc, Icon }) => (
-                          <button key={value} type="button" onClick={() => setAssessmentForm({ ...assessmentForm, ai_level: value })} className={`flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all duration-150 ${assessmentForm.ai_level === value ? 'bg-brand-tint border-brand' : 'bg-transparent border-border-default hover:border-border-strong'}`}>
-                            <div className="flex items-center gap-1.5">
-                              <Icon className={`w-3.5 h-3.5 ${assessmentForm.ai_level === value ? 'text-brand' : 'text-text-secondary'}`} />
-                              <span className={`text-[12px] font-bold ${assessmentForm.ai_level === value ? 'text-brand' : 'text-text-secondary'}`}>{label}</span>
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setAssessmentForm({ ...assessmentForm, ai_level: value })}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors duration-100 ${
+                              assessmentForm.ai_level === value ? 'bg-brand-tint' : 'hover:bg-surface-muted/40'
+                            }`}
+                          >
+                            {/* Radio indicator */}
+                            <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-100 ${
+                              assessmentForm.ai_level === value ? 'border-brand' : 'border-border-default'
+                            }`}>
+                              {assessmentForm.ai_level === value && (
+                                <div className="w-1.5 h-1.5 rounded-full bg-brand" />
+                              )}
                             </div>
-                            <span className="text-[10px] text-text-secondary leading-relaxed">{desc}</span>
+                            <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${assessmentForm.ai_level === value ? 'text-brand' : 'text-text-muted'}`} />
+                            <span className={`text-[13px] font-medium ${assessmentForm.ai_level === value ? 'text-brand' : 'text-text-primary'}`}>
+                              {label}
+                            </span>
+                            <span className="text-[12px] text-text-muted ml-auto text-right hidden sm:block">{desc}</span>
                           </button>
                         ))}
                       </div>
@@ -300,27 +312,44 @@ export default function NewAssessmentWizard({ onClose, onCreated }) {
                       </button>
                     </div>
 
-                    {/* Filter chips */}
+                    {/* Filter chips — always visible, no toggle panel */}
                     {showFilters && (
-                      <div className="flex flex-wrap gap-2 p-3 bg-page rounded-xl border border-border-default animate-fadeIn">
+                      <div className="border border-border-default rounded-lg overflow-hidden divide-y divide-border-default">
                         {[
                           { key: 'difficulty', label: 'Difficulty', options: ['easy','medium','hard'] },
                           { key: 'seniority',  label: 'Seniority',  options: ['junior','mid','senior','staff','principal'] },
                           { key: 'domain',     label: 'Domain',     options: ['backend','frontend','devops','data','mobile','security','fullstack'] },
                         ].map(({ key, label, options }) => (
-                          <div key={key} className="flex items-center gap-1">
-                            <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider pr-1">{label}:</span>
-                            {options.map(opt => (
-                              <button key={opt} type="button" onClick={() => setFilter(key, filters[key] === opt ? '' : opt)} className={`px-2 py-1 text-[11px] font-semibold rounded-md border transition-all duration-100 ${filters[key] === opt ? 'bg-brand-tint border-brand text-brand' : 'bg-surface border-border-default text-text-secondary hover:border-border-strong'}`}>
-                                {DOMAIN_LABELS[opt] ?? SENIORITY_LABELS[opt] ?? opt}
-                              </button>
-                            ))}
+                          <div key={key} className="flex items-center gap-2 px-3 py-2 flex-wrap">
+                            <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider w-16 flex-shrink-0">{label}</span>
+                            <div className="flex flex-wrap gap-1">
+                              {options.map(opt => (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => setFilter(key, filters[key] === opt ? '' : opt)}
+                                  className={`px-2 py-0.5 text-[11px] font-medium rounded border transition-colors duration-100 ${
+                                    filters[key] === opt
+                                      ? 'bg-brand-tint border-brand text-brand font-semibold'
+                                      : 'bg-page border-border-default text-text-secondary hover:border-border-strong'
+                                  }`}
+                                >
+                                  {DOMAIN_LABELS[opt] ?? SENIORITY_LABELS[opt] ?? opt}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         ))}
                         {hasActiveFilters && (
-                          <button type="button" onClick={clearFilters} className="ml-auto text-[11px] text-text-secondary hover:text-error transition-colors duration-150">
-                            Clear all
-                          </button>
+                          <div className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={clearFilters}
+                              className="text-[11px] text-text-muted hover:text-error transition-colors duration-100"
+                            >
+                              Clear filters
+                            </button>
+                          </div>
                         )}
                       </div>
                     )}
@@ -337,17 +366,20 @@ export default function NewAssessmentWizard({ onClose, onCreated }) {
                         <p className="text-[13px] text-error">{libError}</p>
                       </div>
                     ) : libraryTasks.length === 0 ? (
-                      <div className="flex flex-col items-center gap-3 py-14 text-text-muted">
-                        <Library className="w-8 h-8 opacity-30" />
-                        <p className="text-[13px]">No tasks found matching your filters.</p>
+                      <div className="flex flex-col items-center gap-3 py-12 text-text-muted">
+                        <Library className="w-7 h-7 opacity-25" />
+                        <p className="text-[13px] text-text-secondary">No tasks match your filters.</p>
                         {hasActiveFilters && (
-                          <button type="button" onClick={clearFilters} className="text-[12px] text-brand hover:underline">Clear filters</button>
+                          <button type="button" onClick={clearFilters} className="text-[12px] text-brand hover:text-brand-deep transition-colors">
+                            Clear filters
+                          </button>
                         )}
                       </div>
                     ) : (
-                      <div className="space-y-2.5 pb-2">
+                      // Row list — divide-y, no individual card borders
+                      <div className="border border-border-default rounded-lg overflow-hidden divide-y divide-border-default">
                         {libraryTasks.map(task => (
-                          <TaskCard
+                          <TaskRow
                             key={task.id}
                             task={task}
                             selected={selectedTask?.id === task.id}
@@ -357,10 +389,10 @@ export default function NewAssessmentWizard({ onClose, onCreated }) {
                       </div>
                     )}
 
-                    {/* Optional skip hint */}
+                    {/* Skip hint — subdued, below the list */}
                     {!selectedTask && !libLoading && libraryTasks.length > 0 && (
                       <p className="text-[11px] text-text-muted text-center">
-                        Select a task above, or skip — you can attach one later from the Task Library.
+                        You can skip this step — tasks can be attached later from the Task Library.
                       </p>
                     )}
                   </div>
@@ -384,7 +416,7 @@ export default function NewAssessmentWizard({ onClose, onCreated }) {
               {wizardStep === 1 && (
                 <button onClick={handleFinalCreate} disabled={wizardLoading} className="flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-surface-muted rounded-lg border border-border-default transition-all duration-150 disabled:opacity-40">
                   {wizardLoading ? <Loader className="w-3.5 h-3.5 animate-spin" /> : null}
-                  Skip &amp; Create
+                  Create without task
                 </button>
               )}
               <button
