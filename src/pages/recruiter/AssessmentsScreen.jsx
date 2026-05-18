@@ -360,11 +360,11 @@ export default function AssessmentsScreen() {
   const toggleExpand = useCallback((id) => setExpandedId(prev => prev === id ? null : id), []);
 
   const totalAssessments = assessments.length;
-  const readyAssessments = assessments.filter(a => (a.tasks?.length ?? 0) > 0).length;
+  const readyAssessments = assessments.filter(a => (a.tasks?.length ?? 0) > 0 || (a.library_task_attachments?.length ?? 0) > 0).length;
 
   const filtered = useMemo(() => assessments.filter(a => {
     const matchSearch = !search || a.name.toLowerCase().includes(search.toLowerCase());
-    const isReady = (a.tasks?.length ?? 0) > 0;
+    const isReady = (a.tasks?.length ?? 0) > 0 || (a.library_task_attachments?.length ?? 0) > 0;
     const matchStatus = statusFilter === 'all' || (statusFilter === 'ready' && isReady) || (statusFilter === 'incomplete' && !isReady);
     return matchSearch && matchStatus;
   }), [assessments, search, statusFilter]);
@@ -486,7 +486,7 @@ export default function AssessmentsScreen() {
               </div>
               <div className="divide-y divide-border-default">
                 {filtered.map(assessment => {
-                  const task = assessment.tasks?.[0];
+                  const task = assessment.tasks?.[0] ?? assessment.library_task_attachments?.[0]?.library_task;
                   const isReady = !!task;
                   const counts = assessment.candidate_counts;
                   const isExpanded = expandedId === assessment.id;

@@ -16,6 +16,11 @@ import InviteCandidate from './pages/recruiter/InviteCandidate'
 import VerifyCandidateInvite from './pages/recruiter/VerifyCandidateInvite'
 import OnboardingPage from './pages/recruiter/onboarding/OnboardingPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminLayout from './pages/admin/AdminLayout'
+import AdminAssessmentsPage from './pages/admin/AdminAssessmentsPage'
+import AdminLibraryPage from './pages/admin/AdminLibraryPage'
+import AdminLoginPage from './pages/admin/AdminLoginPage'
+import TaskLibraryPage from './pages/recruiter/TaskLibraryPage'
 import UserDashboardPage from './users/pages/UserDashboardPage'
 import UserSimulationsPage from './users/pages/UserSimulationsPage'
 import UserSimulationDetailPage from './users/pages/UserSimulationDetailPage'
@@ -59,13 +64,30 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/recruiter/signup" element={<SignupPage />} />
         <Route path="/waitlist" element={<WaitlistPage />} />
         <Route 
           path="/admin" 
           element={
             <AdminRoute>
-              <AdminDashboard />
+              <AdminLayout><AdminDashboard /></AdminLayout>
+            </AdminRoute>
+          } 
+        />
+        <Route 
+          path="/admin/assessments" 
+          element={
+            <AdminRoute>
+              <AdminLayout><AdminAssessmentsPage /></AdminLayout>
+            </AdminRoute>
+          } 
+        />
+        <Route 
+          path="/admin/library" 
+          element={
+            <AdminRoute>
+              <AdminLayout><AdminLibraryPage /></AdminLayout>
             </AdminRoute>
           } 
         />
@@ -172,6 +194,14 @@ function App() {
         <Route 
           path="/recruiter/assessments" 
           element={<Navigate to="/recruiter/pipeline" replace />} 
+        />
+        <Route 
+          path="/recruiter/task-library" 
+          element={
+            <ProtectedRoute requiredRole="RECRUITER">
+              <RecruiterLayout><TaskLibraryPage /></RecruiterLayout>
+            </ProtectedRoute>
+          } 
         />
         <Route 
           path="/recruiter/pipeline" 

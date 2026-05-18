@@ -26,7 +26,7 @@ export default function RecruiterDashboard() {
   const userName = user?.full_name || user?.name || user?.email || 'Recruiter';
   const orgName  = org?.name || 'Organization';
   const totalAssessments = assessments.length;
-  const readyAssessments = assessments.filter(a => (a.tasks?.length ?? 0) > 0).length;
+  const readyAssessments = assessments.filter(a => (a.tasks?.length ?? 0) > 0 || (a.library_task_attachments?.length ?? 0) > 0).length;
 
   const metricsData = useMemo(() => {
     if (stats) {

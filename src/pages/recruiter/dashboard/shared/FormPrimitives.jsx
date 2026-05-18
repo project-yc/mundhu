@@ -3,14 +3,14 @@ import { Check } from 'lucide-react';
 
 export const DURATION_PRESETS = [30, 45, 60, 90, 120];
 
-export function StepTrack({ current }) {
-  const steps = [
+export function StepTrack({ current, steps }) {
+  const resolvedSteps = steps ?? [
     { label: 'Assessment Details', desc: 'Name, description, duration' },
     { label: 'Task Configuration', desc: 'What candidates will build' },
   ];
   return (
     <div className="space-y-1">
-      {steps.map((step, i) => (
+      {resolvedSteps.map((step, i) => (
         <div key={i} className={`flex items-start gap-3 p-3 rounded-xl transition-all duration-200 ${i === current ? 'bg-surface' : ''}`}>
           <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5 transition-all duration-300 ${
             i < current ? 'bg-brand text-on-brand'

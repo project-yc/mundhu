@@ -6,7 +6,7 @@ import { FunnelBar, EmptyGrid } from './shared/StatusBadge.jsx';
 
 function AssessmentRow({ assessment, onInvite }) {
   const navigate = useNavigate();
-  const task    = assessment.tasks?.[0];
+  const task    = assessment.tasks?.[0] ?? assessment.library_task_attachments?.[0]?.library_task;
   const isReady = !!task;
   const counts  = assessment.candidate_counts;
 
@@ -82,11 +82,11 @@ export default function AssessmentTable({ assessments, loading, onOpenWizard }) 
   const [statusFilter, setStatusFilter] = useState('all');
 
   const totalAssessments = assessments.length;
-  const readyAssessments = assessments.filter(a => (a.tasks?.length ?? 0) > 0).length;
+  const readyAssessments = assessments.filter(a => (a.tasks?.length ?? 0) > 0 || (a.library_task_attachments?.length ?? 0) > 0).length;
 
   const filtered = useMemo(() => assessments.filter(a => {
     const matchSearch = !search || a.name.toLowerCase().includes(search.toLowerCase());
-    const isReady = (a.tasks?.length ?? 0) > 0;
+    const isReady = (a.tasks?.length ?? 0) > 0 || (a.library_task_attachments?.length ?? 0) > 0;
     const matchStatus =
       statusFilter === 'all' ||
       (statusFilter === 'ready'      && isReady)  ||

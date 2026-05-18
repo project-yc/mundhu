@@ -274,3 +274,43 @@ export const getSessionReport = async (assessmentId, sessionId) => {
   const response = await authFetch(`/api/v1/analytics/assessments/${assessmentId}/reports/${sessionId}`);
   return handleApiError(response);
 };
+
+// ── Task Library (B2B) ───────────────────────────────────────────────────────
+
+export const getLibraryTasks = async (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.difficulty)   params.set('difficulty',   filters.difficulty);
+  if (filters.seniority)    params.set('seniority',    filters.seniority);
+  if (filters.domain)       params.set('domain',       filters.domain);
+  if (filters.language)     params.set('language',     filters.language);
+  if (filters.search)       params.set('search',       filters.search);
+  if (filters.tag)          params.set('tag',          filters.tag);
+  if (filters.assessment_id) params.set('assessment_id', filters.assessment_id);
+  const qs = params.toString();
+  const response = await authFetch(`/api/v1/recruiter/library/tasks${qs ? `?${qs}` : ''}`);
+  return handleApiError(response);
+};
+
+export const getAssessmentLibraryTasks = async (assessmentId) => {
+  const response = await authFetch(`/api/v1/recruiter/assessments/${assessmentId}/library-tasks`);
+  return handleApiError(response);
+};
+
+export const attachLibraryTask = async (assessmentId, libraryTaskId, order = 0) => {
+  const response = await authFetch(`/api/v1/recruiter/assessments/${assessmentId}/library-tasks`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ library_task_id: libraryTaskId, order }),
+  });
+  return handleApiError(response);
+};
+
+export const detachLibraryTask = async (assessmentId, libraryTaskId) => {
+  const response = await authFetch(
+    `/api/v1/recruiter/assessments/${assessmentId}/library-tasks/${libraryTaskId}`,
+    { method: 'DELETE' },
+  );
+  // 204 — no body
+  if (response.status === 204) return {};
+  return handleApiError(response);
+};

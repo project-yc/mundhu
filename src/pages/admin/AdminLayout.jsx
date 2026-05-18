@@ -1,21 +1,18 @@
-// RecruiterLayout — persistent sidebar shell for all recruiter screens.
-// Uses semantic theme tokens (see src/theme/) so colors stay consistent
-// across the app and respond to the active org's brand color.
+// AdminLayout — persistent sidebar shell for all admin screens.
+// Mirrors RecruiterLayout's structure and uses the same RecruiterThemeProvider
+// so admin pages get the same clean token-based theme.
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  Zap, LayoutDashboard, GitBranch, Users, FileText,
-  UserPlus, LogOut, ChevronLeft, ChevronRight, Menu, X, Library,
+  ShieldCheck, LayoutDashboard, Layers, Library,
+  LogOut, ChevronLeft, ChevronRight, Menu, X,
 } from 'lucide-react';
 import { RecruiterThemeProvider } from '../../theme/RecruiterThemeProvider.jsx';
 
 const NAV = [
-  { to: '/recruiter/dashboard',     icon: LayoutDashboard, label: 'Dashboard'    },
-  { to: '/recruiter/pipeline',      icon: GitBranch,       label: 'Pipeline'     },
-  { to: '/recruiter/task-library',  icon: Library,         label: 'Task Library' },
-  { to: '/recruiter/candidates',    icon: Users,           label: 'Candidates'   },
-  { to: '/recruiter/reports',       icon: FileText,        label: 'Reports'      },
-  { to: '/recruiter/invite',        icon: UserPlus,        label: 'Invite'       },
+  { to: '/admin',             icon: LayoutDashboard, label: 'Overview',    end: true },
+  { to: '/admin/assessments', icon: Layers,          label: 'Assessments'           },
+  { to: '/admin/library',     icon: Library,         label: 'Task Library'          },
 ];
 
 function LayoutShell({ children }) {
@@ -24,11 +21,7 @@ function LayoutShell({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const user = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
-  const org  = (() => { try { return JSON.parse(localStorage.getItem('org')  || '{}'); } catch { return {}; } })();
-
-  const orgName  = org?.name || 'Organization';
-  const logoUrl  = org?.branding?.logo_url || org?.logo_url || null;
-  const userName = user?.full_name || user?.name || user?.email || 'Recruiter';
+  const userName = user?.full_name || user?.name || user?.email || 'Admin';
   const initials = userName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
   const handleLogout = () => {
@@ -39,31 +32,29 @@ function LayoutShell({ children }) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className={`flex items-center gap-2.5 px-4 py-5 border-b border-border-default flex-shrink-0 ${collapsed ? 'justify-center px-0' : ''}`}>
-        <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center flex-shrink-0 overflow-hidden">
-          {logoUrl
-            ? <img src={logoUrl} alt={orgName} className="w-full h-full object-cover" />
-            : <Zap className="w-3.5 h-3.5 text-on-brand" strokeWidth={2.5} />
-          }
+      <div className={`flex items-center gap-2.5 px-4 py-5 border-b border-border-default flex-shrink-0 ${collapsed ? 'justify-center px-2' : ''}`}>
+        <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center flex-shrink-0">
+          <ShieldCheck className="w-3.5 h-3.5 text-on-brand" strokeWidth={2.5} />
         </div>
         {!collapsed && (
           <div className="min-w-0">
-            <p className="text-[13px] font-bold tracking-[0.08em] text-text-primary font-display leading-none truncate">{orgName}</p>
-            <p className="text-[10px] text-text-muted truncate mt-0.5">Recruiter workspace</p>
+            <p className="text-[13px] font-bold tracking-[0.08em] text-text-primary font-display leading-none">Platform Admin</p>
+            <p className="text-[10px] text-text-muted mt-0.5">System management</p>
           </div>
         )}
       </div>
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
-        {NAV.map(({ to, icon: Icon, label }) => (
+        {NAV.map(({ to, icon: Icon, label, end }) => (
           <NavLink
             key={to}
             to={to}
+            end={end}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-150 group ${
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-150 ${
                 isActive
-                  ? 'bg-brand-tint text-brand-deep border border-brand-border/40'
+                  ? 'bg-brand-tint text-brand border border-brand-border/40'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-muted'
               } ${collapsed ? 'justify-center px-0 w-10 mx-auto' : ''}`
             }
@@ -86,15 +77,14 @@ function LayoutShell({ children }) {
           {!collapsed && <span>Logout</span>}
         </button>
 
-        {/* User chip */}
         {!collapsed && (
           <div className="flex items-center gap-2.5 px-3 py-2.5 mt-1 rounded-xl bg-surface-muted border border-border-default">
-            <div className="w-6 h-6 rounded-full bg-surface border border-border-default flex items-center justify-center text-[10px] font-bold text-text-secondary flex-shrink-0 font-display">
+            <div className="w-6 h-6 rounded-full bg-brand-tint border border-brand-border/40 flex items-center justify-center text-[10px] font-bold text-brand flex-shrink-0">
               {initials}
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[12px] font-semibold text-text-primary truncate leading-none">{userName}</p>
-              <p className="text-[10px] text-text-muted truncate mt-0.5">Recruiter</p>
+              <p className="text-[10px] text-text-muted truncate mt-0.5">Administrator</p>
             </div>
           </div>
         )}
@@ -104,14 +94,16 @@ function LayoutShell({ children }) {
 
   return (
     <div className="flex h-screen bg-page font-sans antialiased overflow-hidden text-text-primary">
-
       {/* Desktop sidebar */}
-      <aside className={`hidden md:flex flex-col bg-surface border-r border-border-default flex-shrink-0 transition-all duration-200 ${collapsed ? 'w-[52px]' : 'w-[220px]'}`}>
+      <aside
+        className={`hidden md:flex flex-col bg-surface border-r border-border-default flex-shrink-0 transition-all duration-200 relative ${
+          collapsed ? 'w-[52px]' : 'w-[220px]'
+        }`}
+      >
         <SidebarContent />
-        {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(c => !c)}
-          className="absolute bottom-[112px] -right-3 z-10 w-6 h-6 rounded-full bg-surface border border-border-default flex items-center justify-center text-text-muted hover:text-text-primary hover:border-border-strong transition-all duration-150 shadow-card"
+          className="absolute bottom-[112px] z-10 w-6 h-6 rounded-full bg-surface border border-border-default flex items-center justify-center text-text-muted hover:text-text-primary hover:border-border-strong transition-all duration-150 shadow-card"
           style={{ left: collapsed ? 40 : 208 }}
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
@@ -140,9 +132,9 @@ function LayoutShell({ children }) {
           </button>
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded bg-brand flex items-center justify-center">
-              <Zap className="w-2.5 h-2.5 text-on-brand" strokeWidth={2.5} />
+              <ShieldCheck className="w-2.5 h-2.5 text-on-brand" strokeWidth={2.5} />
             </div>
-            <span className="text-[12px] font-bold tracking-[0.08em] text-text-primary font-display">Trudev</span>
+            <span className="text-[12px] font-bold tracking-[0.08em] text-text-primary font-display">Admin</span>
           </div>
         </header>
 
@@ -154,7 +146,7 @@ function LayoutShell({ children }) {
   );
 }
 
-export default function RecruiterLayout({ children }) {
+export default function AdminLayout({ children }) {
   return (
     <RecruiterThemeProvider>
       <LayoutShell>{children}</LayoutShell>
