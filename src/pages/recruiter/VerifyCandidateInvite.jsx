@@ -217,8 +217,10 @@ export default function VerifyCandidateInvite() {
         window.location.href = result.workspace_url
         return
       }
+      console.error('Start invite succeeded without workspace_url', result)
       setError('Workspace URL not returned by server')
     } catch (err) {
+      console.error('Failed to start assessment', err)
       setError(err.message || 'Failed to start assessment')
     } finally {
       setIsStarting(false)
@@ -318,6 +320,12 @@ export default function VerifyCandidateInvite() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {error && (
+                <div className="mb-4 px-4 py-3 bg-[#1b0f15] border border-[#6a2335] rounded-xl text-left">
+                  <p className="text-sm text-[#ff8fa5]">{error}</p>
                 </div>
               )}
 
