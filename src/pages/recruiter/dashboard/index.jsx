@@ -1,30 +1,25 @@
 // RecruiterDashboard — slim orchestrator, delegates to sub-components
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, CheckCircle, AlertCircle, Search, Zap } from 'lucide-react';
 import { getAllAssessments, getRecruiterStats } from '../../../api/recruiter/assessment.jsx';
 import MetricsStrip      from './MetricsStrip.jsx';
 import AssessmentTable   from './AssessmentTable.jsx';
 import ActivitySidebar   from './ActivitySidebar.jsx';
-import NewAssessmentWizard from './NewAssessmentWizard.jsx';
-import { getInitials }   from './shared/utils.js';
+
+
 
 export default function RecruiterDashboard() {
   const navigate = useNavigate();
-
-  const user = useMemo(() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } }, []);
-  const org  = useMemo(() => { try { return JSON.parse(localStorage.getItem('org')  || '{}'); } catch { return {}; } }, []);
 
   const [assessments,   setAssessments]   = useState([]);
   const [stats,         setStats]         = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [statsLoading,  setStatsLoading]  = useState(false);
   const [error,         setError]         = useState('');
-  const [success,       setSuccess]       = useState('');
-  const [showWizard,    setShowWizard]    = useState(false);
 
-  const userName = user?.full_name || user?.name || user?.email || 'Recruiter';
-  const orgName  = org?.name || 'Organization';
+
+
   const totalAssessments = assessments.length;
   const readyAssessments = assessments.filter(a => (a.tasks?.length ?? 0) > 0 || (a.library_task_attachments?.length ?? 0) > 0).length;
 
@@ -73,28 +68,11 @@ export default function RecruiterDashboard() {
     finally { setStatsLoading(false); }
   };
 
-  const handleCreated = useCallback(() => {
-    fetchAssessments();
-    fetchStats();
-    setSuccess('Assessment created successfully!');
-    setTimeout(() => setSuccess(''), 4000);
-  }, []);
 
-  const handleLogout = () => {
-    ['authToken', 'refreshToken', 'user', 'userRole', 'org'].forEach(k => localStorage.removeItem(k));
-    navigate('/login');
-  };
 
   return (
     <div className="p-6 md:p-8 space-y-6">
 
-      {/* Toasts */}
-      {success && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-success-bg border border-success-border rounded-xl animate-fadeIn">
-          <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
-          <p className="text-[13px] font-medium text-success">{success}</p>
-        </div>
-      )}
       {error && (
         <div className="flex items-center gap-3 px-4 py-3 bg-error-bg border border-error-border rounded-xl animate-fadeIn">
           <AlertCircle className="w-4 h-4 text-error flex-shrink-0" />
@@ -109,7 +87,7 @@ export default function RecruiterDashboard() {
           <p className="text-[13px] text-text-secondary mt-0.5">Configure and track technical assessments across all candidates.</p>
         </div>
         <button
-          onClick={() => setShowWizard(true)}
+          onClick={() => navigate('/recruiter/assessments/new')}
           className="flex items-center gap-2 px-3.5 py-2 bg-brand hover:bg-brand-hover text-on-brand text-[12px] font-bold rounded-lg transition-colors duration-150 active:scale-[0.97] flex-shrink-0"
         >
           <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
@@ -126,7 +104,7 @@ export default function RecruiterDashboard() {
           <AssessmentTable
             assessments={assessments}
             loading={loading}
-            onOpenWizard={() => setShowWizard(true)}
+            onOpenWizard={() => navigate('/recruiter/assessments/new')}
           />
         </div>
         {assessments.length > 0 && (
@@ -139,13 +117,7 @@ export default function RecruiterDashboard() {
         )}
       </div>
 
-      {/* Wizard modal */}
-      {showWizard && (
-        <NewAssessmentWizard
-          onClose={() => setShowWizard(false)}
-          onCreated={handleCreated}
-        />
-      )}
+
     </div>
   );
 }

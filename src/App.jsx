@@ -15,6 +15,7 @@ import InviteScreen from './pages/recruiter/InviteScreen'
 import InviteCandidate from './pages/recruiter/InviteCandidate'
 import VerifyCandidateInvite from './pages/recruiter/VerifyCandidateInvite'
 import OnboardingPage from './pages/recruiter/onboarding/OnboardingPage'
+import AssessmentBuilderPage from './pages/recruiter/assessments/new/AssessmentBuilderPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminLayout from './pages/admin/AdminLayout'
 import AdminAssessmentsPage from './pages/admin/AdminAssessmentsPage'
@@ -65,7 +66,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
-        <Route path="/recruiter/signup" element={<WaitlistPage />} />
+        <Route path="/recruiter/signup" element={<SignupPage />} />
         <Route path="/waitlist" element={<WaitlistPage />} />
         <Route 
           path="/admin" 
@@ -180,6 +181,14 @@ function App() {
           element={
             <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><RecruiterDashboard /></RecruiterLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/recruiter/assessments/new" 
+          element={
+            <ProtectedRoute requiredRole="RECRUITER">
+              <RecruiterLayout><AssessmentBuilderPage /></RecruiterLayout>
             </ProtectedRoute>
           } 
         />
