@@ -91,21 +91,14 @@ export function CodingEditor({ sectionId, item }) {
         </div>
       </div>
 
-      {/* Section timer + AI level */}
+      {/* Section timer (read-only) + AI level */}
       <div className="flex items-center gap-6 text-[13px] text-text-secondary">
         <div className="flex items-center gap-2">
           <IconClock size={14} className="text-text-muted" />
           <span>Section timer</span>
-          <input
-            type="number"
-            min={1}
-          max={480}
-          value={section?.timer_minutes ?? ''}
-          onChange={e => updateSection({ timer_minutes: e.target.value ? Number(e.target.value) : null })}
-          placeholder="—"
-            className="w-16 px-2.5 py-1.5 bg-page border border-border-default rounded-lg text-[13px] text-text-primary focus:outline-none focus:border-brand"
-          />
-          <span>min</span>
+          <span className="px-2.5 py-1 bg-surface-muted border border-border-default rounded-lg text-[13px] text-text-primary font-semibold">
+            {section?.timer_minutes ? `${section.timer_minutes} min` : '—'}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <IconRobot size={14} className="text-text-muted" />

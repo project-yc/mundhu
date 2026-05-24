@@ -56,10 +56,6 @@ export function RankingEditor({ sectionId, item, allItems, itemIndex }) {
     dispatch({ type: ACTIONS.UPDATE_QUESTION, payload: { sectionId, questionId: item.id, updates } });
   };
 
-  const updateSection = (updates) => {
-    dispatch({ type: ACTIONS.UPDATE_SECTION, payload: { sectionId, updates } });
-  };
-
   const handleRankItemText = (rankItemId, text) => {
     const updated = item.items.map(ri => ri.id === rankItemId ? { ...ri, text } : ri);
     updateItem({ items: updated });
@@ -84,10 +80,7 @@ export function RankingEditor({ sectionId, item, allItems, itemIndex }) {
   return (
     <div className="max-w-[640px] mx-auto px-6 py-6 space-y-4">
       {/* Section config */}
-      <SectionConfigCard
-        timerMinutes={section?.timer_minutes}
-        onTimerChange={v => updateSection({ timer_minutes: v })}
-      />
+      <SectionConfigCard timerMinutes={section?.timer_minutes} />
 
       {/* Card */}
       <div className="bg-surface border border-border-default rounded-xl overflow-hidden">
@@ -136,8 +129,6 @@ export function RankingEditor({ sectionId, item, allItems, itemIndex }) {
         <QuestionFooter
           points={item.points}
           onPointsChange={v => updateItem({ points: v })}
-          overrideTimer={item.override_timer_minutes}
-          onOverrideTimerChange={v => updateItem({ override_timer_minutes: v })}
           onDuplicate={() => {/* TODO */}}
           onDelete={() => dispatch({ type: ACTIONS.REMOVE_QUESTION, payload: { sectionId, questionId: item.id } })}
         >

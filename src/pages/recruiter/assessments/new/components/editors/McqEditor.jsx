@@ -87,10 +87,7 @@ export function McqEditor({ sectionId, item, allItems, itemIndex }) {
   return (
     <div className="max-w-[640px] mx-auto px-6 py-6 space-y-4">
       {/* Section config */}
-      <SectionConfigCard
-        timerMinutes={section?.timer_minutes}
-        onTimerChange={v => updateSection({ timer_minutes: v })}
-      />
+      <SectionConfigCard timerMinutes={section?.timer_minutes} />
 
       {/* Card */}
       <div className="bg-surface border border-border-default rounded-xl overflow-hidden">

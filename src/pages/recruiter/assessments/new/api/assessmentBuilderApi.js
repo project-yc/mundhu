@@ -2,11 +2,14 @@
  * Assessment Builder API layer.
  *
  * Wraps authFetch for all builder-related API calls.
- * Calls marked MISSING_ENDPOINT throw immediately — add the backend route
- * before enabling that feature end-to-end.
  *
- * Existing endpoints (venaka/core/assessments/urls.py):
+ * Endpoints:
  *   POST   /api/v1/create/assessment
+ *   GET    /api/v1/assessments/<id>/builder-state
+ *   POST   /api/v1/assessments/<id>/sections
+ *   PATCH  /api/v1/assessments/sections/<section_id>
+ *   DELETE /api/v1/assessments/sections/<section_id>
+ *   POST   /api/v1/assessments/<id>/publish
  *   POST   /api/v1/recruiter/mcq/questions
  *   PATCH  /api/v1/recruiter/mcq/questions/<id>
  *   POST   /api/v1/recruiter/mcq/questions/<id>/publish
@@ -15,17 +18,9 @@
  *   DELETE /api/v1/recruiter/mcq/questions/<id>/options/<option_id>
  *   POST   /api/v1/recruiter/mcq/questions/<id>/options/reorder
  *   POST   /api/v1/recruiter/sections/<section_id>/items
- *   GET    /api/v1/recruiter/library/tasks
- *
- * MISSING endpoints (need backend implementation):
- *   POST   /api/v1/assessments/<assessment_id>/sections
- *   PATCH  /api/v1/assessments/sections/<section_id>
- *   DELETE /api/v1/assessments/sections/<section_id>
- *   POST   /api/v1/recruiter/mcq/questions/<id>/unlock
- *   POST   /api/v1/recruiter/freetext/questions  (+ full CRUD)
- *   POST   /api/v1/recruiter/ranking/questions  (+ full CRUD)
  *   PATCH  /api/v1/recruiter/sections/<section_id>/items/<item_id>
  *   DELETE /api/v1/recruiter/sections/<section_id>/items/<item_id>
+ *   GET    /api/v1/recruiter/library/tasks
  */
 
 import { authFetch } from '../../../../../utils/authFetch';
@@ -55,29 +50,52 @@ export async function createAssessment({ name, description, duration_minutes, co
   return handleResponse(res);
 }
 
+/**
+ * GET /api/v1/assessments/<id>/builder-state
+ * Fetches full nested builder state to resume an existing draft.
+ */
+export async function getBuilderState(assessmentId) {
+  const res = await authFetch(`/api/v1/assessments/${assessmentId}/builder-state`);
+  return handleResponse(res);
+}
+
 // ─── Sections ─────────────────────────────────────────────────────────────────
-// MISSING_ENDPOINT: POST /api/v1/assessments/<assessment_id>/sections
-// The Section model needs `name` and `section_type` fields added before this works.
 
-export async function createSection(assessmentId, { name, section_type, order, timer_config_json }) {
-  throw new Error(
-    `MISSING_ENDPOINT: POST /api/v1/assessments/${assessmentId}/sections — ` +
-    'Add this view to the backend. Section model also needs `name` and `section_type` fields.'
-  );
+/**
+ * POST /api/v1/assessments/<assessment_id>/sections
+ */
+export async function createSection(assessmentId, { name, timer_minutes }) {
+  const res = await authFetch(`/api/v1/assessments/${assessmentId}/sections`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ name, timer_minutes: timer_minutes ?? null }),
+  });
+  return handleResponse(res);
 }
 
-// MISSING_ENDPOINT: PATCH /api/v1/assessments/sections/<section_id>
+/**
+ * PATCH /api/v1/assessments/sections/<section_id>
+ */
 export async function updateSection(sectionId, updates) {
-  throw new Error(
-    `MISSING_ENDPOINT: PATCH /api/v1/assessments/sections/${sectionId}`
-  );
+  const res = await authFetch(`/api/v1/assessments/sections/${sectionId}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(updates),
+  });
+  return handleResponse(res);
 }
 
-// MISSING_ENDPOINT: DELETE /api/v1/assessments/sections/<section_id>
+/**
+ * DELETE /api/v1/assessments/sections/<section_id>
+ */
 export async function deleteSection(sectionId) {
-  throw new Error(
-    `MISSING_ENDPOINT: DELETE /api/v1/assessments/sections/${sectionId}`
-  );
+  const res = await authFetch(`/api/v1/assessments/sections/${sectionId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || body.message || `HTTP ${res.status}`);
+  }
 }
 
 // ─── Section Items ────────────────────────────────────────────────────────────
@@ -95,18 +113,29 @@ export async function attachItemToSection(sectionId, { assessment_item_id, order
   return handleResponse(res);
 }
 
-// MISSING_ENDPOINT: PATCH /api/v1/recruiter/sections/<section_id>/items/<item_id>
+/**
+ * PATCH /api/v1/recruiter/sections/<section_id>/items/<item_id>
+ */
 export async function updateSectionItem(sectionId, itemId, updates) {
-  throw new Error(
-    `MISSING_ENDPOINT: PATCH /api/v1/recruiter/sections/${sectionId}/items/${itemId}`
-  );
+  const res = await authFetch(`/api/v1/recruiter/sections/${sectionId}/items/${itemId}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(updates),
+  });
+  return handleResponse(res);
 }
 
-// MISSING_ENDPOINT: DELETE /api/v1/recruiter/sections/<section_id>/items/<item_id>
+/**
+ * DELETE /api/v1/recruiter/sections/<section_id>/items/<item_id>
+ */
 export async function deleteSectionItem(sectionId, itemId) {
-  throw new Error(
-    `MISSING_ENDPOINT: DELETE /api/v1/recruiter/sections/${sectionId}/items/${itemId}`
-  );
+  const res = await authFetch(`/api/v1/recruiter/sections/${sectionId}/items/${itemId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || body.message || `HTTP ${res.status}`);
+  }
 }
 
 // ─── MCQ Questions ────────────────────────────────────────────────────────────
@@ -272,64 +301,65 @@ export async function getLibraryTasks() {
 // ─── Full publish flow ────────────────────────────────────────────────────────
 
 /**
- * Orchestrates the full publish flow:
- * 1. Create assessment
- * 2. Create each section  (MISSING — will throw)
- * 3. For each MCQ question: create → publish → attach to section
+ * Orchestrates the full publish flow.
  *
- * Returns assessmentId on success.
+ * Assessment is already created in Step 1 — state.backendId is reused.
+ * For each section: create section → for each item: create+publish+attach.
+ * Finally: POST publish to lock the assessment.
+ *
+ * Returns { id: assessmentId } on success.
  */
 export async function publishAssessmentFlow(state) {
-  const { name, description, duration_minutes, ai_level, sections } = state;
+  const assessmentId = state.backendId;
+  if (!assessmentId) {
+    throw new Error('No assessment ID found. Complete Step 1 first.');
+  }
 
-  // 1. Create assessment
-  const assessmentResult = await createAssessment({
-    name,
-    description,
-    duration_minutes,
-    config_json: { ai_level },
-  });
-  const assessmentId = assessmentResult.id;
+  const { sections } = state;
 
-  // 2 & 3. Sections and items (section creation is a missing endpoint)
   for (let sIdx = 0; sIdx < sections.length; sIdx++) {
     const section = sections[sIdx];
 
-    // MISSING — will throw here until backend section creation endpoint is added
-    const sectionResult = await createSection(assessmentId, {
-      name: section.name,
-      section_type: section.type,
-      order: sIdx,
-      timer_config_json: {
-        duration_minutes: section.timer_minutes,
-        ai_level: section.ai_level_override,
-      },
-    });
-    const sectionId = sectionResult.id;
+    // Use backendId if already persisted during builder, otherwise create now
+    let sectionId = section.backendId;
+    if (!sectionId) {
+      const sectionResult = await createSection(assessmentId, {
+        name: section.name,
+        timer_minutes: section.timer_minutes ?? null,
+      });
+      sectionId = sectionResult.data.id;
+    }
 
     for (let qIdx = 0; qIdx < section.items.length; qIdx++) {
       const item = section.items[qIdx];
 
       if (item.type === 'mcq') {
-        const mcqResult = await createMcqQuestion({
-          title: item.prompt?.slice(0, 60) || `MCQ ${qIdx + 1}`,
-          prompt: item.prompt,
-          selection_mode: item.selection_mode,
-          shuffle_options: item.shuffle_options,
-          show_explanation_after: item.show_explanation_after,
-        });
-        const mcqId = mcqResult.data.id;
-        const itemId = mcqResult.data.assessment_item_id;
+        // Use backendMcqId if already persisted
+        let mcqId = item.backendMcqId;
+        let itemId = item.backendItemId;
 
-        // Add options
-        for (let oIdx = 0; oIdx < item.options.length; oIdx++) {
-          const opt = item.options[oIdx];
-          await addMcqOption(mcqId, { text: opt.text, is_correct: opt.is_correct, order_index: oIdx });
+        if (!mcqId) {
+          const mcqResult = await createMcqQuestion({
+            title: item.prompt?.slice(0, 60) || `MCQ ${qIdx + 1}`,
+            prompt: item.prompt,
+            selection_mode: item.selection_mode,
+            shuffle_options: item.shuffle_options,
+            show_explanation_after: item.show_explanation_after,
+          });
+          mcqId = mcqResult.data.id;
+          itemId = mcqResult.data.assessment_item_id;
+
+          // Add options
+          for (let oIdx = 0; oIdx < item.options.length; oIdx++) {
+            const opt = item.options[oIdx];
+            await addMcqOption(mcqId, { text: opt.text, is_correct: opt.is_correct, order_index: oIdx });
+          }
         }
 
-        if (item.published) {
-          await publishMcqQuestion(mcqId);
-        }
+        // NOTE: Do NOT call publishMcqQuestion here.
+        // AssessmentPublishView bulk-publishes all linked items at the end of the flow.
+        // Calling publishMcqQuestion individually would fail if the question has <2 options
+        // or no correct answer marked, blocking the entire publish flow unnecessarily.
 
         await attachItemToSection(sectionId, {
           assessment_item_id: itemId,
@@ -338,20 +368,25 @@ export async function publishAssessmentFlow(state) {
         });
 
       } else if (item.type === 'free_text') {
-        // MISSING — will throw
         const result = await createFreeTextQuestion({ prompt: item.prompt, word_limit: item.word_limit, grading_hints: item.grading_hints });
-        if (item.published) await publishFreeTextQuestion(result.data.id);
+        if (!item.published) await publishFreeTextQuestion(result.data.id);
         await attachItemToSection(sectionId, { assessment_item_id: result.data.assessment_item_id, order: qIdx, points: item.points });
 
       } else if (item.type === 'ranking') {
-        // MISSING — will throw
         const result = await createRankingQuestion({ prompt: item.prompt, items: item.items });
-        if (item.published) await publishRankingQuestion(result.data.id);
+        if (!item.published) await publishRankingQuestion(result.data.id);
         await attachItemToSection(sectionId, { assessment_item_id: result.data.assessment_item_id, order: qIdx, points: item.points });
       }
-      // coding items are library tasks already attached via library task endpoints
+      // coding items: library tasks are already attached via library task endpoints
     }
   }
 
-  return assessmentId;
+  // Lock the assessment
+  const res = await authFetch(`/api/v1/assessments/${assessmentId}/publish`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({}),
+  });
+  const result = await handleResponse(res);
+  return { id: assessmentId, ...result };
 }

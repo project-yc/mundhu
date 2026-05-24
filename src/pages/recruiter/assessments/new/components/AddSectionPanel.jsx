@@ -90,7 +90,7 @@ export function AddSectionPanel() {
         </div>
 
         <div className="flex gap-4">
-          <div className="flex-1">
+          <div className={selectedType === 'coding' ? 'flex-1' : 'w-full'}>
             <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
               Section timer (min)
             </label>
@@ -104,18 +104,20 @@ export function AddSectionPanel() {
               className="w-full px-3.5 py-2.5 bg-page border border-border-default rounded-lg text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
             />
           </div>
-          <div className="flex-1">
-            <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
-              AI level
-            </label>
-            <select
-              value={aiLevel}
-              onChange={e => setAiLevel(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-page border border-border-default rounded-lg text-[13px] text-text-primary focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
-            >
-              {AI_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
+          {selectedType === 'coding' && (
+            <div className="flex-1">
+              <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
+                AI level
+              </label>
+              <select
+                value={aiLevel}
+                onChange={e => setAiLevel(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-page border border-border-default rounded-lg text-[13px] text-text-primary focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
+              >
+                {AI_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 

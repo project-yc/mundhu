@@ -1,15 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconArrowLeft, IconRocket, IconAlertTriangle } from '@tabler/icons-react';
+import { IconArrowLeft, IconRocket } from '@tabler/icons-react';
 import { useAssessmentBuilder } from '../context/AssessmentBuilderContext';
 import { SECTION_TYPE_CONFIG, AI_LEVEL_LABELS } from '../constants/sectionTypeConfig';
 import { publishAssessmentFlow } from '../api/assessmentBuilderApi';
 
 function SectionRow({ section }) {
   const cfg = SECTION_TYPE_CONFIG[section.type] || SECTION_TYPE_CONFIG.mcq;
-  const publishedCount = section.items.filter(i => i.published || i.locked).length;
   const totalCount = section.items.length;
-  const allPublished = publishedCount === totalCount && totalCount > 0;
 
   return (
     <div className="flex items-center justify-between py-3 border-b border-border-default last:border-0">
@@ -24,8 +22,8 @@ function SectionRow({ section }) {
         )}
       </div>
       <div className="flex items-center gap-3">
-        <span className={`text-[12px] font-semibold ${allPublished ? 'text-success' : 'text-warning'}`}>
-          {publishedCount}/{totalCount} published
+        <span className="text-[12px] font-semibold text-text-secondary">
+          {totalCount} question{totalCount !== 1 ? 's' : ''}
         </span>
       </div>
     </div>
@@ -42,9 +40,6 @@ export function AssessmentReviewStep() {
 
   const totalQuestions = sections.reduce((acc, s) => acc + s.items.length, 0);
   const totalPts = sections.reduce((acc, s) => s.items.reduce((a, i) => a + (i.points || 0), acc), 0);
-  const publishedCount = sections.reduce((acc, s) => acc + s.items.filter(i => i.published || i.locked).length, 0);
-  const draftCount = totalQuestions - publishedCount;
-  const hasDrafts = draftCount > 0;
 
   const handleBack = () => dispatch({ type: ACTIONS.SET_STEP, payload: 2 });
 
@@ -95,21 +90,6 @@ export function AssessmentReviewStep() {
             )}
           </div>
         </div>
-
-        {/* Draft warning */}
-        {hasDrafts && (
-          <div className="flex items-start gap-3 p-4 bg-warning-bg border border-warning-border rounded-xl">
-            <IconAlertTriangle size={16} className="text-warning flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-[13px] font-semibold text-warning">
-                {draftCount} question{draftCount !== 1 ? 's are' : ' is'} still in draft
-              </p>
-              <p className="text-[12px] text-text-secondary mt-0.5">
-                Draft questions will not be shown to candidates. Go back to publish them or remove them.
-              </p>
-            </div>
-          </div>
-        )}
 
         {error && (
           <div className="p-4 bg-error-bg border border-error/30 rounded-xl">
