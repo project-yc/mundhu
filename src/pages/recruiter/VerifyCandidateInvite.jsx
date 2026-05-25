@@ -204,6 +204,11 @@ export default function VerifyCandidateInvite() {
     const verifyToken = async () => {
       try {
         const data = await verifyInviteToken(token)
+        // MCQ assessments use the new full-screen flow at /assessment/:token
+        if (data.next_action === 'open_section') {
+          navigate(`/assessment/${token}`, { replace: true })
+          return
+        }
         setCandidateData(data)
         setStatus('success')
       } catch (err) {
@@ -212,7 +217,7 @@ export default function VerifyCandidateInvite() {
       }
     }
     verifyToken()
-  }, [token])
+  }, [token, navigate])
 
   const handleStartAssessment = async () => {
     setIsStarting(true)
