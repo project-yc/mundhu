@@ -1,12 +1,12 @@
-// ReportDetailScreen — full B2B hiring report for a session
+// ReportDetailScreen — recruiter detail view with assessment-level scoring
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Loader, AlertCircle, Download, ChevronDown, ChevronUp,
-  CheckCircle, XCircle, AlertTriangle, Code, Brain,
+  CheckCircle, XCircle, AlertTriangle, Code, Brain, Clock,
   TrendingUp, MessageSquare, Award, Target,
 } from 'lucide-react';
-import { getSessionReport } from '../../api/recruiter/assessment.jsx';
+import { getRecruiterReportDetail } from '../../api/recruiter/assessment.jsx';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const SIGNAL_CFG = {
@@ -22,13 +22,48 @@ const SUBSCORE_LABELS = {
   iteration: 'Iteration',
 };
 
+const REPORT_STATUS_CFG = {
+  finalized: { label: 'Finalized', color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC' },
+  completed: { label: 'Completed', color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC' },
+  coding_analytics_pending: { label: 'Coding Analytics Pending', color: '#0F766E', bg: '#CCFBF1', border: '#5EEAD4' },
+  processing: { label: 'Processing', color: '#0891B2', bg: '#ECFEFF', border: '#67E8F9' },
+  pending: { label: 'Pending', color: '#D97706', bg: '#FFFBEB', border: '#FCD34D' },
+  not_requested: { label: 'Not Requested', color: '#64748B', bg: '#F8FAFC', border: '#CBD5E1' },
+  failed: { label: 'Failed', color: '#DC2626', bg: '#FEF2F2', border: '#FCA5A5' },
+};
+
 function formatSubscoreLabel(key) {
   return SUBSCORE_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function SignalCard({ label, signal, score, summary, subscores, icon: Icon }) {
+function DetailStatusBadge({ status }) {
+  const cfg = REPORT_STATUS_CFG[status] || REPORT_STATUS_CFG.pending;
+  return (
+    <span
+      className="px-3 py-1.5 rounded-xl text-[12px] font-bold border"
+      style={{ color: cfg.color, backgroundColor: cfg.bg, borderColor: cfg.border }}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
+function SectionStatusBadge({ status }) {
+  const cfg = REPORT_STATUS_CFG[status] || REPORT_STATUS_CFG.pending;
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold"
+      style={{ color: cfg.color, backgroundColor: cfg.bg, border: `1px solid ${cfg.border}` }}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
+function SignalCard({ label, signal, score, summary, subscores, icon }) {
   const cfg = SIGNAL_CFG[signal] || { color: '#64748B', bg: '#F1F5F9', border: '#E2E8F0', icon: Target, label: 'N/A' };
   const SigIcon = cfg.icon;
+  const IconComponent = icon;
   const subscoreEntries = subscores && typeof subscores === 'object'
     ? Object.entries(subscores).filter(([, v]) => typeof v === 'number')
     : [];
@@ -36,7 +71,7 @@ function SignalCard({ label, signal, score, summary, subscores, icon: Icon }) {
     <div className="rounded-xl border p-4 space-y-2" style={{ backgroundColor: cfg.bg, borderColor: cfg.border }}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4" style={{ color: cfg.color }} />
+          <IconComponent className="w-4 h-4" style={{ color: cfg.color }} />
           <span className="text-[12px] font-bold text-text-primary">{label}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -64,8 +99,9 @@ function SignalCard({ label, signal, score, summary, subscores, icon: Icon }) {
   );
 }
 
-function Section({ title, icon: Icon, color = '#22D3EE', defaultOpen = false, children }) {
+function Section({ title, icon, color = '#22D3EE', defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen);
+  const IconComponent = icon;
   return (
     <div className="rounded-xl border border-border-default overflow-hidden">
       <button
@@ -74,7 +110,7 @@ function Section({ title, icon: Icon, color = '#22D3EE', defaultOpen = false, ch
       >
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}15`, border: `1px solid ${color}30` }}>
-            <Icon className="w-3.5 h-3.5" style={{ color }} />
+            <IconComponent className="w-3.5 h-3.5" style={{ color }} />
           </div>
           <span className="text-[13px] font-bold text-text-primary">{title}</span>
         </div>
@@ -106,7 +142,7 @@ export default function ReportDetailScreen() {
   const [error,    setError]    = useState('');
 
   useEffect(() => {
-    getSessionReport(assessmentId, sessionId)
+    getRecruiterReportDetail(assessmentId, sessionId)
       .then(d => setReport(d.data || d))
       .catch(err => setError(err.message || 'Failed to load report.'))
       .finally(() => setLoading(false));
@@ -140,8 +176,18 @@ export default function ReportDetailScreen() {
   const bev  = report.behavioral_evidence  || [];
   const probes = report.interview_probes   || [];
   const growth = report.growth_edges       || [];
+  const sections = Array.isArray(report.section_results)
+    ? [...report.section_results].sort((a, b) => (a.section_order ?? Number.MAX_SAFE_INTEGER) - (b.section_order ?? Number.MAX_SAFE_INTEGER))
+    : [];
+  const codingAnalytics = report.coding_analytics || {};
+  const detailStatus = report.assessment_status || report.status || 'pending';
+  const showCodingPending = ['pending', 'processing', 'not_requested'].includes(codingAnalytics.status);
+  const hasCodingDetail = !!(tc.signal || dq.signal || psp.signal || ai?.signal);
+  const totalScore = report.total_score;
+  const maxScore = report.max_score;
+  const overallScore = report.overall_score;
 
-  const overallColor = report.overall_score >= 75 ? '#16A34A' : report.overall_score >= 50 ? '#D97706' : '#DC2626';
+  const overallColor = overallScore >= 75 ? '#16A34A' : overallScore >= 50 ? '#D97706' : overallScore != null ? '#DC2626' : '#64748B';
 
   return (
     <div className="p-6 max-w-[900px] mx-auto space-y-6">
@@ -165,35 +211,71 @@ export default function ReportDetailScreen() {
             <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-[0.14em] mb-2">Overall Score</p>
             <div className="flex items-end gap-3">
               <span className="text-[56px] font-bold leading-none font-display" style={{ color: overallColor }}>
-                {report.overall_score ?? '—'}
+                {overallScore ?? '—'}
               </span>
               <span className="text-[18px] text-text-muted mb-2 font-display">/100</span>
             </div>
-            <p className="text-[13px] text-text-secondary mt-1">Session ID: <span className="text-text-muted font-mono text-[11px]">{sessionId}</span></p>
+            {totalScore !== null && totalScore !== undefined && maxScore !== null && maxScore !== undefined ? (
+              <p className="text-[13px] text-text-secondary mt-1">Points: <span className="text-text-primary font-semibold">{totalScore} / {maxScore}</span></p>
+            ) : null}
+            <p className="text-[13px] text-text-secondary mt-1">Coding Session ID: <span className="text-text-muted font-mono text-[11px]">{sessionId}</span></p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <span className={`px-3 py-1.5 rounded-xl text-[12px] font-bold border ${
-              report.status === 'completed' ? 'bg-success-bg border-success-border text-success' : 'bg-warning-bg border-warning-border text-warning'
-            }`}>{(report.status || 'pending').toUpperCase()}</span>
+            <DetailStatusBadge status={detailStatus} />
             {report.no_verdict && <span className="text-[11px] text-text-secondary">Evidence-based · No auto-verdict</span>}
           </div>
         </div>
       </div>
 
-      {/* 4 dimension signals */}
-      <div className="grid grid-cols-2 gap-3">
-        <SignalCard label="Task Completion"         signal={tc.signal}   score={tc.score}   summary={tc.summary}   icon={Code} />
-        <SignalCard label="Design Quality"          signal={dq.signal}   score={dq.score}   summary={dq.summary}   icon={Target} />
-        <SignalCard label="Problem-Solving Process" signal={psp.signal}  score={psp.score}  summary={psp.summary}  subscores={psp.subscores} icon={Brain} />
-        {ai ? (
-          <SignalCard label="AI Collaboration" signal={ai.signal} score={ai.score} summary={ai.summary} subscores={ai.subscores} icon={MessageSquare} />
-        ) : (
-          <div className="rounded-xl border border-border-default p-4 bg-surface flex items-center gap-3">
-            <MessageSquare className="w-4 h-4 text-text-muted" />
-            <span className="text-[12px] text-text-muted">AI was disabled for this session</span>
+      {showCodingPending && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-brand-border bg-brand-tint text-brand">
+          <Clock className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[13px] font-semibold">Assessment scoring is available while coding analytics continue processing.</p>
+            <p className="text-[12px] text-text-secondary mt-1">
+              Coding analytics status: <span className="font-semibold text-text-primary">{REPORT_STATUS_CFG[codingAnalytics.status]?.label || codingAnalytics.status || 'Pending'}</span>
+            </p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {sections.length > 0 && (
+        <Section title="Assessment Breakdown" icon={Target} color="#0EA5E9" defaultOpen>
+          <div className="space-y-3">
+            {sections.map((section, index) => {
+              const sectionScore = section.score ?? 0;
+              const sectionMax = section.max_score ?? 0;
+              const sectionPercent = sectionMax > 0 ? Math.round((sectionScore / sectionMax) * 100) : null;
+              return (
+                <div key={section.section_id || index} className="flex items-center justify-between gap-4 p-3 rounded-xl bg-surface border border-border-default">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-text-primary truncate">{section.section_name || `Section ${index + 1}`}</p>
+                    <p className="text-[11px] text-text-secondary mt-0.5">{sectionScore} / {sectionMax} points{sectionPercent !== null ? ` · ${sectionPercent}%` : ''}</p>
+                  </div>
+                  <SectionStatusBadge status={section.status} />
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
+
+      {/* 4 dimension signals */}
+      {hasCodingDetail && (
+        <div className="grid grid-cols-2 gap-3">
+          <SignalCard label="Task Completion"         signal={tc.signal}   score={tc.score}   summary={tc.summary}   icon={Code} />
+          <SignalCard label="Design Quality"          signal={dq.signal}   score={dq.score}   summary={dq.summary}   icon={Target} />
+          <SignalCard label="Problem-Solving Process" signal={psp.signal}  score={psp.score}  summary={psp.summary}  subscores={psp.subscores} icon={Brain} />
+          {ai ? (
+            <SignalCard label="AI Collaboration" signal={ai.signal} score={ai.score} summary={ai.summary} subscores={ai.subscores} icon={MessageSquare} />
+          ) : (
+            <div className="rounded-xl border border-border-default p-4 bg-surface flex items-center gap-3">
+              <MessageSquare className="w-4 h-4 text-text-muted" />
+              <span className="text-[12px] text-text-muted">AI was disabled for this session</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Behavioral evidence */}
       {bev.length > 0 && (

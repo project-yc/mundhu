@@ -270,10 +270,12 @@ export const getCandidatesWithReports = async (assessmentId) => {
   return handleApiError(response);
 };
 
-export const getSessionReport = async (assessmentId, sessionId) => {
+export const getRecruiterReportDetail = async (assessmentId, sessionId) => {
   const response = await authFetch(`/api/v1/analytics/assessments/${assessmentId}/reports/${sessionId}`);
   return handleApiError(response);
 };
+
+export const getSessionReport = getRecruiterReportDetail;
 
 // ── Task Library (B2B) ───────────────────────────────────────────────────────
 

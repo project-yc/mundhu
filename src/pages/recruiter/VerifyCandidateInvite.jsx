@@ -2,6 +2,12 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { verifyInviteToken, startInviteSession } from '../../api/recruiter/invite'
+import {
+  buildCandidateCompletionRoute,
+  buildCandidateSectionRoute,
+  clearCandidateRuntimeState,
+  saveCandidateRuntimeState,
+} from '../../api/candidate/runtime'
 import { Check, X, Loader, Clock, Copy, CheckCheck, Zap, ArrowRight, Terminal } from 'lucide-react'
 
 // ─── Boot stage definitions ───────────────────────────────────────────────────
@@ -41,10 +47,11 @@ function BootScreen() {
   const [elapsed, setElapsed]       = useState(0)
   const [logLines, setLogLines]     = useState([])
   const logRef                      = useRef(null)
-  const startTime                   = useRef(Date.now())
+  const startTime                   = useRef(0)
 
   // Tick every 80ms for smooth progress
   useEffect(() => {
+    startTime.current = Date.now()
     const iv = setInterval(() => {
       const e = Date.now() - startTime.current
       setElapsed(Math.min(e, TOTAL_BOOT_MS))
@@ -192,6 +199,8 @@ export default function VerifyCandidateInvite() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
+    clearCandidateRuntimeState()
+
     const verifyToken = async () => {
       try {
         const data = await verifyInviteToken(token)
@@ -211,14 +220,41 @@ export default function VerifyCandidateInvite() {
 
     try {
       const result = await startInviteSession(token)
-      if (result?.workspace_url) {
+      const nextAction = result?.next_action || (result?.workspace_url ? 'launch_coding' : null)
+
+      if (nextAction === 'launch_coding') {
         setIsBooting(true)
         await new Promise(resolve => setTimeout(resolve, TOTAL_BOOT_MS + 500))
         window.location.href = result.workspace_url
         return
       }
-      console.error('Start invite succeeded without workspace_url', result)
-      setError('Workspace URL not returned by server')
+
+      if (nextAction === 'open_section') {
+        const runtime = saveCandidateRuntimeState(result)
+        navigate(
+          result.frontend_route || buildCandidateSectionRoute(result.assessment_instance_id, result.section_id),
+          { replace: true, state: { runtime } },
+        )
+        return
+      }
+
+      if (nextAction === 'assessment_complete') {
+        clearCandidateRuntimeState()
+        navigate(
+          result.frontend_route || result.completion_route || buildCandidateCompletionRoute(result.assessment_instance_id),
+          {
+            replace: true,
+            state: {
+              assessmentInstanceId: result.assessment_instance_id,
+              sectionId: result.section_id,
+            },
+          },
+        )
+        return
+      }
+
+      console.error('Unsupported invite start response', result)
+      setError('Unsupported start response from server')
     } catch (err) {
       console.error('Failed to start assessment', err)
       setError(err.message || 'Failed to start assessment')

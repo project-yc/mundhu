@@ -1,0 +1,147 @@
+const CANDIDATE_RUNTIME_STORAGE_KEY = 'candidateRuntimeState'
+
+const JSON_HEADERS = {
+  'Content-Type': 'application/json',
+}
+
+const parseJson = async (response) => response.json().catch(() => ({}))
+
+const requestCandidate = async (url, token, options = {}, { unwrapData = true } = {}) => {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  const body = await parseJson(response)
+  if (!response.ok) {
+    throw new Error(body.detail || body.message || 'Candidate runtime request failed')
+  }
+
+  if (!unwrapData) {
+    return body
+  }
+
+  return body?.data ?? body
+}
+
+export const buildCandidateSectionRoute = (assessmentInstanceId, sectionId) => (
+  `/candidate/assessment/${assessmentInstanceId}/sections/${sectionId}`
+)
+
+export const buildCandidateCompletionRoute = (assessmentInstanceId) => (
+  `/candidate/assessment/${assessmentInstanceId}/complete`
+)
+
+export const normalizeCandidateRuntimeState = (payload = {}) => ({
+  assessmentInstanceId: payload.assessment_instance_id || payload.assessmentInstanceId || null,
+  sectionId: payload.section_id || payload.sectionId || null,
+  currentItemAttemptId: payload.current_item_attempt_id || payload.currentItemAttemptId || null,
+  contentType: payload.content_type || payload.contentType || null,
+  sectionToken: payload.section_token || payload.sectionToken || null,
+  sessionToken: payload.session_token || payload.sessionToken || null,
+  sessionId: payload.session_id || payload.sessionId || null,
+  workspaceUrl: payload.workspace_url || payload.workspaceUrl || null,
+  nextAction: payload.next_action || payload.nextAction || null,
+  frontendRoute: payload.frontend_route || payload.frontendRoute || null,
+  completionRoute: payload.completion_route || payload.completionRoute || null,
+})
+
+export const saveCandidateRuntimeState = (payload) => {
+  const normalized = normalizeCandidateRuntimeState(payload)
+  sessionStorage.setItem(CANDIDATE_RUNTIME_STORAGE_KEY, JSON.stringify(normalized))
+  return normalized
+}
+
+export const loadCandidateRuntimeState = () => {
+  const raw = sessionStorage.getItem(CANDIDATE_RUNTIME_STORAGE_KEY)
+  if (!raw) {
+    return null
+  }
+
+  try {
+    return JSON.parse(raw)
+  } catch {
+    sessionStorage.removeItem(CANDIDATE_RUNTIME_STORAGE_KEY)
+    return null
+  }
+}
+
+export const clearCandidateRuntimeState = () => {
+  sessionStorage.removeItem(CANDIDATE_RUNTIME_STORAGE_KEY)
+}
+
+export const getCandidateNextAction = async (assessmentInstanceId, token) => (
+  requestCandidate(
+    `/api/v1/candidate/assessment/${assessmentInstanceId}/next-action`,
+    token,
+    {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({}),
+    },
+    { unwrapData: false },
+  )
+)
+
+export const getMcqRuntime = async (itemAttemptId, token) => (
+  requestCandidate(`/api/v1/candidate/items/${itemAttemptId}/mcq`, token)
+)
+
+export const autosaveMcqRuntime = async (itemAttemptId, token, selectedOptionIds) => (
+  requestCandidate(`/api/v1/candidate/items/${itemAttemptId}/mcq`, token, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ selected_option_ids: selectedOptionIds }),
+  })
+)
+
+export const submitMcqRuntime = async (itemAttemptId, token, selectedOptionIds) => (
+  requestCandidate(`/api/v1/candidate/items/${itemAttemptId}/mcq/submit`, token, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ selected_option_ids: selectedOptionIds }),
+  })
+)
+
+export const getFreeTextRuntime = async (itemAttemptId, token) => (
+  requestCandidate(`/api/v1/candidate/items/${itemAttemptId}/free-text`, token)
+)
+
+export const autosaveFreeTextRuntime = async (itemAttemptId, token, responseText) => (
+  requestCandidate(`/api/v1/candidate/items/${itemAttemptId}/free-text`, token, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ response_text: responseText }),
+  })
+)
+
+export const submitFreeTextRuntime = async (itemAttemptId, token, responseText) => (
+  requestCandidate(`/api/v1/candidate/items/${itemAttemptId}/free-text/submit`, token, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ response_text: responseText }),
+  })
+)
+
+export const getRankingRuntime = async (itemAttemptId, token) => (
+  requestCandidate(`/api/v1/candidate/items/${itemAttemptId}/ranking`, token)
+)
+
+export const autosaveRankingRuntime = async (itemAttemptId, token, rankedOptionIds) => (
+  requestCandidate(`/api/v1/candidate/items/${itemAttemptId}/ranking`, token, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ ranked_option_ids: rankedOptionIds }),
+  })
+)
+
+export const submitRankingRuntime = async (itemAttemptId, token, rankedOptionIds) => (
+  requestCandidate(`/api/v1/candidate/items/${itemAttemptId}/ranking/submit`, token, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ ranked_option_ids: rankedOptionIds }),
+  })
+)
