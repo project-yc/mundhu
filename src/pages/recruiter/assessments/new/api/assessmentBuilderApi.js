@@ -104,11 +104,11 @@ export async function deleteSection(sectionId) {
  * Attach an AssessmentItem to a section.
  * POST /api/v1/recruiter/sections/<section_id>/items
  */
-export async function attachItemToSection(sectionId, { assessment_item_id, order, points }) {
+export async function attachItemToSection(sectionId, { assessment_item_id, library_task_id, order, points }) {
   const res = await authFetch(`/api/v1/recruiter/sections/${sectionId}/items`, {
     method: 'POST',
     headers: JSON_HEADERS,
-    body: JSON.stringify({ assessment_item_id, order, points }),
+    body: JSON.stringify({ assessment_item_id, library_task_id, order, points }),
   });
   return handleResponse(res);
 }
@@ -392,8 +392,16 @@ export async function publishAssessmentFlow(state) {
         const result = await createRankingQuestion({ prompt: item.prompt, items: item.items });
         if (!item.published) await publishRankingQuestion(result.data.id);
         await attachItemToSection(sectionId, { assessment_item_id: result.data.assessment_item_id, order: qIdx, points: item.points });
+      } else if (item.type === 'coding') {
+        if (!item.task_id) {
+          throw new Error(`Coding section "${section.name}" is missing a selected library task.`);
+        }
+        await attachItemToSection(sectionId, {
+          library_task_id: item.task_id,
+          order: qIdx,
+          points: item.points,
+        });
       }
-      // coding items: library tasks are already attached via library task endpoints
     }
   }
 
