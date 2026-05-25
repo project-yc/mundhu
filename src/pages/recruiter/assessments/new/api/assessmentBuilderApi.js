@@ -229,63 +229,79 @@ export async function reorderMcqOptions(mcqId, orderedOptionIds) {
 }
 
 // ─── Free Text Questions ──────────────────────────────────────────────────────
-// MISSING_ENDPOINT — all free text endpoints need to be added to the backend.
-// Backend also needs: AssessmentItemContentType.FREE_TEXT = "free_text",
-// a FreeTextQuestion model, serializers, views, and URL routes.
 
 export async function createFreeTextQuestion(payload) {
-  throw new Error(
-    'MISSING_ENDPOINT: POST /api/v1/recruiter/freetext/questions — ' +
-    'Add FreeTextQuestion model + serializer + view + URL.'
-  );
+  const res = await authFetch('/api/v1/recruiter/freetext/questions', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
 }
 
 export async function updateFreeTextQuestion(id, payload) {
-  throw new Error(
-    `MISSING_ENDPOINT: PATCH /api/v1/recruiter/freetext/questions/${id}`
-  );
+  const res = await authFetch(`/api/v1/recruiter/freetext/questions/${id}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
 }
 
 export async function publishFreeTextQuestion(id) {
-  throw new Error(
-    `MISSING_ENDPOINT: POST /api/v1/recruiter/freetext/questions/${id}/publish`
-  );
+  const res = await authFetch(`/api/v1/recruiter/freetext/questions/${id}/publish`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({}),
+  });
+  return handleResponse(res);
 }
 
 export async function unlockFreeTextQuestion(id) {
-  throw new Error(
-    `MISSING_ENDPOINT: POST /api/v1/recruiter/freetext/questions/${id}/unlock`
-  );
+  const res = await authFetch(`/api/v1/recruiter/freetext/questions/${id}/unlock`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({}),
+  });
+  return handleResponse(res);
 }
 
 // ─── Ranking Questions ────────────────────────────────────────────────────────
-// MISSING_ENDPOINT — all ranking endpoints need to be added to the backend.
-// Backend also needs: AssessmentItemContentType.RANKING = "ranking",
-// RankingQuestion + RankingItem models, serializers, views, and URL routes.
 
 export async function createRankingQuestion(payload) {
-  throw new Error(
-    'MISSING_ENDPOINT: POST /api/v1/recruiter/ranking/questions — ' +
-    'Add RankingQuestion + RankingItem models + serializer + view + URL.'
-  );
+  const res = await authFetch('/api/v1/recruiter/ranking/questions', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
 }
 
 export async function updateRankingQuestion(id, payload) {
-  throw new Error(
-    `MISSING_ENDPOINT: PATCH /api/v1/recruiter/ranking/questions/${id}`
-  );
+  const res = await authFetch(`/api/v1/recruiter/ranking/questions/${id}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
 }
 
 export async function publishRankingQuestion(id) {
-  throw new Error(
-    `MISSING_ENDPOINT: POST /api/v1/recruiter/ranking/questions/${id}/publish`
-  );
+  const res = await authFetch(`/api/v1/recruiter/ranking/questions/${id}/publish`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({}),
+  });
+  return handleResponse(res);
 }
 
 export async function unlockRankingQuestion(id) {
-  throw new Error(
-    `MISSING_ENDPOINT: POST /api/v1/recruiter/ranking/questions/${id}/unlock`
-  );
+  const res = await authFetch(`/api/v1/recruiter/ranking/questions/${id}/unlock`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({}),
+  });
+  return handleResponse(res);
 }
 
 // ─── Library Tasks ────────────────────────────────────────────────────────────
