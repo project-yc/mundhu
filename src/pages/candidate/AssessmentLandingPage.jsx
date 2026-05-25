@@ -1,0 +1,219 @@
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import {
+  IconAlertCircle,
+  IconBrain,
+  IconChevronRight,
+  IconClock,
+  IconCode,
+  IconListCheck,
+} from '@tabler/icons-react'
+import {
+  getAssessmentOverview,
+  saveMcqSession,
+  startMcqAssessment,
+} from '../../api/candidate/assessmentSession'
+
+const AI_LEVEL_LABELS = {
+  full: 'Full AI access',
+  chat: 'AI chat only',
+  none: 'No AI assistance',
+}
+
+const SECTION_CONFIG = {
+  mcq: {
+    label: 'MCQ',
+    Icon: IconListCheck,
+    badgeClass: 'bg-amber-400/10 text-amber-400',
+  },
+  technical_task: {
+    label: 'Coding',
+    Icon: IconCode,
+    badgeClass: 'bg-sky-400/10 text-sky-400',
+  },
+}
+
+export default function AssessmentLandingPage() {
+  const { token } = useParams()
+  const navigate = useNavigate()
+
+  const [overview, setOverview] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [starting, setStarting] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    getAssessmentOverview(token)
+      .then(setOverview)
+      .catch((e) => setError(e.message || 'Failed to load assessment'))
+      .finally(() => setLoading(false))
+  }, [token])
+
+  const handleStart = async () => {
+    setStarting(true)
+    setError('')
+    try {
+      const data = await startMcqAssessment(token)
+      saveMcqSession({
+        token,
+        instanceToken: data.instance_token,
+        instanceId: data.instance_id,
+        sections: data.sections || [],
+        candidateName: overview?.candidate_name,
+        assessmentName: overview?.assessment_name,
+      })
+      navigate(`/assessment/${token}/mcq/0`, { replace: true })
+    } catch (e) {
+      setError(e.message || 'Failed to start assessment')
+      setStarting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-zinc-700 border-t-cyan rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (!overview) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
+        <div className="max-w-sm w-full text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-rose/10 border border-rose/20 flex items-center justify-center mx-auto">
+            <IconAlertCircle size={22} className="text-rose" />
+          </div>
+          <p className="text-zinc-100 font-semibold">Unable to load assessment</p>
+          <p className="text-zinc-400 text-sm">{error || 'This link may be invalid or expired.'}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const sections = overview.sections || []
+  const totalMins = overview.total_duration_minutes
+
+  return (
+    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6">
+      <div className="w-full max-w-lg space-y-7 animate-slideInUp">
+
+        {/* Brand + title */}
+        <div className="text-center space-y-2">
+          <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">
+            TruDev Assessment
+          </p>
+          <h1 className="text-zinc-50 text-2xl font-bold tracking-tight leading-tight mt-3">
+            {overview.assessment_name}
+          </h1>
+          {overview.candidate_name && (
+            <p className="text-zinc-400 text-sm">
+              Good luck,{' '}
+              <span className="text-zinc-200 font-medium">{overview.candidate_name}</span>
+            </p>
+          )}
+        </div>
+
+        {/* Meta pills */}
+        <div className="flex flex-wrap items-center justify-center gap-2.5">
+          {totalMins && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-800/80 border border-zinc-700/60 px-2.5 py-1 rounded-full">
+              <IconClock size={12} />
+              {totalMins} min total
+            </span>
+          )}
+          {overview.ai_level && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-800/80 border border-zinc-700/60 px-2.5 py-1 rounded-full">
+              <IconBrain size={12} />
+              {AI_LEVEL_LABELS[overview.ai_level] || overview.ai_level}
+            </span>
+          )}
+        </div>
+
+        {/* Section list */}
+        {sections.length > 0 && (
+          <div className="border border-zinc-800 rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 bg-zinc-900/80 border-b border-zinc-800">
+              <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest">
+                {sections.length} {sections.length === 1 ? 'Section' : 'Sections'}
+              </p>
+            </div>
+            <ul className="bg-zinc-900/30 divide-y divide-zinc-800/60">
+              {sections.map((sec, i) => {
+                const cfg = SECTION_CONFIG[sec.content_type] || SECTION_CONFIG.mcq
+                const Icon = cfg.Icon
+                return (
+                  <li key={sec.id} className="flex items-center gap-3 px-4 py-3">
+                    <span className="text-zinc-600 text-xs font-mono w-4 shrink-0 text-center">
+                      {i + 1}
+                    </span>
+                    <span className="flex-1 text-zinc-200 text-sm font-medium truncate">
+                      {sec.name}
+                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${cfg.badgeClass}`}
+                      >
+                        <Icon size={10} />
+                        {cfg.label}
+                      </span>
+                      {sec.timer_minutes && (
+                        <span className="text-zinc-500 text-xs flex items-center gap-1">
+                          <IconClock size={10} />
+                          {sec.timer_minutes}m
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
+
+        {/* Instructions */}
+        <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-xl px-4 py-4 space-y-2.5">
+          <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wide">
+            Before you begin
+          </p>
+          <ul className="space-y-2">
+            {[
+              'Ensure a stable internet connection',
+              'Each section is timed — you cannot pause once started',
+              'Your answers are saved when you submit each section',
+            ].map((tip) => (
+              <li key={tip} className="flex items-start gap-2.5 text-zinc-500 text-sm">
+                <span className="w-1 h-1 rounded-full bg-zinc-600 shrink-0 mt-2" />
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {error && (
+          <p className="text-rose text-sm text-center">{error}</p>
+        )}
+
+        {/* CTA */}
+        <button
+          onClick={handleStart}
+          disabled={starting}
+          className="w-full flex items-center justify-center gap-2 py-3.5 bg-cyan hover:bg-cyan-hover text-zinc-950 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {starting ? (
+            <div className="w-4 h-4 border-2 border-zinc-800/30 border-t-zinc-800 rounded-full animate-spin" />
+          ) : (
+            <>
+              Begin Assessment
+              <IconChevronRight size={16} />
+            </>
+          )}
+        </button>
+
+        <p className="text-center text-zinc-700 text-xs">
+          Powered by <span className="text-zinc-500">TruDev</span>
+        </p>
+      </div>
+    </div>
+  )
+}

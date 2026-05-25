@@ -16,6 +16,9 @@ import InviteCandidate from './pages/recruiter/InviteCandidate'
 import VerifyCandidateInvite from './pages/recruiter/VerifyCandidateInvite'
 import CandidateAssessmentCompletePage from './pages/candidate/CandidateAssessmentCompletePage'
 import CandidateSectionRuntimePage from './pages/candidate/CandidateSectionRuntimePage'
+import AssessmentLandingPage from './pages/candidate/AssessmentLandingPage'
+import McqSectionPage from './pages/candidate/McqSectionPage'
+import AssessmentCompletionPage from './pages/candidate/AssessmentCompletionPage'
 import OnboardingPage from './pages/recruiter/onboarding/OnboardingPage'
 import AssessmentBuilderPage from './pages/recruiter/assessments/new/AssessmentBuilderPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -267,6 +270,9 @@ function App() {
         <Route path="/invite/:token" element={<VerifyCandidateInvite />} />
         <Route path="/candidate/assessment/:instanceId/sections/:sectionId" element={<CandidateSectionRuntimePage />} />
         <Route path="/candidate/assessment/:instanceId/complete" element={<CandidateAssessmentCompletePage />} />
+        <Route path="/assessment/:token" element={<AssessmentLandingPage />} />
+        <Route path="/assessment/:token/mcq/:sectionIndex" element={<McqSectionPage />} />
+        <Route path="/assessment/:token/complete" element={<AssessmentCompletionPage />} />
         <Route path="/recruiter/onboarding" element={<OnboardingPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
