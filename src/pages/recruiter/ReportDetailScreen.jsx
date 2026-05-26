@@ -22,6 +22,13 @@ const SUBSCORE_LABELS = {
   iteration: 'Iteration',
 };
 
+const SECTION_TYPE_LABELS = {
+  technical_task: 'Coding',
+  mcq: 'MCQ',
+  free_text: 'Writing',
+  ranking: 'Ranking',
+};
+
 const REPORT_STATUS_CFG = {
   finalized: { label: 'Finalized', color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC' },
   completed: { label: 'Completed', color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC' },
@@ -32,8 +39,38 @@ const REPORT_STATUS_CFG = {
   failed: { label: 'Failed', color: '#DC2626', bg: '#FEF2F2', border: '#FCA5A5' },
 };
 
+const REVIEW_POLICY_CFG = {
+  clear: { label: 'Clear For Ranking', color: '#166534', bg: '#F0FDF4', border: '#86EFAC', icon: CheckCircle },
+  requires_human_review: { label: 'Requires Human Review', color: '#9A3412', bg: '#FFF7ED', border: '#FDBA74', icon: AlertTriangle },
+  insufficient_evidence: { label: 'Insufficient Evidence', color: '#991B1B', bg: '#FEF2F2', border: '#FCA5A5', icon: XCircle },
+};
+
+const REVIEW_REASON_LABELS = {
+  'verification:no_terminal_runs': 'No terminal or test runs were captured for this session.',
+  'verification:ai_accepts_without_post_accept_runs': 'Multiple AI accepts were recorded without a validating run afterward.',
+  'verification:low_post_ai_accept_run_ratio': 'Post-AI verification activity stayed below the expected review threshold.',
+  'insufficient_evidence:design_quality_not_evaluated': 'Design quality did not have enough evidence to score confidently.',
+  'insufficient_evidence:problem_solving_process_not_evaluated': 'Problem-solving process did not have enough evidence to score confidently.',
+  'insufficient_evidence:ai_collaboration_not_evaluated': 'AI collaboration did not have enough evidence to score confidently.',
+};
+
 function formatSubscoreLabel(key) {
   return SUBSCORE_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatSectionTypeLabel(contentType) {
+  return SECTION_TYPE_LABELS[contentType] || 'Section';
+}
+
+function formatReviewReason(reason) {
+  return REVIEW_REASON_LABELS[reason] || reason.replace(/[:_]/g, ' ');
+}
+
+function formatAuthorshipRatio(ratio) {
+  if (typeof ratio !== 'number') {
+    return null;
+  }
+  return `${Math.round(ratio * 100)}%`;
 }
 
 function DetailStatusBadge({ status }) {
@@ -43,6 +80,20 @@ function DetailStatusBadge({ status }) {
       className="px-3 py-1.5 rounded-xl text-[12px] font-bold border"
       style={{ color: cfg.color, backgroundColor: cfg.bg, borderColor: cfg.border }}
     >
+      {cfg.label}
+    </span>
+  );
+}
+
+function ReviewPolicyBadge({ reviewStatus }) {
+  const cfg = REVIEW_POLICY_CFG[reviewStatus] || REVIEW_POLICY_CFG.insufficient_evidence;
+  const IconComponent = cfg.icon;
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-bold border"
+      style={{ color: cfg.color, backgroundColor: cfg.bg, borderColor: cfg.border }}
+    >
+      <IconComponent className="w-3.5 h-3.5" />
       {cfg.label}
     </span>
   );
@@ -168,24 +219,32 @@ export default function ReportDetailScreen() {
 
   if (!report) return null;
 
-  const dims = report.dimensions || {};
+  const narrativeAssessments = report.ai_narrative_assessments || {};
+  const reviewPolicy = report.review_policy || report.deterministic_facts?.review_policy || null;
+  const authorshipMetrics = report.authorship_metrics || report.deterministic_facts?.authorship_metrics || {};
+  const authorshipRatioNet = authorshipMetrics?.independent_authorship_ratio_net;
+  const dims = narrativeAssessments.dimensions || report.dimensions || {};
   const tc   = dims.task_completion        || {};
   const dq   = dims.design_quality         || {};
   const psp  = dims.problem_solving_process|| {};
   const ai   = dims.ai_collaboration;
-  const bev  = report.behavioral_evidence  || [];
-  const probes = report.interview_probes   || [];
-  const growth = report.growth_edges       || [];
+  const bev  = narrativeAssessments.behavioral_evidence || report.behavioral_evidence || [];
+  const probes = narrativeAssessments.interview_probes || report.interview_probes || [];
+  const growth = narrativeAssessments.growth_edges || report.growth_edges || [];
   const sections = Array.isArray(report.section_results)
     ? [...report.section_results].sort((a, b) => (a.section_order ?? Number.MAX_SAFE_INTEGER) - (b.section_order ?? Number.MAX_SAFE_INTEGER))
     : [];
   const codingAnalytics = report.coding_analytics || {};
+  const codingSection = sections.find((section) => section.content_type === 'technical_task') || null;
   const detailStatus = report.assessment_status || report.status || 'pending';
   const showCodingPending = ['pending', 'processing', 'not_requested'].includes(codingAnalytics.status);
   const hasCodingDetail = !!(tc.signal || dq.signal || psp.signal || ai?.signal);
   const totalScore = report.total_score;
   const maxScore = report.max_score;
   const overallScore = report.overall_score;
+  const reviewReasons = Array.isArray(reviewPolicy?.reasons) ? reviewPolicy.reasons : [];
+  const reviewRequired = Boolean(reviewPolicy?.review_status && reviewPolicy.review_status !== 'clear');
+  const authorshipRatioLabel = formatAuthorshipRatio(authorshipRatioNet);
 
   const overallColor = overallScore >= 75 ? '#16A34A' : overallScore >= 50 ? '#D97706' : overallScore != null ? '#DC2626' : '#64748B';
 
@@ -206,23 +265,61 @@ export default function ReportDetailScreen() {
 
       {/* Hero score card */}
       <div className="rounded-2xl border border-border-default bg-surface p-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-[0.14em] mb-2">Overall Score</p>
-            <div className="flex items-end gap-3">
-              <span className="text-[56px] font-bold leading-none font-display" style={{ color: overallColor }}>
-                {overallScore ?? '—'}
-              </span>
-              <span className="text-[18px] text-text-muted mb-2 font-display">/100</span>
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="flex-1 min-w-[280px] space-y-4">
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-[0.14em]">Review Status</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                {reviewPolicy ? <ReviewPolicyBadge reviewStatus={reviewPolicy.review_status} /> : <span className="text-[12px] text-text-secondary">Review policy unavailable</span>}
+                {report.no_verdict && <span className="text-[11px] text-text-secondary">Evidence-based · No auto-verdict</span>}
+              </div>
             </div>
-            {totalScore !== null && totalScore !== undefined && maxScore !== null && maxScore !== undefined ? (
-              <p className="text-[13px] text-text-secondary mt-1">Points: <span className="text-text-primary font-semibold">{totalScore} / {maxScore}</span></p>
+
+            {reviewRequired ? (
+              <div className="rounded-xl border px-4 py-3 space-y-2" style={{ backgroundColor: '#FFF7ED', borderColor: '#FDBA74' }}>
+                <p className="text-[13px] font-semibold text-text-primary">Human review is required before ranking this result.</p>
+                {reviewReasons.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {reviewReasons.map((reason) => (
+                      <li key={reason} className="text-[12px] text-text-secondary leading-relaxed">
+                        {formatReviewReason(reason)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : reviewPolicy ? (
+              <p className="text-[13px] text-text-secondary">Current deterministic policy keeps this result eligible for ranking.</p>
             ) : null}
-            <p className="text-[13px] text-text-secondary mt-1">Coding Session ID: <span className="text-text-muted font-mono text-[11px]">{sessionId}</span></p>
+
+            {authorshipRatioLabel && (
+              <div className="inline-flex items-center gap-3 rounded-xl border border-border-default bg-page px-4 py-3">
+                <div>
+                  <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.12em]">Independent Authorship</p>
+                  <p className="text-[18px] font-bold text-text-primary font-display mt-1">{authorshipRatioLabel}</p>
+                </div>
+                <p className="text-[12px] text-text-secondary max-w-[240px]">Share of retained authored code attributed to the candidate rather than accepted AI code.</p>
+              </div>
+            )}
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <DetailStatusBadge status={detailStatus} />
-            {report.no_verdict && <span className="text-[11px] text-text-secondary">Evidence-based · No auto-verdict</span>}
+
+          <div className={`rounded-2xl border border-border-default bg-page px-5 py-4 min-w-[220px] ${reviewRequired ? 'opacity-85' : ''}`}>
+            <div className="flex flex-col items-start gap-3">
+              <DetailStatusBadge status={detailStatus} />
+              <div>
+                <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-[0.14em] mb-2">Overall Score</p>
+                <div className="flex items-end gap-3">
+                  <span className={`${reviewRequired ? 'text-[42px]' : 'text-[56px]'} font-bold leading-none font-display`} style={{ color: overallColor }}>
+                    {overallScore ?? '—'}
+                  </span>
+                  <span className="text-[18px] text-text-muted mb-2 font-display">/100</span>
+                </div>
+                {totalScore !== null && totalScore !== undefined && maxScore !== null && maxScore !== undefined ? (
+                  <p className="text-[13px] text-text-secondary mt-1">Points: <span className="text-text-primary font-semibold">{totalScore} / {maxScore}</span></p>
+                ) : null}
+                <p className="text-[13px] text-text-secondary mt-1">Coding Session ID: <span className="text-text-muted font-mono text-[11px]">{sessionId}</span></p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -241,18 +338,43 @@ export default function ReportDetailScreen() {
 
       {sections.length > 0 && (
         <Section title="Assessment Breakdown" icon={Target} color="#0EA5E9" defaultOpen>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {sections.map((section, index) => {
               const sectionScore = section.score ?? 0;
               const sectionMax = section.max_score ?? 0;
               const sectionPercent = sectionMax > 0 ? Math.round((sectionScore / sectionMax) * 100) : null;
+              const isCodingSection = section.content_type === 'technical_task';
               return (
-                <div key={section.section_id || index} className="flex items-center justify-between gap-4 p-3 rounded-xl bg-surface border border-border-default">
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-semibold text-text-primary truncate">{section.section_name || `Section ${index + 1}`}</p>
-                    <p className="text-[11px] text-text-secondary mt-0.5">{sectionScore} / {sectionMax} points{sectionPercent !== null ? ` · ${sectionPercent}%` : ''}</p>
+                <div key={section.section_id || index} className="p-4 rounded-xl bg-surface border border-border-default space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-[13px] font-semibold text-text-primary truncate">{section.section_name || `Section ${index + 1}`}</p>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-[0.08em] border border-border-default text-text-secondary">
+                          {formatSectionTypeLabel(section.content_type)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-text-secondary mt-1">{sectionScore} / {sectionMax} points</p>
+                      {isCodingSection && (
+                        <p className="text-[11px] text-text-secondary mt-1">Detailed coding analytics appear below.</p>
+                      )}
+                    </div>
+                    <SectionStatusBadge status={section.status} />
                   </div>
-                  <SectionStatusBadge status={section.status} />
+                  <div className="flex items-end justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.12em]">Section Score</p>
+                      <div className="flex items-end gap-2 mt-1">
+                        <span className="text-[30px] font-bold leading-none font-display text-text-primary">
+                          {sectionPercent ?? '—'}
+                        </span>
+                        <span className="text-[12px] text-text-muted mb-1 font-display">/100</span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-text-secondary text-right">
+                      {sectionPercent !== null ? `${sectionPercent}% of this section` : 'Awaiting score'}
+                    </p>
+                  </div>
                 </div>
               );
             })}
@@ -260,83 +382,113 @@ export default function ReportDetailScreen() {
         </Section>
       )}
 
-      {/* 4 dimension signals */}
-      {hasCodingDetail && (
-        <div className="grid grid-cols-2 gap-3">
-          <SignalCard label="Task Completion"         signal={tc.signal}   score={tc.score}   summary={tc.summary}   icon={Code} />
-          <SignalCard label="Design Quality"          signal={dq.signal}   score={dq.score}   summary={dq.summary}   icon={Target} />
-          <SignalCard label="Problem-Solving Process" signal={psp.signal}  score={psp.score}  summary={psp.summary}  subscores={psp.subscores} icon={Brain} />
-          {ai ? (
-            <SignalCard label="AI Collaboration" signal={ai.signal} score={ai.score} summary={ai.summary} subscores={ai.subscores} icon={MessageSquare} />
-          ) : (
-            <div className="rounded-xl border border-border-default p-4 bg-surface flex items-center gap-3">
-              <MessageSquare className="w-4 h-4 text-text-muted" />
-              <span className="text-[12px] text-text-muted">AI was disabled for this session</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Behavioral evidence */}
-      {bev.length > 0 && (
-        <Section title="Behavioral Evidence" icon={TrendingUp} color="#10B981" defaultOpen>
-          <div className="space-y-3">
-            {bev.map((ev, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-surface border border-border-default">
-                <div className="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0 mt-2" />
-                <div className="min-w-0">
-                  {ev.dimension && (
-                    <span className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider block mb-0.5">{ev.dimension.replace(/_/g, ' ')}</span>
-                  )}
-                  <p className="text-[13px] text-text-primary leading-relaxed">{ev.observation}</p>
+      {(hasCodingDetail || showCodingPending || bev.length > 0 || growth.length > 0 || probes.length > 0) && (
+        <Section title={codingSection ? `${codingSection.section_name || 'Coding'} Analysis` : 'Coding Analysis'} icon={Code} color="#14B8A6" defaultOpen>
+          <div className="space-y-6">
+            {codingSection && (
+              <div className="rounded-xl border border-border-default bg-surface p-4 flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-[0.12em]">Coding Section Score</p>
+                  <p className="text-[14px] text-text-primary font-semibold mt-1">{codingSection.score ?? 0} / {codingSection.max_score ?? 0} points</p>
                 </div>
+                <SectionStatusBadge status={codingSection.status} />
               </div>
-            ))}
-          </div>
-        </Section>
-      )}
+            )}
 
-      {/* Growth edges */}
-      {growth.length > 0 && (
-        <Section title="Growth Edges" icon={Award} color="#F59E0B">
-          <div className="space-y-2">
-            {growth.map((g, i) => {
-              const isObj = g && typeof g === 'object';
-              return (
-                <div key={i} className="p-3 rounded-xl bg-warning-bg border border-warning-border/40 space-y-2">
-                  <div className="flex items-start gap-3">
-                    <span className="w-5 h-5 rounded-full bg-[#78350F]/40 text-warning text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                    <p className="text-[13px] text-text-primary leading-relaxed">{isObj ? g.moment : g}</p>
-                  </div>
-                  {isObj && g.alternative && (
-                    <div className="ml-8 space-y-1">
-                      <p className="text-[10px] font-semibold text-[#78350F] uppercase tracking-wider">Better approach</p>
-                      <p className="text-[12px] text-text-secondary leading-relaxed">{g.alternative}</p>
-                    </div>
-                  )}
-                  {isObj && g.why && (
-                    <div className="ml-8 space-y-1">
-                      <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider">Why it matters</p>
-                      <p className="text-[12px] text-text-secondary leading-relaxed">{g.why}</p>
+            {hasCodingDetail && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Brain className="w-4 h-4 text-[#0EA5E9]" />
+                  <h3 className="text-[12px] font-bold text-text-primary uppercase tracking-[0.12em]">AI And Narrative Assessments</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <SignalCard label="Task Completion" signal={tc.signal} score={tc.score} summary={tc.summary} icon={Code} />
+                  <SignalCard label="Design Quality" signal={dq.signal} score={dq.score} summary={dq.summary} icon={Target} />
+                  <SignalCard label="Problem-Solving Process" signal={psp.signal} score={psp.score} summary={psp.summary} subscores={psp.subscores} icon={Brain} />
+                  {ai ? (
+                    <SignalCard label="AI Collaboration" signal={ai.signal} score={ai.score} summary={ai.summary} subscores={ai.subscores} icon={MessageSquare} />
+                  ) : (
+                    <div className="rounded-xl border border-border-default p-4 bg-surface flex items-center gap-3">
+                      <MessageSquare className="w-4 h-4 text-text-muted" />
+                      <span className="text-[12px] text-text-muted">AI was disabled for this session</span>
                     </div>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        </Section>
-      )}
-
-      {/* Interview probes */}
-      {probes.length > 0 && (
-        <Section title="Interview Probes" icon={MessageSquare} color="#A78BFA">
-          <div className="space-y-2">
-            {probes.map((p, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-surface border border-border-default">
-                <span className="text-[11px] font-bold text-[#A78BFA] flex-shrink-0 mt-0.5">Q{i + 1}</span>
-                <p className="text-[13px] text-text-primary leading-relaxed">{p}</p>
               </div>
-            ))}
+            )}
+
+            {bev.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-[#10B981]" />
+                  <h3 className="text-[12px] font-bold text-text-primary uppercase tracking-[0.12em]">Behavioral Evidence</h3>
+                </div>
+                <div className="space-y-3">
+                  {bev.map((ev, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-surface border border-border-default">
+                      <div className="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0 mt-2" />
+                      <div className="min-w-0">
+                        {ev.dimension && (
+                          <span className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider block mb-0.5">{ev.dimension.replace(/_/g, ' ')}</span>
+                        )}
+                        <p className="text-[13px] text-text-primary leading-relaxed">{ev.observation}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {growth.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Award className="w-4 h-4 text-[#F59E0B]" />
+                  <h3 className="text-[12px] font-bold text-text-primary uppercase tracking-[0.12em]">Growth Edges</h3>
+                </div>
+                <div className="space-y-2">
+                  {growth.map((g, i) => {
+                    const isObj = g && typeof g === 'object';
+                    return (
+                      <div key={i} className="p-3 rounded-xl bg-warning-bg border border-warning-border/40 space-y-2">
+                        <div className="flex items-start gap-3">
+                          <span className="w-5 h-5 rounded-full bg-[#78350F]/40 text-warning text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                          <p className="text-[13px] text-text-primary leading-relaxed">{isObj ? g.moment : g}</p>
+                        </div>
+                        {isObj && g.alternative && (
+                          <div className="ml-8 space-y-1">
+                            <p className="text-[10px] font-semibold text-[#78350F] uppercase tracking-wider">Better approach</p>
+                            <p className="text-[12px] text-text-secondary leading-relaxed">{g.alternative}</p>
+                          </div>
+                        )}
+                        {isObj && g.why && (
+                          <div className="ml-8 space-y-1">
+                            <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider">Why it matters</p>
+                            <p className="text-[12px] text-text-secondary leading-relaxed">{g.why}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {probes.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-[#A78BFA]" />
+                  <h3 className="text-[12px] font-bold text-text-primary uppercase tracking-[0.12em]">Interview Probes</h3>
+                </div>
+                <div className="space-y-2">
+                  {probes.map((p, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-surface border border-border-default">
+                      <span className="text-[11px] font-bold text-[#A78BFA] flex-shrink-0 mt-0.5">Q{i + 1}</span>
+                      <p className="text-[13px] text-text-primary leading-relaxed">{p}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </Section>
       )}
