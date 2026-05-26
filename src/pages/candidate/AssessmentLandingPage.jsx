@@ -13,6 +13,12 @@ import {
   saveMcqSession,
   startMcqAssessment,
 } from '../../api/candidate/assessmentSession'
+import {
+  buildCandidateCompletionRoute,
+  buildCandidateSectionRoute,
+  clearCandidateRuntimeState,
+  saveCandidateRuntimeState,
+} from '../../api/candidate/runtime'
 
 const AI_LEVEL_LABELS = {
   full: 'Full AI access',
@@ -62,6 +68,25 @@ export default function AssessmentLandingPage() {
         candidateName: overview?.candidate_name,
         assessmentName: overview?.assessment_name,
       })
+
+      if (data.next_action === 'assessment_complete') {
+        clearCandidateRuntimeState()
+        navigate(
+          data.frontend_route || data.completion_route || buildCandidateCompletionRoute(data.assessment_instance_id || data.instance_id),
+          { replace: true },
+        )
+        return
+      }
+
+      if (data.next_action === 'open_section' || data.next_action === 'launch_coding') {
+        const runtime = saveCandidateRuntimeState(data)
+        navigate(
+          data.frontend_route || buildCandidateSectionRoute(data.assessment_instance_id || data.instance_id, data.section_id),
+          { replace: true, state: { runtime } },
+        )
+        return
+      }
+
       navigate(`/assessment/${token}/mcq/0`, { replace: true })
     } catch (e) {
       setError(e.message || 'Failed to start assessment')

@@ -37,7 +37,10 @@ export const buildCandidateCompletionRoute = (assessmentInstanceId) => (
 
 export const normalizeCandidateRuntimeState = (payload = {}) => ({
   assessmentInstanceId: payload.assessment_instance_id || payload.assessmentInstanceId || null,
+  assessmentName: payload.assessment_name || payload.assessmentName || null,
   sectionId: payload.section_id || payload.sectionId || null,
+  sectionName: payload.section_name || payload.sectionName || null,
+  sectionTimerMinutes: payload.section_timer_minutes || payload.sectionTimerMinutes || null,
   currentItemAttemptId: payload.current_item_attempt_id || payload.currentItemAttemptId || null,
   contentType: payload.content_type || payload.contentType || null,
   sectionToken: payload.section_token || payload.sectionToken || null,

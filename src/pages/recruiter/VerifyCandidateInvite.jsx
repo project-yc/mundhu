@@ -228,6 +228,14 @@ export default function VerifyCandidateInvite() {
       const nextAction = result?.next_action || (result?.workspace_url ? 'launch_coding' : null)
 
       if (nextAction === 'launch_coding') {
+        if (result.frontend_route || result.section_id) {
+          const runtime = saveCandidateRuntimeState(result)
+          navigate(
+            result.frontend_route || buildCandidateSectionRoute(result.assessment_instance_id, result.section_id),
+            { replace: true, state: { runtime } },
+          )
+          return
+        }
         setIsBooting(true)
         await new Promise(resolve => setTimeout(resolve, TOTAL_BOOT_MS + 500))
         window.location.href = result.workspace_url
