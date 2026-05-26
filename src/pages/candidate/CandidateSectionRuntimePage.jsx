@@ -103,21 +103,15 @@ export default function CandidateSectionRuntimePage() {
       }
 
       if (actionPayload.next_action === 'launch_coding') {
+        if (!actionPayload.section_id || !actionPayload.assessment_instance_id) {
+          throw new Error('Coding section response is missing section route metadata')
+        }
         const nextRuntime = saveCandidateRuntimeState(actionPayload)
-        if (actionPayload.frontend_route || actionPayload.section_id) {
-          setRuntimeState(nextRuntime)
-          navigate(
-            actionPayload.frontend_route || buildCandidateSectionRoute(actionPayload.assessment_instance_id, actionPayload.section_id),
-            { replace: true, state: { runtime: nextRuntime } },
-          )
-          return
-        }
-
-        if (!actionPayload.workspace_url) {
-          throw new Error('launch_coding did not include workspace_url')
-        }
-
-        window.location.href = actionPayload.workspace_url
+        setRuntimeState(nextRuntime)
+        navigate(
+          actionPayload.frontend_route || buildCandidateSectionRoute(actionPayload.assessment_instance_id, actionPayload.section_id),
+          { replace: true, state: { runtime: nextRuntime } },
+        )
         return
       }
 

@@ -8,8 +8,7 @@ import {
   clearCandidateRuntimeState,
   saveCandidateRuntimeState,
 } from '../../api/candidate/runtime'
-import { CandidateBootScreen, TOTAL_BOOT_MS } from '../../components/candidate/CandidateBootScreen'
-import { Check, X, Loader, Clock, Copy, CheckCheck, Zap, ArrowRight, Terminal } from 'lucide-react'
+import { Check, X, Loader, Clock, Copy, CheckCheck, Zap, ArrowRight } from 'lucide-react'
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function VerifyCandidateInvite() {
@@ -19,7 +18,6 @@ export default function VerifyCandidateInvite() {
   const [candidateData, setCandidateData] = useState(null)
   const [error, setError] = useState('')
   const [isStarting, setIsStarting] = useState(false)
-  const [isBooting, setIsBooting] = useState(false)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -52,17 +50,14 @@ export default function VerifyCandidateInvite() {
       const nextAction = result?.next_action || (result?.workspace_url ? 'launch_coding' : null)
 
       if (nextAction === 'launch_coding') {
-        if (result.frontend_route || result.section_id) {
-          const runtime = saveCandidateRuntimeState(result)
-          navigate(
-            result.frontend_route || buildCandidateSectionRoute(result.assessment_instance_id, result.section_id),
-            { replace: true, state: { runtime } },
-          )
-          return
+        if (!result.section_id || !result.assessment_instance_id) {
+          throw new Error('Coding section start response is missing section route metadata')
         }
-        setIsBooting(true)
-        await new Promise(resolve => setTimeout(resolve, TOTAL_BOOT_MS + 500))
-        window.location.href = result.workspace_url
+        const runtime = saveCandidateRuntimeState(result)
+        navigate(
+          result.frontend_route || buildCandidateSectionRoute(result.assessment_instance_id, result.section_id),
+          { replace: true, state: { runtime } },
+        )
         return
       }
 
@@ -112,20 +107,6 @@ export default function VerifyCandidateInvite() {
     if (!id) return 'N/A'
     if (id.length <= 16) return id
     return `${id.slice(0, 8)}...${id.slice(-8)}`
-  }
-
-  // ── Full-screen boot takeover ────────────────────────────────────────────────
-  if (isBooting) {
-    return (
-      <div className="min-h-screen bg-[#040914] flex flex-col items-center justify-center p-4">
-        <div className="flex items-center gap-2 mb-10">
-          <Zap className="w-4 h-4 text-[#18d3ff]" strokeWidth={2.5} />
-          <span className="text-sm font-bold tracking-[0.08em] text-[#edf4ff]">Trudev</span>
-        </div>
-        <CandidateBootScreen />
-        <p className="text-center text-[11px] text-[#354e68] mt-6">Powered by Trudev Assessment Platform</p>
-      </div>
-    )
   }
 
   return (
