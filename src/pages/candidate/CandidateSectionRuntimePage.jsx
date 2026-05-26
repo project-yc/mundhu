@@ -24,10 +24,12 @@ import {
   CandidateCenteredErrorState,
   CandidateCenteredLoadingState,
   CandidateErrorBanner,
+  CandidateFooter,
   CandidatePrimaryButton,
   CandidateSecondaryButton,
   CandidateSectionIntroScreen,
 } from '../../components/candidate/CandidateSectionScaffold'
+import CandidateMcqSectionExperience from '../../components/candidate/CandidateMcqSectionExperience'
 
 const MAX_BOOT_WAIT_MS = 45000
 const BOOT_POLL_INTERVAL_MS = 1500
@@ -160,6 +162,7 @@ export default function CandidateSectionRuntimePage() {
             || !nextRuntime.contentType
             || !nextRuntime.sectionName
             || !nextRuntime.assessmentName
+            || (nextRuntime.contentType === 'mcq' && (!Array.isArray(nextRuntime.sectionItems) || nextRuntime.sectionItems.length === 0))
             || (nextRuntime.contentType === 'technical_task' && !nextRuntime.workspaceUrl)
           )
 
@@ -357,6 +360,22 @@ export default function CandidateSectionRuntimePage() {
   const sectionLabel = SECTION_LABELS[runtimeState?.contentType] || 'Section'
 
   if (screen === 'overview') {
+    if (runtimeState?.contentType === 'mcq') {
+      return (
+        <CandidateMcqSectionExperience
+          assessmentInstanceId={runtimeState.assessmentInstanceId}
+          sectionToken={runtimeState.sectionToken}
+          sectionId={runtimeState.sectionId}
+          sectionName={runtimeState.sectionName || 'MCQ Section'}
+          sectionItems={runtimeState.sectionItems || []}
+          sectionTimerMinutes={runtimeState.sectionTimerMinutes}
+          sectionOrder={runtimeState.sectionOrder}
+          sectionCount={runtimeState.sectionCount}
+          onSubmitResult={async (result) => handleNextAction(result)}
+        />
+      )
+    }
+
     return (
       <CandidateSectionIntroScreen
         eyebrow={`${sectionLabel} Section`}
@@ -390,7 +409,9 @@ export default function CandidateSectionRuntimePage() {
             <span className="text-sm font-bold tracking-[0.08em] text-[#edf4ff]">TruDev</span>
           </div>
           <CandidateBootScreen />
-          <p className="text-center text-[11px] text-[#354e68] mt-6">Powered by TruDev Assessment Platform</p>
+          <div className="mt-6">
+            <CandidateFooter brand="TruDev Assessment Platform" />
+          </div>
         </div>
       )
     }
