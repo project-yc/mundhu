@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Check, Terminal, Zap } from 'lucide-react'
+import { Zap } from 'lucide-react'
 import {
   autosaveFreeTextRuntime,
   autosaveMcqRuntime,
@@ -19,207 +19,70 @@ import {
   submitMcqRuntime,
   submitRankingRuntime,
 } from '../../api/candidate/runtime'
+import { CandidateBootScreen, TOTAL_BOOT_MS } from '../../components/candidate/CandidateBootScreen'
+import {
+  CandidateCenteredErrorState,
+  CandidateCenteredLoadingState,
+  CandidateErrorBanner,
+  CandidatePrimaryButton,
+  CandidateSecondaryButton,
+  CandidateSectionIntroScreen,
+} from '../../components/candidate/CandidateSectionScaffold'
 
-  const BOOT_STAGES = [
-    { id: 0, label: 'Authenticating session', detail: 'Validating token & permissions', startAt: 0, endAt: 1500 },
-    { id: 1, label: 'Fetching task bundle', detail: 'Retrieving assessment artifacts from S3', startAt: 1500, endAt: 4500 },
-    { id: 2, label: 'Unpacking resources', detail: 'Decompressing task files & fixtures', startAt: 4500, endAt: 8000 },
-    { id: 3, label: 'Initializing container', detail: 'Spinning up isolated runtime environment', startAt: 8000, endAt: 12000 },
-    { id: 4, label: 'Configuring environment', detail: 'Installing deps & applying settings', startAt: 12000, endAt: 16000 },
-    { id: 5, label: 'Launching workspace', detail: 'Connecting IDE & finalizing setup', startAt: 16000, endAt: 19500 },
-  ]
+const MAX_BOOT_WAIT_MS = 45000
+const BOOT_POLL_INTERVAL_MS = 1500
 
-  const TOTAL_BOOT_MS = 19500
-  const MAX_BOOT_WAIT_MS = 45000
-  const BOOT_POLL_INTERVAL_MS = 1500
+const SECTION_LABELS = {
+  mcq: 'MCQ',
+  free_text: 'Free Text',
+  ranking: 'Ranking',
+  technical_task: 'Coding',
+}
 
-  const SECTION_LABELS = {
-    mcq: 'MCQ',
-    free_text: 'Free Text',
-    ranking: 'Ranking',
-    technical_task: 'Coding',
-  }
+const delay = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms))
 
-  const delay = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms))
-
-  const getBootstrapRuntime = (locationState, searchParams, params) => {
-    const stateRuntime = locationState?.runtime ? normalizeCandidateRuntimeState(locationState.runtime) : null
-    const queryRuntime = searchParams.get('section_token')
-      ? normalizeCandidateRuntimeState({
-          assessment_instance_id: params.instanceId,
-          section_id: params.sectionId,
-          current_item_attempt_id: searchParams.get('current_item_attempt_id'),
-          content_type: searchParams.get('content_type'),
-          section_token: searchParams.get('section_token'),
-        })
-      : null
-    const storedRuntime = loadCandidateRuntimeState()
-
-    return stateRuntime || queryRuntime || storedRuntime
-  }
-
-  const reorderRankingOptions = (options, rankedOptionIds) => {
-    if (!Array.isArray(options) || !Array.isArray(rankedOptionIds) || rankedOptionIds.length === 0) {
-      return options || []
-    }
-
-    const byId = new Map(options.map((option) => [String(option.id), option]))
-    const ranked = rankedOptionIds.map((id) => byId.get(String(id))).filter(Boolean)
-    const remaining = options.filter((option) => !rankedOptionIds.includes(String(option.id)))
-    return [...ranked, ...remaining]
-  }
-
-  async function probeWorkspaceReady(workspaceUrl) {
-    const normalizedUrl = workspaceUrl?.endsWith('/') ? workspaceUrl : `${workspaceUrl}/`
-    try {
-      await fetch(`${normalizedUrl}?boot_probe=${Date.now()}`, {
-        method: 'GET',
-        mode: 'no-cors',
-        cache: 'no-store',
+const getBootstrapRuntime = (locationState, searchParams, params) => {
+  const stateRuntime = locationState?.runtime ? normalizeCandidateRuntimeState(locationState.runtime) : null
+  const queryRuntime = searchParams.get('section_token')
+    ? normalizeCandidateRuntimeState({
+        assessment_instance_id: params.instanceId,
+        section_id: params.sectionId,
+        current_item_attempt_id: searchParams.get('current_item_attempt_id'),
+        content_type: searchParams.get('content_type'),
+        section_token: searchParams.get('section_token'),
       })
-      return true
-    } catch {
-      return false
-    }
+    : null
+  const storedRuntime = loadCandidateRuntimeState()
+
+  return stateRuntime || queryRuntime || storedRuntime
+}
+
+const reorderRankingOptions = (options, rankedOptionIds) => {
+  if (!Array.isArray(options) || !Array.isArray(rankedOptionIds) || rankedOptionIds.length === 0) {
+    return options || []
   }
 
-  function BootScreen() {
-    const [elapsed, setElapsed] = useState(0)
-    const [logLines, setLogLines] = useState([])
-    const logRef = useRef(null)
-    const startTime = useRef(0)
+  const byId = new Map(options.map((option) => [String(option.id), option]))
+  const ranked = rankedOptionIds.map((id) => byId.get(String(id))).filter(Boolean)
+  const remaining = options.filter((option) => !rankedOptionIds.includes(String(option.id)))
+  return [...ranked, ...remaining]
+}
 
-    useEffect(() => {
-      startTime.current = Date.now()
-      const intervalId = window.setInterval(() => {
-        const nextElapsed = Date.now() - startTime.current
-        setElapsed(Math.min(nextElapsed, TOTAL_BOOT_MS))
-      }, 80)
-      return () => window.clearInterval(intervalId)
-    }, [])
-
-    useEffect(() => {
-      const lines = [
-        '[boot]   Validating JWT signature... ok',
-        '[auth]   Session granted for candidate',
-        '[s3]     HEAD bundle.zip → 200',
-        '[zip]    Extracting project files...',
-        '[docker] Spinning up runtime container',
-        '[env]    Applying workspace config',
-        '[theia]  Starting IDE services',
-        '[theia]  Waiting for workspace readiness',
-      ]
-
-      const timers = lines.map((line, index) => window.setTimeout(() => {
-        setLogLines((current) => [...current, line])
-      }, 600 + index * 1050))
-
-      return () => timers.forEach((timerId) => window.clearTimeout(timerId))
-    }, [])
-
-    useEffect(() => {
-      if (logRef.current) {
-        logRef.current.scrollTop = logRef.current.scrollHeight
-      }
-    }, [logLines])
-
-    const progress = Math.min((elapsed / TOTAL_BOOT_MS) * 100, 100)
-    const currentStageIndex = BOOT_STAGES.findLastIndex((stage) => elapsed >= stage.startAt)
-    const activeStage = BOOT_STAGES[currentStageIndex] ?? BOOT_STAGES[0]
-
-    return (
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0a1628] border border-[#0e2a4a] mb-4">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#18d3ff] animate-pulse" />
-            <span className="text-[10px] font-bold tracking-[0.2em] text-[#18d3ff] uppercase">Initializing Environment</span>
-          </div>
-          <h1 className="text-xl font-bold text-[#edf4ff] tracking-tight mb-1">Preparing your workspace</h1>
-          <p className="text-sm text-[#4a5f7a]">This takes about 15 seconds. Hang tight.</p>
-        </div>
-
-        <div className="rounded-2xl border border-[#0e1f38] bg-[#070f20] overflow-hidden shadow-2xl">
-          <div className="h-0.5 bg-[#0a1628]">
-            <div
-              className="h-full bg-gradient-to-r from-[#18d3ff] to-[#4ade80] transition-all duration-100 ease-linear"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-
-          <div className="p-6 space-y-3">
-            {BOOT_STAGES.map((stage) => {
-              const isDone = elapsed > stage.endAt
-              const isActive = elapsed >= stage.startAt && elapsed <= stage.endAt
-              const isPending = elapsed < stage.startAt
-
-              return (
-                <div
-                  key={stage.id}
-                  className={`flex items-center gap-3.5 transition-all duration-300 ${isPending ? 'opacity-25' : 'opacity-100'}`}
-                >
-                  <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
-                    {isDone ? (
-                      <div className="w-5 h-5 rounded-full bg-[#041a10] border border-[#1a4a28] flex items-center justify-center">
-                        <Check className="w-3 h-3 text-[#4ade80]" strokeWidth={3} />
-                      </div>
-                    ) : isActive ? (
-                      <div className="w-5 h-5 rounded-full border-2 border-[#18d3ff] border-t-transparent animate-spin" />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full border border-[#1a2f4a]" />
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-[13px] font-semibold leading-tight transition-colors duration-200 ${
-                      isDone ? 'text-[#4ade80]' : isActive ? 'text-[#edf4ff]' : 'text-[#2a3f5a]'
-                    }`}>
-                      {stage.label}
-                    </p>
-                    {isActive && (
-                      <p className="text-[11px] text-[#4a6a8a] mt-0.5 animate-fadeIn">{stage.detail}</p>
-                    )}
-                  </div>
-
-                  {isDone ? <span className="text-[10px] text-[#1a4a28] font-mono flex-shrink-0">done</span> : null}
-                </div>
-              )
-            })}
-          </div>
-
-          <div className="border-t border-[#0a1628] bg-[#040914]">
-            <div className="flex items-center gap-2 px-4 py-2 border-b border-[#0a1628]">
-              <Terminal className="w-3 h-3 text-[#2a4a6a]" />
-              <span className="text-[10px] font-mono text-[#2a4a6a] tracking-wider">system log</span>
-              <div className="ml-auto flex gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#1a2f3a]" />
-                <span className="w-2 h-2 rounded-full bg-[#1a2f3a]" />
-                <span className="w-2 h-2 rounded-full bg-[#1a3a2a]" />
-              </div>
-            </div>
-            <div
-              ref={logRef}
-              className="h-28 overflow-y-auto px-4 py-3 space-y-0.5"
-              style={{ scrollbarWidth: 'none' }}
-            >
-              {logLines.map((line, index) => (
-                <p key={index} className="text-[11px] font-mono text-[#2a6a5a] leading-relaxed animate-fadeIn">
-                  {line}
-                </p>
-              ))}
-              {logLines.length > 0 ? <span className="inline-block w-1.5 h-3.5 bg-[#18d3ff] opacity-70 animate-pulse align-text-bottom" /> : null}
-            </div>
-          </div>
-
-          <div className="px-6 py-4 border-t border-[#0a1628] flex items-center justify-between">
-            <span className="text-[11px] text-[#2a4a6a]">{activeStage.label}…</span>
-            <span className="text-[11px] font-mono text-[#18d3ff]">{Math.round(progress)}%</span>
-          </div>
-        </div>
-      </div>
-    )
+async function probeWorkspaceReady(workspaceUrl) {
+  const normalizedUrl = workspaceUrl?.endsWith('/') ? workspaceUrl : `${workspaceUrl}/`
+  try {
+    await fetch(`${normalizedUrl}?boot_probe=${Date.now()}`, {
+      method: 'GET',
+      mode: 'no-cors',
+      cache: 'no-store',
+    })
+    return true
+  } catch {
+    return false
   }
+}
 
-  export default function CandidateSectionRuntimePage() {
+export default function CandidateSectionRuntimePage() {
     const { instanceId, sectionId } = useParams()
     const location = useLocation()
     const navigate = useNavigate()
@@ -487,80 +350,43 @@ import {
       }
     }
 
-    if (screen === 'preparing') {
-      return (
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center gap-3 text-zinc-400 text-sm">
-          <div className="w-4 h-4 border-2 border-zinc-700 border-t-cyan rounded-full animate-spin" />
-          Loading section runtime...
-        </div>
-      )
-    }
+  if (screen === 'preparing') {
+    return <CandidateCenteredLoadingState label="Loading section runtime..." />
+  }
 
-    if (screen === 'error') {
-      return (
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-          <div className="w-full max-w-md space-y-6 animate-slideInUp text-center">
-            <div className="w-14 h-14 rounded-full bg-rose/10 border border-rose/20 flex items-center justify-center mx-auto">
-              <span className="text-rose text-2xl">!</span>
-            </div>
-            <div className="space-y-2">
-              <h1 className="text-zinc-50 text-xl font-bold">Section unavailable</h1>
-              <p className="text-zinc-400 text-sm">{error}</p>
-            </div>
-          </div>
-        </div>
-      )
-    }
+  if (screen === 'error') {
+    return <CandidateCenteredErrorState title="Section unavailable" message={error} />
+  }
 
-    const question = content?.question || {}
-    const selectionMode = question.selection_mode || 'single'
-    const sectionLabel = SECTION_LABELS[runtimeState?.contentType] || 'Section'
+  const question = content?.question || {}
+  const selectionMode = question.selection_mode || 'single'
+  const sectionLabel = SECTION_LABELS[runtimeState?.contentType] || 'Section'
 
-    if (screen === 'overview') {
-      return (
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-          <div className="w-full max-w-lg space-y-7 animate-slideInUp">
-            <div className="text-center space-y-2">
-              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">{sectionLabel} Section</p>
-              <h1 className="text-zinc-50 text-2xl font-bold tracking-tight">{runtimeState?.sectionName || 'Next Section'}</h1>
-              <p className="text-zinc-400 text-sm">{runtimeState?.assessmentName || 'Assessment progression'}</p>
-            </div>
-
-            <div className="flex items-center justify-center gap-3 text-sm text-zinc-400">
-              <span className="px-3 py-1 rounded-full border border-zinc-800 bg-zinc-900/70">{sectionLabel}</span>
-              {runtimeState?.sectionTimerMinutes ? (
-                <span className="px-3 py-1 rounded-full border border-zinc-800 bg-zinc-900/70">{runtimeState.sectionTimerMinutes} min</span>
-              ) : null}
-            </div>
-
-            <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-xl px-4 py-4 space-y-2.5">
-              <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wide">Before you begin</p>
-              {runtimeState?.contentType === 'technical_task' ? (
-                <>
-                  <p className="flex items-start gap-2.5 text-zinc-500 text-sm"><span className="w-1 h-1 rounded-full bg-zinc-600 shrink-0 mt-2" />Click Start Section to begin the workspace boot sequence.</p>
-                  <p className="flex items-start gap-2.5 text-zinc-500 text-sm"><span className="w-1 h-1 rounded-full bg-zinc-600 shrink-0 mt-2" />You will only be redirected once the workspace is reachable.</p>
-                </>
-              ) : (
-                <>
-                  <p className="flex items-start gap-2.5 text-zinc-500 text-sm"><span className="w-1 h-1 rounded-full bg-zinc-600 shrink-0 mt-2" />Click Start Section when you are ready to begin.</p>
-                  <p className="flex items-start gap-2.5 text-zinc-500 text-sm"><span className="w-1 h-1 rounded-full bg-zinc-600 shrink-0 mt-2" />The next section becomes available immediately after submission while grading continues in the background.</p>
-                </>
-              )}
-            </div>
-
-            {error ? <div className="rounded-xl border border-rose/20 bg-rose/10 px-4 py-3 text-sm text-rose">{error}</div> : null}
-
-            <button
-              type="button"
-              onClick={beginSection}
-              className="w-full flex items-center justify-center gap-2 py-3.5 bg-cyan hover:bg-cyan-hover text-zinc-950 font-semibold rounded-xl text-sm transition-colors"
-            >
-              Start Section
-            </button>
-          </div>
-        </div>
-      )
-    }
+  if (screen === 'overview') {
+    return (
+      <CandidateSectionIntroScreen
+        eyebrow={`${sectionLabel} Section`}
+        title={runtimeState?.sectionName || 'Next Section'}
+        subtitle={runtimeState?.assessmentName || 'Assessment progression'}
+        metaItems={[
+          sectionLabel,
+          ...(runtimeState?.sectionTimerMinutes ? [`${runtimeState.sectionTimerMinutes} min`] : []),
+        ]}
+        tips={runtimeState?.contentType === 'technical_task'
+          ? [
+              'Click Start Section to begin the workspace boot sequence.',
+              'You will only be redirected once the workspace is reachable.',
+            ]
+          : [
+              'Click Start Section when you are ready to begin.',
+              'The next section becomes available immediately after submission while grading continues in the background.',
+            ]}
+        error={error}
+        actionContent="Start Section"
+        onAction={beginSection}
+      />
+    )
+  }
 
     if (screen === 'booting') {
       return (
@@ -569,34 +395,29 @@ import {
             <Zap className="w-4 h-4 text-[#18d3ff]" strokeWidth={2.5} />
             <span className="text-sm font-bold tracking-[0.08em] text-[#edf4ff]">TruDev</span>
           </div>
-          <BootScreen />
+          <CandidateBootScreen />
           <p className="text-center text-[11px] text-[#354e68] mt-6">Powered by TruDev Assessment Platform</p>
         </div>
       )
     }
 
-    if (screen === 'loading') {
-      return (
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center gap-3 text-zinc-400 text-sm">
-          <div className="w-4 h-4 border-2 border-zinc-700 border-t-cyan rounded-full animate-spin" />
-          Loading section content...
+  if (screen === 'loading') {
+    return <CandidateCenteredLoadingState label="Loading section content..." />
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6">
+      <div className="max-w-3xl mx-auto space-y-6 animate-slideInUp">
+        <div className="text-center space-y-2">
+          <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">{sectionLabel} Section</p>
+          <h1 className="text-zinc-50 text-2xl font-bold tracking-tight">{runtimeState?.sectionName || 'Section'}</h1>
+          <p className="text-zinc-400 text-sm">{runtimeState?.assessmentName || 'Assessment progression'}</p>
         </div>
-      )
-    }
 
-    return (
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6">
-        <div className="max-w-3xl mx-auto space-y-6 animate-slideInUp">
-          <div className="text-center space-y-2">
-            <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">{sectionLabel} Section</p>
-            <h1 className="text-zinc-50 text-2xl font-bold tracking-tight">{runtimeState?.sectionName || 'Section'}</h1>
-            <p className="text-zinc-400 text-sm">{runtimeState?.assessmentName || 'Assessment progression'}</p>
-          </div>
+        {error ? <CandidateErrorBanner>{error}</CandidateErrorBanner> : null}
 
-          {error ? <div className="rounded-xl border border-rose/20 bg-rose/10 px-4 py-3 text-sm text-rose">{error}</div> : null}
-
-          <div className="border border-zinc-800 bg-zinc-900 rounded-xl p-6 space-y-4">
-            <p className="text-sm text-zinc-300 whitespace-pre-wrap">{question.prompt || 'No prompt returned by backend.'}</p>
+        <div className="border border-zinc-800 bg-zinc-900 rounded-xl p-6 space-y-4">
+          <p className="text-sm text-zinc-300 whitespace-pre-wrap">{question.prompt || 'No prompt returned by backend.'}</p>
 
             {runtimeState?.contentType === 'mcq' ? (
               <div className="space-y-3">
@@ -656,26 +477,16 @@ import {
               </div>
             ) : null}
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                className="px-4 py-2 border border-zinc-700 rounded-xl text-sm text-zinc-300"
-                onClick={saveDraft}
-                disabled={saving || submitting}
-              >
-                {saving ? 'Saving…' : 'Save Draft'}
-              </button>
-              <button
-                type="button"
-                className="px-4 py-2 bg-cyan hover:bg-cyan-hover text-zinc-950 rounded-xl text-sm font-semibold transition-colors"
-                onClick={submitSection}
-                disabled={submitting}
-              >
-                {submitting ? 'Submitting…' : 'Submit Section'}
-              </button>
-            </div>
+          <div className="flex gap-3">
+            <CandidateSecondaryButton onClick={saveDraft} disabled={saving || submitting}>
+              {saving ? 'Saving…' : 'Save Draft'}
+            </CandidateSecondaryButton>
+            <CandidatePrimaryButton className="w-auto px-4 py-2" onClick={submitSection} disabled={submitting}>
+              {submitting ? 'Submitting…' : 'Submit Section'}
+            </CandidatePrimaryButton>
           </div>
         </div>
       </div>
-    )
-  }
+    </div>
+  )
+}

@@ -19,6 +19,11 @@ import {
   submitSectionAll,
   syncTimer,
 } from '../../api/candidate/assessmentSession'
+import {
+  CandidateCenteredLoadingState,
+  CandidateErrorBanner,
+  CandidateSectionIntroScreen,
+} from '../../components/candidate/CandidateSectionScaffold'
 
 // ─── Timer helpers ────────────────────────────────────────────────
 
@@ -497,71 +502,45 @@ export default function McqSectionPage() {
   if (screen === 'transition') {
     const sectionCount = session.sections?.length ?? 1
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-        <div className="w-full max-w-md space-y-6 animate-slideInUp">
-          <div className="text-center space-y-1">
-            <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">
-              Section {sectionIndex + 1} of {sectionCount}
-            </p>
-            <h2 className="text-zinc-50 text-2xl font-bold mt-2">{section.name}</h2>
-          </div>
-
-          <div className="flex items-center justify-center gap-6 text-sm">
-            <span className="flex items-center gap-1.5 text-zinc-400">
-              <IconListCheck size={14} />
-              {(section.items || []).length} question{(section.items || []).length !== 1 ? 's' : ''}
-            </span>
-            {hasTimer && (
-              <span className="flex items-center gap-1.5 text-zinc-400">
-                <IconClock size={14} />
-                {section.timer_minutes} min
-              </span>
-            )}
-          </div>
-
-          {hasTimer && (
-            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-400 text-sm">
-              The timer starts when you click Begin.
-            </div>
-          )}
-
-          {error && (
-            <div className="flex items-start gap-2.5 text-rose text-sm bg-rose/10 border border-rose/20 rounded-xl px-4 py-3">
-              <IconAlertCircle size={16} className="shrink-0 mt-0.5" />
-              {error}
-            </div>
-          )}
-
-          <button
-            onClick={handleBegin}
-            className="w-full flex items-center justify-center gap-2 py-3.5 bg-cyan hover:bg-cyan-hover text-zinc-950 font-semibold rounded-xl text-sm transition-colors"
-          >
+      <CandidateSectionIntroScreen
+        maxWidth="max-w-md"
+        eyebrow={`Section ${sectionIndex + 1} of ${sectionCount}`}
+        title={section.name}
+        metaItems={[
+          <>
+            <IconListCheck size={12} />
+            {(section.items || []).length} question{(section.items || []).length !== 1 ? 's' : ''}
+          </>,
+          ...(hasTimer ? [
+            <>
+              <IconClock size={12} />
+              {section.timer_minutes} min
+            </>,
+          ] : []),
+        ]}
+        tips={hasTimer
+          ? ['The timer starts when you click Begin.']
+          : ['Click Begin when you are ready to start this section.']}
+        error={error}
+        actionContent={(
+          <>
             Begin Section
             <IconChevronRight size={16} />
-          </button>
-        </div>
-      </div>
+          </>
+        )}
+        onAction={handleBegin}
+      />
     )
   }
 
   // Loading questions
   if (screen === 'loading') {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center gap-3">
-        <div className="w-5 h-5 border-2 border-zinc-700 border-t-cyan rounded-full animate-spin" />
-        <p className="text-zinc-400 text-sm">Loading questions…</p>
-      </div>
-    )
+    return <CandidateCenteredLoadingState label="Loading questions..." />
   }
 
   // Submitting
   if (screen === 'submitting') {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center gap-3">
-        <div className="w-5 h-5 border-2 border-zinc-700 border-t-cyan rounded-full animate-spin" />
-        <p className="text-zinc-400 text-sm">Submitting answers…</p>
-      </div>
-    )
+    return <CandidateCenteredLoadingState label="Submitting answers..." />
   }
 
   // Time up
@@ -664,10 +643,7 @@ export default function McqSectionPage() {
             </div>
 
             {error && (
-              <div className="flex items-start gap-2.5 text-rose text-sm bg-rose/10 border border-rose/20 rounded-xl px-4 py-3">
-                <IconAlertCircle size={16} className="shrink-0 mt-0.5" />
-                {error}
-              </div>
+              <CandidateErrorBanner>{error}</CandidateErrorBanner>
             )}
           </div>
         </div>
