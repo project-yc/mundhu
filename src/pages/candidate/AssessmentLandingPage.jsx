@@ -19,6 +19,14 @@ import {
   clearCandidateRuntimeState,
   saveCandidateRuntimeState,
 } from '../../api/candidate/runtime'
+import {
+  CandidateCenteredErrorState,
+  CandidateCenteredLoadingState,
+  CandidateErrorBanner,
+  CandidateFooter,
+  CandidatePageShell,
+  CandidatePrimaryButton,
+} from '../../components/candidate/CandidateSectionScaffold'
 
 const AI_LEVEL_LABELS = {
   full: 'Full AI access',
@@ -95,49 +103,33 @@ export default function AssessmentLandingPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="w-5 h-5 border-2 border-zinc-700 border-t-cyan rounded-full animate-spin" />
-      </div>
-    )
+    return <CandidateCenteredLoadingState label="Loading assessment..." />
   }
 
   if (!overview) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-        <div className="max-w-sm w-full text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-rose/10 border border-rose/20 flex items-center justify-center mx-auto">
-            <IconAlertCircle size={22} className="text-rose" />
-          </div>
-          <p className="text-zinc-100 font-semibold">Unable to load assessment</p>
-          <p className="text-zinc-400 text-sm">{error || 'This link may be invalid or expired.'}</p>
-        </div>
-      </div>
-    )
+    return <CandidateCenteredErrorState title="Unable to load assessment" message={error || 'This link may be invalid or expired.'} />
   }
 
   const sections = overview.sections || []
   const totalMins = overview.total_duration_minutes
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-lg space-y-7 animate-slideInUp">
+    <CandidatePageShell>
 
-        {/* Brand + title */}
-        <div className="text-center space-y-2">
-          <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">
-            TruDev Assessment
+      <div className="text-center space-y-2">
+        <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">
+          TruDev Assessment
+        </p>
+        <h1 className="text-zinc-50 text-2xl font-bold tracking-tight leading-tight mt-3">
+          {overview.assessment_name}
+        </h1>
+        {overview.candidate_name && (
+          <p className="text-zinc-400 text-sm">
+            Good luck,{' '}
+            <span className="text-zinc-200 font-medium">{overview.candidate_name}</span>
           </p>
-          <h1 className="text-zinc-50 text-2xl font-bold tracking-tight leading-tight mt-3">
-            {overview.assessment_name}
-          </h1>
-          {overview.candidate_name && (
-            <p className="text-zinc-400 text-sm">
-              Good luck,{' '}
-              <span className="text-zinc-200 font-medium">{overview.candidate_name}</span>
-            </p>
-          )}
-        </div>
+        )}
+      </div>
 
         {/* Meta pills */}
         <div className="flex flex-wrap items-center justify-center gap-2.5">
@@ -215,30 +207,20 @@ export default function AssessmentLandingPage() {
           </ul>
         </div>
 
-        {error && (
-          <p className="text-rose text-sm text-center">{error}</p>
+      {error ? <CandidateErrorBanner>{error}</CandidateErrorBanner> : null}
+
+      <CandidatePrimaryButton onClick={handleStart} disabled={starting}>
+        {starting ? (
+          <div className="w-4 h-4 border-2 border-zinc-800/30 border-t-zinc-800 rounded-full animate-spin" />
+        ) : (
+          <>
+            Begin Assessment
+            <IconChevronRight size={16} />
+          </>
         )}
+      </CandidatePrimaryButton>
 
-        {/* CTA */}
-        <button
-          onClick={handleStart}
-          disabled={starting}
-          className="w-full flex items-center justify-center gap-2 py-3.5 bg-cyan hover:bg-cyan-hover text-zinc-950 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {starting ? (
-            <div className="w-4 h-4 border-2 border-zinc-800/30 border-t-zinc-800 rounded-full animate-spin" />
-          ) : (
-            <>
-              Begin Assessment
-              <IconChevronRight size={16} />
-            </>
-          )}
-        </button>
-
-        <p className="text-center text-zinc-700 text-xs">
-          Powered by <span className="text-zinc-500">TruDev</span>
-        </p>
-      </div>
-    </div>
+      <CandidateFooter />
+    </CandidatePageShell>
   )
 }

@@ -1,10 +1,43 @@
-function CandidatePageShell({ children, maxWidth = 'max-w-lg' }) {
+export function CandidatePageShell({ children, maxWidth = 'max-w-lg' }) {
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
       <div className={`w-full ${maxWidth} space-y-7 animate-slideInUp`}>
         {children}
       </div>
     </div>
+  )
+}
+
+export function CandidateFooter({ brand = 'TruDev' }) {
+  return (
+    <p className="text-center text-zinc-700 text-xs">
+      Powered by <span className="text-zinc-500">{brand}</span>
+    </p>
+  )
+}
+
+export function CandidateCompletionScreen({
+  title = 'Assessment Complete',
+  message,
+  details,
+  footerBrand = 'TruDev',
+  maxWidth = 'max-w-md',
+}) {
+  return (
+    <CandidatePageShell maxWidth={maxWidth}>
+      <div className="w-16 h-16 rounded-full bg-emerald/10 border border-emerald/20 flex items-center justify-center mx-auto">
+        <span className="text-emerald text-2xl">✓</span>
+      </div>
+
+      <div className="text-center space-y-2">
+        <h1 className="text-zinc-50 text-2xl font-bold tracking-tight">{title}</h1>
+        <p className="text-zinc-400 text-sm leading-relaxed">{message}</p>
+      </div>
+
+      {details ? details : null}
+
+      <CandidateFooter brand={footerBrand} />
+    </CandidatePageShell>
   )
 }
 
