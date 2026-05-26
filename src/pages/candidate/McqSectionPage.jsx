@@ -10,7 +10,7 @@ import CandidateMcqSectionExperience from '../../components/candidate/CandidateM
 // ─── Main page component ──────────────────────────────────────────
 
 export default function McqSectionPage() {
-  const { token, sectionIndex: sectionIndexStr } = useParams()
+  const { sectionIndex: sectionIndexStr } = useParams()
   const navigate = useNavigate()
   const sectionIndex = parseInt(sectionIndexStr, 10)
 

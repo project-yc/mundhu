@@ -33,6 +33,7 @@ import CandidateMcqSectionExperience from '../../components/candidate/CandidateM
 
 const MAX_BOOT_WAIT_MS = 45000
 const BOOT_POLL_INTERVAL_MS = 1500
+const POST_SUBMIT_TRANSITION_MS = 1200
 
 const SECTION_LABELS = {
   mcq: 'MCQ',
@@ -42,6 +43,16 @@ const SECTION_LABELS = {
 }
 
 const delay = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms))
+
+const clearSubmissionTransitionParams = () => {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has('submission_status') && !url.searchParams.has('submitted_section_type')) {
+    return
+  }
+  url.searchParams.delete('submission_status')
+  url.searchParams.delete('submitted_section_type')
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+}
 
 const getBootstrapRuntime = (locationState, searchParams, params) => {
   const stateRuntime = locationState?.runtime ? normalizeCandidateRuntimeState(locationState.runtime) : null
@@ -82,6 +93,53 @@ async function probeWorkspaceReady(workspaceUrl) {
   } catch {
     return false
   }
+}
+
+function CandidateSectionReviewScreen({
+  sectionLabel,
+  sectionName,
+  assessmentName,
+  prompt,
+  answerPreview,
+  error,
+  onBack,
+  onSubmit,
+  submitting,
+}) {
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6">
+      <div className="max-w-3xl mx-auto space-y-6 animate-slideInUp">
+        <div className="text-center space-y-2">
+          <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">{sectionLabel} Review</p>
+          <h1 className="text-zinc-50 text-2xl font-bold tracking-tight">Review Your Answer</h1>
+          <p className="text-zinc-400 text-sm">{sectionName || assessmentName || 'Assessment progression'}</p>
+        </div>
+
+        {error ? <CandidateErrorBanner>{error}</CandidateErrorBanner> : null}
+
+        <div className="border border-zinc-800 bg-zinc-900 rounded-xl p-6 space-y-4">
+          <div className="space-y-2">
+            <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wide">Prompt</p>
+            <p className="text-sm text-zinc-300 whitespace-pre-wrap">{prompt || 'No prompt returned by backend.'}</p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wide">Answer Preview</p>
+            {answerPreview}
+          </div>
+        </div>
+
+        <div className="flex gap-3 justify-end">
+          <CandidateSecondaryButton onClick={onBack} disabled={submitting}>
+            Edit Answer
+          </CandidateSecondaryButton>
+          <CandidatePrimaryButton className="w-auto px-4 py-2" onClick={onSubmit} disabled={submitting}>
+            {submitting ? 'Submitting…' : 'Submit Section'}
+          </CandidatePrimaryButton>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function CandidateSectionRuntimePage() {
@@ -148,6 +206,15 @@ export default function CandidateSectionRuntimePage() {
     useEffect(() => {
       const prepareRuntime = async () => {
         setError('')
+        const searchParams = new URLSearchParams(location.search)
+        const returningFromCodingSubmit = (
+          searchParams.get('submission_status') === 'submitted'
+          && searchParams.get('submitted_section_type') === 'technical_task'
+        )
+
+        if (returningFromCodingSubmit) {
+          setScreen('submitting')
+        }
 
         try {
           const currentSearchParams = new URLSearchParams(location.search)
@@ -179,6 +246,10 @@ export default function CandidateSectionRuntimePage() {
 
           setRuntimeState(nextRuntime)
           setContent(null)
+          if (returningFromCodingSubmit) {
+            await delay(POST_SUBMIT_TRANSITION_MS)
+            clearSubmissionTransitionParams()
+          }
           setScreen('overview')
         } catch (hydrateError) {
           setError(hydrateError.message || 'Failed to load candidate section runtime')
@@ -342,10 +413,38 @@ export default function CandidateSectionRuntimePage() {
         handleNextAction(payload)
       } catch (submitError) {
         setError(submitError.message || 'Submit failed')
+        if (runtimeState.contentType === 'free_text' || runtimeState.contentType === 'ranking') {
+          setScreen('review')
+        }
       } finally {
         setSubmitting(false)
       }
     }
+
+  const getReviewAnswerPreview = () => {
+    if (runtimeState?.contentType === 'free_text') {
+      return freeTextValue?.trim()
+        ? <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-4 py-4 text-sm text-zinc-300 whitespace-pre-wrap">{freeTextValue}</div>
+        : <p className="text-sm text-zinc-500">No response entered yet.</p>
+    }
+
+    if (runtimeState?.contentType === 'ranking') {
+      return rankingOptions.length > 0 ? (
+        <div className="space-y-2">
+          {rankingOptions.map((option, index) => (
+            <div key={option.id} className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/70 px-4 py-3 text-sm text-zinc-300">
+              <span className="w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-xs font-semibold flex items-center justify-center shrink-0">{index + 1}</span>
+              <span>{option.text}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-zinc-500">No ranking order available.</p>
+      )
+    }
+
+    return null
+  }
 
   if (screen === 'preparing') {
     return <CandidateCenteredLoadingState label="Loading section runtime..." />
@@ -418,6 +517,26 @@ export default function CandidateSectionRuntimePage() {
 
   if (screen === 'loading') {
     return <CandidateCenteredLoadingState label="Loading section content..." />
+  }
+
+  if (screen === 'submitting') {
+    return <CandidateCenteredLoadingState label="Submitting answers..." />
+  }
+
+  if (screen === 'review') {
+    return (
+      <CandidateSectionReviewScreen
+        sectionLabel={sectionLabel}
+        sectionName={runtimeState?.sectionName}
+        assessmentName={runtimeState?.assessmentName}
+        prompt={question.prompt}
+        answerPreview={getReviewAnswerPreview()}
+        error={error}
+        onBack={() => setScreen('runtime')}
+        onSubmit={submitSection}
+        submitting={submitting}
+      />
+    )
   }
 
   return (
@@ -496,8 +615,14 @@ export default function CandidateSectionRuntimePage() {
             <CandidateSecondaryButton onClick={saveDraft} disabled={saving || submitting}>
               {saving ? 'Saving…' : 'Save Draft'}
             </CandidateSecondaryButton>
-            <CandidatePrimaryButton className="w-auto px-4 py-2" onClick={submitSection} disabled={submitting}>
-              {submitting ? 'Submitting…' : 'Submit Section'}
+            <CandidatePrimaryButton
+              className="w-auto px-4 py-2"
+              onClick={runtimeState?.contentType === 'free_text' || runtimeState?.contentType === 'ranking' ? () => setScreen('review') : submitSection}
+              disabled={submitting}
+            >
+              {runtimeState?.contentType === 'free_text' || runtimeState?.contentType === 'ranking'
+                ? 'Review & Submit'
+                : (submitting ? 'Submitting…' : 'Submit Section')}
             </CandidatePrimaryButton>
           </div>
         </div>
