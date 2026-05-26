@@ -336,7 +336,7 @@ export default function CandidateSectionRuntimePage() {
   const selectionMode = question.selection_mode || 'single'
   const sectionLabel = SECTION_LABELS[runtimeState?.contentType] || 'Section'
   const bootProgress = screen === 'booting' ? 100 : 0
-  const activeStage = useMemo(() => BOOT_STAGES[BOOT_STAGES.length - 1], [])
+  const activeStage = BOOT_STAGES[BOOT_STAGES.length - 1]
 
   if (screen === 'overview') {
     return (
