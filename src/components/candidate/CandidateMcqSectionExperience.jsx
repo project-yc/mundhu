@@ -29,18 +29,18 @@ const formatTime = (secs) => {
 }
 
 const timerColorClass = (secs) => {
-  if (secs == null) return 'text-zinc-300'
-  if (secs < 60) return 'text-rose animate-pulse'
-  if (secs < 300) return 'text-amber'
-  return 'text-zinc-300'
+  if (secs == null) return 'text-text-secondary'
+  if (secs < 60) return 'text-error animate-pulse'
+  if (secs < 300) return 'text-warning'
+  return 'text-text-secondary'
 }
 
 function TopBar({ sectionName, answeredCount, totalCount, remainingSeconds, hasTimer }) {
   return (
-    <div className="fixed top-0 left-0 right-0 z-40 h-14 bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-800/60 flex items-center px-5 gap-4">
-      <p className="flex-1 text-zinc-100 text-sm font-semibold truncate">{sectionName}</p>
+    <div className="fixed top-0 left-0 right-0 z-40 h-14 bg-surface/95 backdrop-blur-sm border-b border-border-default flex items-center px-5 gap-4">
+      <p className="flex-1 text-text-primary text-sm font-semibold truncate">{sectionName}</p>
       {totalCount > 0 && (
-        <span className="text-zinc-500 text-xs shrink-0">
+        <span className="text-text-muted text-xs shrink-0">
           {answeredCount} / {totalCount} answered
         </span>
       )}
@@ -58,7 +58,7 @@ function QuestionCard({ question, index, answer, onToggle }) {
   const { question: q, item_attempt_id, points } = question
   if (!q) {
     return (
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 text-zinc-500 text-sm">
+      <div className="bg-surface-muted border border-border-default rounded-xl p-5 text-text-muted text-sm">
         Question {index + 1} could not be loaded.
       </div>
     )
@@ -68,19 +68,19 @@ function QuestionCard({ question, index, answer, onToggle }) {
   const isMulti = q.selection_mode === 'multi'
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4">
+    <div className="bg-surface border border-border-default rounded-xl p-5 space-y-4 shadow-sm">
       <div className="flex items-start gap-3">
-        <span className="w-7 h-7 rounded-full bg-zinc-800 text-zinc-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+        <span className="w-7 h-7 rounded-full bg-surface-muted text-text-muted text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
           {index + 1}
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-zinc-100 text-sm leading-relaxed">{q.prompt}</p>
+          <p className="text-text-primary text-sm leading-relaxed">{q.prompt}</p>
           {isMulti && (
-            <p className="text-zinc-600 text-xs mt-1 italic">Select all that apply</p>
+            <p className="text-text-muted text-xs mt-1 italic">Select all that apply</p>
           )}
         </div>
         {points > 0 && (
-          <span className="text-zinc-600 text-xs shrink-0">
+          <span className="text-text-muted text-xs shrink-0">
             {points} pt{points !== 1 ? 's' : ''}
           </span>
         )}
@@ -93,18 +93,20 @@ function QuestionCard({ question, index, answer, onToggle }) {
             <button
               key={opt.id}
               onClick={() => onToggle(item_attempt_id, String(opt.id), q.selection_mode)}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm text-left transition-all ${
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm text-left transition-all duration-100 ${
                 isSelected
-                  ? 'bg-cyan/10 border border-cyan/40 text-zinc-100'
-                  : 'bg-zinc-800/40 border border-zinc-700/40 text-zinc-300 hover:border-zinc-600/80 hover:bg-zinc-800/70'
+                  ? 'bg-brand-tint border border-brand-border text-text-primary'
+                  : 'bg-surface-muted border border-border-default text-text-secondary hover:border-border-strong hover:bg-surface'
               }`}
             >
               <span
                 className={`w-4 h-4 rounded-${isMulti ? 'sm' : 'full'} border-2 shrink-0 flex items-center justify-center transition-colors ${
-                  isSelected ? 'border-cyan bg-cyan' : 'border-zinc-600'
+                  isSelected
+                    ? 'border-brand bg-brand'
+                    : 'border-border-strong bg-surface'
                 }`}
               >
-                {isSelected && <IconCheck size={10} className="text-zinc-950 shrink-0" />}
+                {isSelected && <IconCheck size={10} className="text-on-brand shrink-0" />}
               </span>
               <span>{opt.text}</span>
             </button>
@@ -130,26 +132,26 @@ function ReviewRow({ question, index, answer }) {
   return (
     <div
       className={`flex items-start gap-3 px-4 py-3 rounded-lg border ${
-        isAnswered ? 'border-emerald/20 bg-emerald/5' : 'border-zinc-800 bg-zinc-900/50'
+        isAnswered ? 'border-success-border bg-success-bg' : 'border-border-default bg-surface-muted'
       }`}
     >
       <span
         className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
-          isAnswered ? 'bg-emerald/20 text-emerald' : 'bg-zinc-800 text-zinc-500'
+          isAnswered ? 'bg-success-bg text-success border border-success-border' : 'bg-surface text-text-muted border border-border-default'
         }`}
       >
         {isAnswered ? <IconCheck size={11} /> : index + 1}
       </span>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm truncate ${isAnswered ? 'text-zinc-200' : 'text-zinc-400'}`}>
+        <p className={`text-sm truncate ${isAnswered ? 'text-text-primary' : 'text-text-secondary'}`}>
           {q?.prompt || `Question ${index + 1}`}
         </p>
         {answerText && (
-          <p className="text-xs text-zinc-500 mt-0.5 truncate">{answerText}</p>
+          <p className="text-xs text-text-muted mt-0.5 truncate">{answerText}</p>
         )}
       </div>
       {!isAnswered && (
-        <span className="text-zinc-600 text-xs shrink-0 mt-0.5">Unanswered</span>
+        <span className="text-text-muted text-xs shrink-0 mt-0.5">Unanswered</span>
       )}
     </div>
   )
@@ -157,19 +159,19 @@ function ReviewRow({ question, index, answer }) {
 
 function TimeUpOverlay({ onSubmit, submitting }) {
   return (
-    <div className="fixed inset-0 bg-zinc-950/97 z-50 flex items-center justify-center p-6 animate-fadeIn">
-      <div className="max-w-sm w-full text-center space-y-6 animate-slideInUp">
-        <div className="w-16 h-16 rounded-full bg-rose/10 border border-rose/20 flex items-center justify-center mx-auto">
-          <IconClock size={28} className="text-rose" />
+    <div className="fixed inset-0 bg-page/90 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fadeIn">
+      <div className="bg-surface border border-border-default rounded-2xl shadow-modal max-w-sm w-full p-8 text-center space-y-6 animate-slideInUp">
+        <div className="w-16 h-16 rounded-full bg-error-bg border border-error-border flex items-center justify-center mx-auto">
+          <IconClock size={28} className="text-error" />
         </div>
         <div className="space-y-1">
-          <h2 className="text-zinc-50 text-xl font-bold">Time&apos;s Up</h2>
-          <p className="text-zinc-400 text-sm">Your section is being submitted automatically.</p>
+          <h2 className="text-text-primary text-xl font-bold">Time&apos;s Up</h2>
+          <p className="text-text-secondary text-sm">Your section is being submitted automatically.</p>
         </div>
         <button
           onClick={onSubmit}
           disabled={submitting}
-          className="w-full flex items-center justify-center gap-2 py-3 bg-rose/90 hover:bg-rose text-white font-semibold rounded-xl text-sm transition-colors disabled:opacity-50"
+          className="w-full flex items-center justify-center py-3 bg-error text-white font-semibold rounded-xl text-sm transition-all duration-150 active:scale-[0.97] disabled:opacity-50"
         >
           {submitting
             ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -182,27 +184,27 @@ function TimeUpOverlay({ onSubmit, submitting }) {
 
 function ConfirmModal({ unansweredCount, onConfirm, onCancel, submitting }) {
   return (
-    <div className="fixed inset-0 bg-zinc-950/80 z-50 flex items-end sm:items-center justify-center p-4 animate-fadeIn">
-      <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm space-y-5 animate-slideInUp">
+    <div className="fixed inset-0 bg-page/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-fadeIn">
+      <div className="bg-surface border border-border-default rounded-2xl shadow-modal p-6 w-full max-w-sm space-y-5 animate-slideInUp">
         <div className="flex items-start justify-between">
-          <h3 className="text-zinc-100 font-semibold">Submit Section?</h3>
+          <h3 className="text-text-primary font-semibold">Submit Section?</h3>
           <button
             onClick={onCancel}
-            className="text-zinc-500 hover:text-zinc-300 transition-colors -mt-0.5"
+            className="text-text-muted hover:text-text-primary transition-colors -mt-0.5"
           >
             <IconX size={18} />
           </button>
         </div>
 
         {unansweredCount > 0 && (
-          <div className="bg-amber/10 border border-amber/20 rounded-xl px-4 py-3">
-            <p className="text-amber text-sm">
+          <div className="bg-warning-bg border border-warning-border rounded-xl px-4 py-3">
+            <p className="text-warning text-sm">
               {unansweredCount} question{unansweredCount !== 1 ? 's' : ''} left unanswered.
             </p>
           </div>
         )}
 
-        <p className="text-zinc-400 text-sm">
+        <p className="text-text-secondary text-sm">
           Once submitted, you cannot change your answers for this section.
         </p>
 
@@ -210,17 +212,17 @@ function ConfirmModal({ unansweredCount, onConfirm, onCancel, submitting }) {
           <button
             onClick={onCancel}
             disabled={submitting}
-            className="flex-1 py-2.5 border border-zinc-700 text-zinc-300 hover:text-zinc-100 rounded-xl text-sm transition-colors disabled:opacity-50"
+            className="flex-1 py-2.5 border border-border-default text-text-secondary hover:text-text-primary hover:border-border-strong rounded-xl text-sm transition-all duration-150 active:scale-[0.97] disabled:opacity-50"
           >
             Go Back
           </button>
           <button
             onClick={onConfirm}
             disabled={submitting}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-cyan hover:bg-cyan-hover text-zinc-950 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-brand hover:bg-brand-hover text-on-brand font-semibold rounded-xl text-sm transition-all duration-150 ease-out active:scale-[0.97] disabled:opacity-40"
           >
             {submitting
-              ? <div className="w-4 h-4 border-2 border-zinc-800/30 border-t-zinc-800 rounded-full animate-spin" />
+              ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin opacity-60" />
               : 'Submit'}
           </button>
         </div>
@@ -441,7 +443,7 @@ export default function CandidateMcqSectionExperience({
 
   if (screen === 'timeup') {
     return (
-      <div className="min-h-screen bg-zinc-950">
+      <div className="min-h-screen bg-page">
         <TimeUpOverlay onSubmit={doSubmit} submitting={false} />
       </div>
     )
@@ -449,7 +451,7 @@ export default function CandidateMcqSectionExperience({
 
   if (screen === 'questions') {
     return (
-      <div className="min-h-screen bg-zinc-950">
+      <div className="min-h-screen bg-page">
         <TopBar
           sectionName={sectionName}
           answeredCount={answeredCount}
@@ -470,13 +472,13 @@ export default function CandidateMcqSectionExperience({
             ))}
           </div>
         </div>
-        <div className="fixed bottom-0 left-0 right-0 bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/60 px-5 py-4 flex items-center justify-between">
-          <p className="text-zinc-500 text-sm">
+        <div className="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-sm border-t border-border-default px-5 py-4 flex items-center justify-between">
+          <p className="text-text-muted text-sm">
             {answeredCount} of {totalCount} answered
           </p>
           <button
             onClick={() => setScreen('review')}
-            className="flex items-center gap-2 px-5 py-2.5 bg-cyan hover:bg-cyan-hover text-zinc-950 font-semibold rounded-xl text-sm transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-brand hover:bg-brand-hover text-on-brand font-semibold rounded-xl text-sm transition-all duration-150 ease-out active:scale-[0.97]"
           >
             Review &amp; Submit
             <IconChevronRight size={15} />
@@ -488,7 +490,7 @@ export default function CandidateMcqSectionExperience({
 
   if (screen === 'review') {
     return (
-      <div className="min-h-screen bg-zinc-950">
+      <div className="min-h-screen bg-page">
         <TopBar
           sectionName={sectionName}
           answeredCount={answeredCount}
@@ -511,13 +513,13 @@ export default function CandidateMcqSectionExperience({
             <div>
               <button
                 onClick={() => setScreen('questions')}
-                className="flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200 text-sm transition-colors mb-4"
+                className="flex items-center gap-1.5 text-text-muted hover:text-text-primary text-sm transition-colors mb-4"
               >
                 <IconArrowLeft size={15} />
                 Back to questions
               </button>
-              <h2 className="text-zinc-100 font-semibold text-lg">Review Answers</h2>
-              <p className="text-zinc-500 text-sm mt-1">
+              <h2 className="text-text-primary font-semibold text-lg">Review Answers</h2>
+              <p className="text-text-muted text-sm mt-1">
                 {answeredCount === totalCount
                   ? 'All questions answered.'
                   : `${unansweredCount} question${unansweredCount !== 1 ? 's' : ''} unanswered.`}
@@ -539,16 +541,16 @@ export default function CandidateMcqSectionExperience({
           </div>
         </div>
 
-        <div className="fixed bottom-0 left-0 right-0 bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/60 px-5 py-4 flex items-center justify-end gap-3">
+        <div className="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-sm border-t border-border-default px-5 py-4 flex items-center justify-end gap-3">
           <button
             onClick={() => setScreen('questions')}
-            className="px-4 py-2.5 border border-zinc-700 text-zinc-300 hover:text-zinc-100 rounded-xl text-sm transition-colors"
+            className="px-4 py-2.5 border border-border-default text-text-secondary hover:text-text-primary hover:border-border-strong rounded-xl text-sm transition-all duration-150 active:scale-[0.97]"
           >
             Edit Answers
           </button>
           <button
             onClick={() => setShowConfirm(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-cyan hover:bg-cyan-hover text-zinc-950 font-semibold rounded-xl text-sm transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-brand hover:bg-brand-hover text-on-brand font-semibold rounded-xl text-sm transition-all duration-150 ease-out active:scale-[0.97]"
           >
             Submit Section
             <IconChevronRight size={15} />

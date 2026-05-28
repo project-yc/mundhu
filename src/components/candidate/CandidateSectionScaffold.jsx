@@ -1,18 +1,68 @@
-export function CandidatePageShell({ children, maxWidth = 'max-w-lg' }) {
+import { useEffect } from 'react'
+import {
+  applyCandidateBranding,
+  loadCandidateBranding,
+} from '../../theme/CandidateThemeProvider.jsx'
+
+// TruDev logo — served from /public
+const TRUDEV_LOGO = '/Green Black Minimal Professional Letter D Business Corporate Logo 1234.png'
+
+// Org header rendered above the content card — shows the hiring org's logo,
+// candidate-facing name, and optional tagline. Keeps the page feeling branded
+// without burying the form card in chrome.
+function OrgBrandHeader({ branding }) {
+  const { logo_url, candidate_name, tagline } = branding || {}
+  if (!logo_url && !candidate_name) return null
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-      <div className={`w-full ${maxWidth} space-y-7 animate-slideInUp`}>
-        {children}
-      </div>
+    <div className="flex flex-col items-center gap-2.5 text-center animate-fadeIn">
+      {logo_url && (
+        <img
+          src={logo_url}
+          alt={candidate_name || 'Organization'}
+          className="h-12 w-auto object-contain"
+        />
+      )}
+      {candidate_name && (
+        <p className="text-text-primary font-bold text-lg leading-snug">{candidate_name}</p>
+      )}
+      {tagline && (
+        <p className="text-text-muted text-sm">{tagline}</p>
+      )}
     </div>
   )
 }
 
-export function CandidateFooter({ brand = 'TruDev' }) {
+export function CandidatePageShell({ children, maxWidth = 'max-w-lg' }) {
+  const branding = loadCandidateBranding()
+
+  useEffect(() => {
+    applyCandidateBranding(branding)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <p className="text-center text-zinc-700 text-xs">
-      Powered by <span className="text-zinc-500">{brand}</span>
-    </p>
+    <div className="min-h-screen bg-page flex flex-col items-center justify-center px-4 py-10 gap-6">
+      <OrgBrandHeader branding={branding} />
+      <div className={`w-full ${maxWidth} bg-surface rounded-2xl border border-border-default shadow-card animate-slideInUp`}>
+        <div className="p-8 space-y-6">
+          {children}
+        </div>
+      </div>
+      <CandidateFooter />
+    </div>
+  )
+}
+
+export function CandidateFooter() {
+  return (
+    <div className="flex items-center justify-center gap-1.5">
+      <span className="text-text-faint text-xs">Powered by</span>
+      <img
+        src={TRUDEV_LOGO}
+        alt="TruDev"
+        className="h-4 w-auto object-contain rounded-sm opacity-50"
+      />
+      <span className="text-text-muted text-xs font-semibold tracking-tight">TruDev</span>
+    </div>
   )
 }
 
@@ -20,31 +70,28 @@ export function CandidateCompletionScreen({
   title = 'Assessment Complete',
   message,
   details,
-  footerBrand = 'TruDev',
   maxWidth = 'max-w-md',
 }) {
   return (
     <CandidatePageShell maxWidth={maxWidth}>
-      <div className="w-16 h-16 rounded-full bg-emerald/10 border border-emerald/20 flex items-center justify-center mx-auto">
-        <span className="text-emerald text-2xl">✓</span>
+      <div className="flex flex-col items-center gap-5 text-center">
+        <div className="w-16 h-16 rounded-full bg-brand-tint border border-brand-border flex items-center justify-center">
+          <span className="text-brand text-2xl font-bold">✓</span>
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-text-primary text-2xl font-bold tracking-tight">{title}</h1>
+          <p className="text-text-secondary text-sm leading-relaxed">{message}</p>
+        </div>
+        {details ?? null}
       </div>
-
-      <div className="text-center space-y-2">
-        <h1 className="text-zinc-50 text-2xl font-bold tracking-tight">{title}</h1>
-        <p className="text-zinc-400 text-sm leading-relaxed">{message}</p>
-      </div>
-
-      {details ? details : null}
-
-      <CandidateFooter brand={footerBrand} />
     </CandidatePageShell>
   )
 }
 
 export function CandidateCenteredLoadingState({ label }) {
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center gap-3 text-zinc-400 text-sm">
-      <div className="w-4 h-4 border-2 border-zinc-700 border-t-cyan rounded-full animate-spin" />
+    <div className="min-h-screen bg-page flex items-center justify-center gap-3 text-text-secondary text-sm">
+      <div className="w-4 h-4 border-2 border-border-strong border-t-brand rounded-full animate-spin" />
       {label}
     </div>
   )
@@ -52,14 +99,14 @@ export function CandidateCenteredLoadingState({ label }) {
 
 export function CandidateCenteredErrorState({ title, message }) {
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-page flex items-center justify-center p-6">
       <div className="w-full max-w-md space-y-6 animate-slideInUp text-center">
-        <div className="w-14 h-14 rounded-full bg-rose/10 border border-rose/20 flex items-center justify-center mx-auto">
-          <span className="text-rose text-2xl">!</span>
+        <div className="w-14 h-14 rounded-full bg-error-bg border border-error-border flex items-center justify-center mx-auto">
+          <span className="text-error text-2xl font-bold">!</span>
         </div>
         <div className="space-y-2">
-          <h1 className="text-zinc-50 text-xl font-bold">{title}</h1>
-          <p className="text-zinc-400 text-sm">{message}</p>
+          <h1 className="text-text-primary text-xl font-bold">{title}</h1>
+          <p className="text-text-secondary text-sm">{message}</p>
         </div>
       </div>
     </div>
@@ -68,17 +115,24 @@ export function CandidateCenteredErrorState({ title, message }) {
 
 export function CandidateErrorBanner({ children }) {
   return (
-    <div className="rounded-xl border border-rose/20 bg-rose/10 px-4 py-3 text-sm text-rose">
+    <div className="rounded-xl border border-error-border bg-error-bg px-4 py-3 text-sm text-error">
       {children}
     </div>
   )
 }
 
-export function CandidatePrimaryButton({ children, className = '', ...props }) {
+export function CandidatePrimaryButton({ children, className = '', disabled, ...props }) {
   return (
     <button
       type="button"
-      className={`w-full flex items-center justify-center gap-2 py-3.5 bg-cyan hover:bg-cyan-hover text-zinc-950 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      disabled={disabled}
+      className={`w-full flex items-center justify-center gap-2 py-3.5
+        bg-brand hover:bg-brand-hover text-on-brand
+        font-semibold rounded-xl text-sm
+        transition-all duration-150 ease-out
+        active:scale-[0.97]
+        disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
+        ${className}`}
       {...props}
     >
       {children}
@@ -90,7 +144,10 @@ export function CandidateSecondaryButton({ children, className = '', ...props })
   return (
     <button
       type="button"
-      className={`px-4 py-2.5 border border-zinc-700 text-zinc-300 hover:text-zinc-100 rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      className={`px-4 py-2.5 border border-border-default text-text-secondary
+        hover:text-text-primary hover:border-border-strong
+        rounded-xl text-sm font-medium transition-all duration-150 ease-out active:scale-[0.97]
+        disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
       {...props}
     >
       {children}
@@ -114,9 +171,11 @@ export function CandidateSectionIntroScreen({
   return (
     <CandidatePageShell maxWidth={maxWidth}>
       <div className="text-center space-y-2">
-        <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">{eyebrow}</p>
-        <h1 className="text-zinc-50 text-2xl font-bold tracking-tight">{title}</h1>
-        {subtitle ? <p className="text-zinc-400 text-sm">{subtitle}</p> : null}
+        <p className="text-brand-deep text-xs font-semibold uppercase tracking-widest">
+          {eyebrow}
+        </p>
+        <h1 className="text-text-primary text-2xl font-bold tracking-tight">{title}</h1>
+        {subtitle ? <p className="text-text-secondary text-sm">{subtitle}</p> : null}
       </div>
 
       {metaItems.length > 0 ? (
@@ -124,7 +183,7 @@ export function CandidateSectionIntroScreen({
           {metaItems.map((item, index) => (
             <span
               key={index}
-              className="inline-flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-800/80 border border-zinc-700/60 px-2.5 py-1 rounded-full"
+              className="inline-flex items-center gap-1.5 text-xs text-text-secondary bg-surface-muted border border-border-default px-2.5 py-1 rounded-full"
             >
               {item}
             </span>
@@ -133,12 +192,12 @@ export function CandidateSectionIntroScreen({
       ) : null}
 
       {tips.length > 0 ? (
-        <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-xl px-4 py-4 space-y-2.5">
-          <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wide">{noticeTitle}</p>
+        <div className="bg-surface-muted border border-border-default rounded-xl px-4 py-4 space-y-2.5">
+          <p className="text-text-muted text-xs font-semibold uppercase tracking-wide">{noticeTitle}</p>
           <ul className="space-y-2">
             {tips.map((tip, index) => (
-              <li key={index} className="flex items-start gap-2.5 text-zinc-500 text-sm">
-                <span className="w-1 h-1 rounded-full bg-zinc-600 shrink-0 mt-2" />
+              <li key={index} className="flex items-start gap-2.5 text-text-secondary text-sm">
+                <span className="w-1 h-1 rounded-full bg-text-muted shrink-0 mt-2" />
                 {tip}
               </li>
             ))}

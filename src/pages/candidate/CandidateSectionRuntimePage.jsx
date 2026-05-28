@@ -24,7 +24,6 @@ import {
   CandidateCenteredErrorState,
   CandidateCenteredLoadingState,
   CandidateErrorBanner,
-  CandidateFooter,
   CandidatePrimaryButton,
   CandidateSecondaryButton,
   CandidateSectionIntroScreen,
@@ -107,24 +106,24 @@ function CandidateSectionReviewScreen({
   submitting,
 }) {
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6">
+    <div className="min-h-screen bg-page text-text-primary p-6">
       <div className="max-w-3xl mx-auto space-y-6 animate-slideInUp">
         <div className="text-center space-y-2">
-          <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">{sectionLabel} Review</p>
-          <h1 className="text-zinc-50 text-2xl font-bold tracking-tight">Review Your Answer</h1>
-          <p className="text-zinc-400 text-sm">{sectionName || assessmentName || 'Assessment progression'}</p>
+          <p className="text-brand-deep text-xs font-semibold uppercase tracking-widest">{sectionLabel} Review</p>
+          <h1 className="text-text-primary text-2xl font-bold tracking-tight">Review Your Answer</h1>
+          <p className="text-text-secondary text-sm">{sectionName || assessmentName || 'Assessment progression'}</p>
         </div>
 
         {error ? <CandidateErrorBanner>{error}</CandidateErrorBanner> : null}
 
-        <div className="border border-zinc-800 bg-zinc-900 rounded-xl p-6 space-y-4">
+        <div className="border border-border-default bg-surface rounded-xl p-6 space-y-4">
           <div className="space-y-2">
-            <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wide">Prompt</p>
-            <p className="text-sm text-zinc-300 whitespace-pre-wrap">{prompt || 'No prompt returned by backend.'}</p>
+            <p className="text-text-muted text-xs font-semibold uppercase tracking-wide">Prompt</p>
+            <p className="text-sm text-text-secondary whitespace-pre-wrap">{prompt || 'No prompt returned by backend.'}</p>
           </div>
 
           <div className="space-y-2">
-            <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wide">Answer Preview</p>
+            <p className="text-text-muted text-xs font-semibold uppercase tracking-wide">Answer Preview</p>
             {answerPreview}
           </div>
         </div>
@@ -424,22 +423,22 @@ export default function CandidateSectionRuntimePage() {
   const getReviewAnswerPreview = () => {
     if (runtimeState?.contentType === 'free_text') {
       return freeTextValue?.trim()
-        ? <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-4 py-4 text-sm text-zinc-300 whitespace-pre-wrap">{freeTextValue}</div>
-        : <p className="text-sm text-zinc-500">No response entered yet.</p>
+        ? <div className="rounded-xl border border-border-default bg-surface-muted px-4 py-4 text-sm text-text-secondary whitespace-pre-wrap">{freeTextValue}</div>
+        : <p className="text-sm text-text-muted">No response entered yet.</p>
     }
 
     if (runtimeState?.contentType === 'ranking') {
       return rankingOptions.length > 0 ? (
         <div className="space-y-2">
           {rankingOptions.map((option, index) => (
-            <div key={option.id} className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/70 px-4 py-3 text-sm text-zinc-300">
-              <span className="w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-xs font-semibold flex items-center justify-center shrink-0">{index + 1}</span>
+            <div key={option.id} className="flex items-center gap-3 rounded-xl border border-border-default bg-surface-muted px-4 py-3 text-sm text-text-secondary">
+              <span className="w-6 h-6 rounded-full bg-surface border border-border-default text-text-muted text-xs font-semibold flex items-center justify-center shrink-0">{index + 1}</span>
               <span>{option.text}</span>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-zinc-500">No ranking order available.</p>
+        <p className="text-sm text-text-muted">No ranking order available.</p>
       )
     }
 
@@ -508,9 +507,6 @@ export default function CandidateSectionRuntimePage() {
             <span className="text-sm font-bold tracking-[0.08em] text-[#edf4ff]">TruDev</span>
           </div>
           <CandidateBootScreen />
-          <div className="mt-6">
-            <CandidateFooter brand="TruDev Assessment Platform" />
-          </div>
         </div>
       )
     }
@@ -540,25 +536,29 @@ export default function CandidateSectionRuntimePage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6">
+    <div className="min-h-screen bg-page text-text-primary p-6">
       <div className="max-w-3xl mx-auto space-y-6 animate-slideInUp">
         <div className="text-center space-y-2">
-          <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">{sectionLabel} Section</p>
-          <h1 className="text-zinc-50 text-2xl font-bold tracking-tight">{runtimeState?.sectionName || 'Section'}</h1>
-          <p className="text-zinc-400 text-sm">{runtimeState?.assessmentName || 'Assessment progression'}</p>
+          <p className="text-brand-deep text-xs font-semibold uppercase tracking-widest">{sectionLabel} Section</p>
+          <h1 className="text-text-primary text-2xl font-bold tracking-tight">{runtimeState?.sectionName || 'Section'}</h1>
+          <p className="text-text-secondary text-sm">{runtimeState?.assessmentName || 'Assessment progression'}</p>
         </div>
 
         {error ? <CandidateErrorBanner>{error}</CandidateErrorBanner> : null}
 
-        <div className="border border-zinc-800 bg-zinc-900 rounded-xl p-6 space-y-4">
-          <p className="text-sm text-zinc-300 whitespace-pre-wrap">{question.prompt || 'No prompt returned by backend.'}</p>
+        <div className="border border-border-default bg-surface rounded-xl p-6 space-y-4">
+          <p className="text-sm text-text-secondary whitespace-pre-wrap">{question.prompt || 'No prompt returned by backend.'}</p>
 
             {runtimeState?.contentType === 'mcq' ? (
               <div className="space-y-3">
                 {(question.options || []).map((option) => {
                   const checked = selectedOptionIds.includes(String(option.id))
                   return (
-                    <label key={option.id} className={`flex items-start gap-3 rounded-lg px-4 py-3 cursor-pointer border transition-all ${checked ? 'bg-cyan/10 border-cyan/40 text-zinc-100' : 'bg-zinc-800/40 border-zinc-700/40 text-zinc-300 hover:border-zinc-600/80 hover:bg-zinc-800/70'}`}>
+                    <label key={option.id} className={`flex items-start gap-3 rounded-lg px-4 py-3 cursor-pointer border transition-all ${
+                      checked
+                        ? 'bg-brand-tint border-brand-border text-text-primary'
+                        : 'bg-surface-muted border-border-default text-text-secondary hover:border-border-strong hover:bg-surface'
+                    }`}>
                       <input
                         type={selectionMode === 'single' ? 'radio' : 'checkbox'}
                         name="mcq-option"
@@ -574,7 +574,7 @@ export default function CandidateSectionRuntimePage() {
 
             {runtimeState?.contentType === 'free_text' ? (
               <textarea
-                className="w-full min-h-48 bg-zinc-950 border border-zinc-700 rounded-xl p-3 text-sm"
+                className="w-full min-h-48 bg-surface border border-border-default rounded-xl p-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand-border"
                 value={freeTextValue}
                 onChange={(event) => setFreeTextValue(event.target.value)}
               />
@@ -583,15 +583,15 @@ export default function CandidateSectionRuntimePage() {
             {runtimeState?.contentType === 'ranking' ? (
               <div className="space-y-3">
                 {rankingOptions.map((option, index) => (
-                  <div key={option.id} className="border border-zinc-800 rounded-xl p-3 flex items-center justify-between gap-4 bg-zinc-950/60">
+                  <div key={option.id} className="border border-border-default rounded-xl p-3 flex items-center justify-between gap-4 bg-surface">
                     <div className="text-sm">
-                      <div className="font-mono text-xs text-zinc-500">rank {index + 1}</div>
-                      <div>{option.text}</div>
+                      <div className="font-mono text-xs text-text-muted">rank {index + 1}</div>
+                      <div className="text-text-primary">{option.text}</div>
                     </div>
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        className="px-2 py-1 border border-zinc-700 rounded text-xs text-zinc-300"
+                        className="px-2 py-1 border border-border-default rounded text-xs text-text-secondary hover:text-text-primary hover:border-border-strong transition-colors disabled:opacity-40"
                         onClick={() => moveRankingOption(index, -1)}
                         disabled={index === 0}
                       >
@@ -599,7 +599,7 @@ export default function CandidateSectionRuntimePage() {
                       </button>
                       <button
                         type="button"
-                        className="px-2 py-1 border border-zinc-700 rounded text-xs text-zinc-300"
+                        className="px-2 py-1 border border-border-default rounded text-xs text-text-secondary hover:text-text-primary hover:border-border-strong transition-colors disabled:opacity-40"
                         onClick={() => moveRankingOption(index, 1)}
                         disabled={index === rankingOptions.length - 1}
                       >

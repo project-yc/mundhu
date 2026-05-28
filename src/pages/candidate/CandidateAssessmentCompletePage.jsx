@@ -40,9 +40,9 @@ export default function CandidateAssessmentCompletePage() {
     <CandidateCompletionScreen
       message="Your responses have been submitted successfully. The hiring team can continue reviewing your progress while grading finishes in the background."
       details={(
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-6 py-5 text-zinc-400 text-sm leading-relaxed text-left space-y-1">
-          <p>Assessment instance: <span className="text-zinc-200 font-mono">{completionState.assessmentInstanceId || instanceId}</span></p>
-          <p>Last section: <span className="text-zinc-200 font-mono">{completionState.sectionId || 'n/a'}</span></p>
+        <div className="bg-surface-muted border border-border-default rounded-xl px-6 py-5 text-text-muted text-sm leading-relaxed text-left space-y-1">
+          <p>Assessment instance: <span className="text-text-primary font-mono">{completionState.assessmentInstanceId || instanceId}</span></p>
+          <p>Last section: <span className="text-text-primary font-mono">{completionState.sectionId || 'n/a'}</span></p>
         </div>
       )}
     />

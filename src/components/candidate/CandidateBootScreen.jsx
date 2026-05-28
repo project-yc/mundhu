@@ -92,7 +92,10 @@ export function CandidateBootScreen() {
                       <Check className="w-3 h-3 text-[#4ade80]" strokeWidth={3} />
                     </div>
                   ) : isActive ? (
-                    <div className="w-5 h-5 rounded-full border-2 border-[#18d3ff] border-t-transparent animate-spin" />
+                    <div
+                      className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
+                      style={{ borderColor: 'var(--color-brand)', borderTopColor: 'transparent' }}
+                    />
                   ) : (
                     <div className="w-5 h-5 rounded-full border border-[#1a2f4a]" />
                   )}

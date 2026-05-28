@@ -52,6 +52,18 @@
   --color-info:           #0E7490;
   --color-info-bg:        #CFFAFE;
   --color-info-border:    #67E8F9;
+
+  /* ── Dark palette reference (not applied — keep for future dark-mode screens) ── */
+  --dark-page:            #0C0C0E;
+  --dark-surface:         #111113;
+  --dark-surface-raised:  #17171A;
+  --dark-surface-muted:   #1C1C20;
+  --dark-border:          #27272A;
+  --dark-border-subtle:   #1C1C20;
+  --dark-text-primary:    #FAFAFA;
+  --dark-text-secondary:  #A1A1AA;
+  --dark-text-muted:      #71717A;
+  --dark-text-faint:      #52525B;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -216,5 +228,15 @@
 ::selection {
   background: #BDE8F5;
   color: #0F2854;
+}
+
+/* ── Candidate section-list stagger ───────────────────────────────── */
+@keyframes candItemIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.cand-section-item {
+  animation: candItemIn 0.28s cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 

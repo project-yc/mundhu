@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  IconAlertCircle,
   IconBrain,
   IconChevronRight,
   IconClock,
@@ -20,10 +19,13 @@ import {
   saveCandidateRuntimeState,
 } from '../../api/candidate/runtime'
 import {
+  applyCandidateBranding,
+  saveCandidateBranding,
+} from '../../theme/CandidateThemeProvider.jsx'
+import {
   CandidateCenteredErrorState,
   CandidateCenteredLoadingState,
   CandidateErrorBanner,
-  CandidateFooter,
   CandidatePageShell,
   CandidatePrimaryButton,
 } from '../../components/candidate/CandidateSectionScaffold'
@@ -58,7 +60,13 @@ export default function AssessmentLandingPage() {
 
   useEffect(() => {
     getAssessmentOverview(token)
-      .then(setOverview)
+      .then((data) => {
+        if (data?.org_branding) {
+          saveCandidateBranding(data.org_branding)
+          applyCandidateBranding(data.org_branding)
+        }
+        setOverview(data)
+      })
       .catch((e) => setError(e.message || 'Failed to load assessment'))
       .finally(() => setLoading(false))
   }, [token])
@@ -117,16 +125,16 @@ export default function AssessmentLandingPage() {
     <CandidatePageShell>
 
       <div className="text-center space-y-2">
-        <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">
-          TruDev Assessment
+        <p className="text-brand-deep text-xs font-semibold uppercase tracking-widest">
+          Assessment
         </p>
-        <h1 className="text-zinc-50 text-2xl font-bold tracking-tight leading-tight mt-3">
+        <h1 className="text-text-primary text-2xl font-bold tracking-tight leading-tight">
           {overview.assessment_name}
         </h1>
         {overview.candidate_name && (
-          <p className="text-zinc-400 text-sm">
+          <p className="text-text-secondary text-sm">
             Good luck,{' '}
-            <span className="text-zinc-200 font-medium">{overview.candidate_name}</span>
+            <span className="text-text-primary font-medium">{overview.candidate_name}</span>
           </p>
         )}
       </div>
@@ -134,13 +142,13 @@ export default function AssessmentLandingPage() {
         {/* Meta pills */}
         <div className="flex flex-wrap items-center justify-center gap-2.5">
           {totalMins && (
-            <span className="inline-flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-800/80 border border-zinc-700/60 px-2.5 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary bg-surface-muted border border-border-default px-2.5 py-1 rounded-full">
               <IconClock size={12} />
               {totalMins} min total
             </span>
           )}
           {overview.ai_level && (
-            <span className="inline-flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-800/80 border border-zinc-700/60 px-2.5 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary bg-surface-muted border border-border-default px-2.5 py-1 rounded-full">
               <IconBrain size={12} />
               {AI_LEVEL_LABELS[overview.ai_level] || overview.ai_level}
             </span>
@@ -149,22 +157,26 @@ export default function AssessmentLandingPage() {
 
         {/* Section list */}
         {sections.length > 0 && (
-          <div className="border border-zinc-800 rounded-xl overflow-hidden">
-            <div className="px-4 py-2.5 bg-zinc-900/80 border-b border-zinc-800">
-              <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest">
+          <div className="border border-border-default rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 bg-surface-muted border-b border-border-default">
+              <p className="text-text-muted text-xs font-semibold uppercase tracking-widest">
                 {sections.length} {sections.length === 1 ? 'Section' : 'Sections'}
               </p>
             </div>
-            <ul className="bg-zinc-900/30 divide-y divide-zinc-800/60">
+            <ul className="bg-surface divide-y divide-border-default cand-section-list">
               {sections.map((sec, i) => {
                 const cfg = SECTION_CONFIG[sec.content_type] || SECTION_CONFIG.mcq
                 const Icon = cfg.Icon
                 return (
-                  <li key={sec.id} className="flex items-center gap-3 px-4 py-3">
-                    <span className="text-zinc-600 text-xs font-mono w-4 shrink-0 text-center">
+                  <li
+                    key={sec.id}
+                    className="flex items-center gap-3 px-4 py-3 cand-section-item"
+                    style={{ animationDelay: `${i * 55}ms` }}
+                  >
+                    <span className="text-text-faint text-xs font-mono w-4 shrink-0 text-center">
                       {i + 1}
                     </span>
-                    <span className="flex-1 text-zinc-200 text-sm font-medium truncate">
+                    <span className="flex-1 text-text-primary text-sm font-medium truncate">
                       {sec.name}
                     </span>
                     <div className="flex items-center gap-2 shrink-0">
@@ -175,7 +187,7 @@ export default function AssessmentLandingPage() {
                         {cfg.label}
                       </span>
                       {sec.timer_minutes && (
-                        <span className="text-zinc-500 text-xs flex items-center gap-1">
+                        <span className="text-text-muted text-xs flex items-center gap-1">
                           <IconClock size={10} />
                           {sec.timer_minutes}m
                         </span>
@@ -189,8 +201,8 @@ export default function AssessmentLandingPage() {
         )}
 
         {/* Instructions */}
-        <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-xl px-4 py-4 space-y-2.5">
-          <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wide">
+        <div className="bg-surface-muted border border-border-default rounded-xl px-4 py-4 space-y-2.5">
+          <p className="text-text-muted text-xs font-semibold uppercase tracking-wide">
             Before you begin
           </p>
           <ul className="space-y-2">
@@ -199,8 +211,8 @@ export default function AssessmentLandingPage() {
               'Each section is timed — you cannot pause once started',
               'Your answers are saved when you submit each section',
             ].map((tip) => (
-              <li key={tip} className="flex items-start gap-2.5 text-zinc-500 text-sm">
-                <span className="w-1 h-1 rounded-full bg-zinc-600 shrink-0 mt-2" />
+              <li key={tip} className="flex items-start gap-2.5 text-text-secondary text-sm">
+                <span className="w-1 h-1 rounded-full bg-text-muted shrink-0 mt-2" />
                 {tip}
               </li>
             ))}
@@ -211,7 +223,7 @@ export default function AssessmentLandingPage() {
 
       <CandidatePrimaryButton onClick={handleStart} disabled={starting}>
         {starting ? (
-          <div className="w-4 h-4 border-2 border-zinc-800/30 border-t-zinc-800 rounded-full animate-spin" />
+          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin opacity-60" />
         ) : (
           <>
             Begin Assessment
@@ -220,7 +232,6 @@ export default function AssessmentLandingPage() {
         )}
       </CandidatePrimaryButton>
 
-      <CandidateFooter />
     </CandidatePageShell>
   )
 }
