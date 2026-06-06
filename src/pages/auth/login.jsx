@@ -594,7 +594,7 @@ export default function LoginPage() {
                   Don't have a recruiter account?
                 </p>
                 <Link
-                  to="/recruiter/signup"
+                  to="/waitlist"
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
                     color: REC_ACCENT, border: `1px solid ${REC_ACCENT}40`,
