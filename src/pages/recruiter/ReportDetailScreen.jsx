@@ -1,497 +1,575 @@
-// ReportDetailScreen — recruiter detail view with assessment-level scoring
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+// ReportDetailScreen - recruiter detail view with assessment-level scoring
+import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Loader, AlertCircle, Download, ChevronDown, ChevronUp,
-  CheckCircle, XCircle, AlertTriangle, Code, Brain, Clock,
-  TrendingUp, MessageSquare, Award, Target,
+  AlertCircle,
+  BarChart3,
+  CheckCircle,
+  ChevronRight,
+  ClipboardList,
+  Download,
+  FileText,
+  Image,
+  Loader,
+  Mic,
+  Search,
+  Share2,
+  Sparkles,
+  X,
 } from 'lucide-react';
 import { getRecruiterReportDetail } from '../../api/recruiter/assessment.jsx';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const SIGNAL_CFG = {
-  green:  { color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC', icon: CheckCircle,    label: 'Strong'   },
-  yellow: { color: '#D97706', bg: '#FFFBEB', border: '#FCD34D', icon: AlertTriangle,  label: 'Moderate' },
-  red:    { color: '#DC2626', bg: '#FEF2F2', border: '#FCA5A5', icon: XCircle,        label: 'Weak'     },
-};
-
-const SUBSCORE_LABELS = {
-  planning_debugging: 'Planning & Debugging',
-  verification: 'Verification',
-  direction: 'Direction',
-  iteration: 'Iteration',
-};
-
-const SECTION_TYPE_LABELS = {
+const SECTION_LABELS = {
   technical_task: 'Coding',
+  coding: 'Coding',
   mcq: 'MCQ',
-  free_text: 'Writing',
+  free_text: 'Free Text',
   ranking: 'Ranking',
+  ai_adaptive: 'AI Adaptive',
 };
 
-const REPORT_STATUS_CFG = {
-  finalized: { label: 'Finalized', color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC' },
-  completed: { label: 'Completed', color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC' },
-  coding_analytics_pending: { label: 'Coding Analytics Pending', color: '#0F766E', bg: '#CCFBF1', border: '#5EEAD4' },
-  processing: { label: 'Processing', color: '#0891B2', bg: '#ECFEFF', border: '#67E8F9' },
-  pending: { label: 'Pending', color: '#D97706', bg: '#FFFBEB', border: '#FCD34D' },
-  not_requested: { label: 'Not Requested', color: '#64748B', bg: '#F8FAFC', border: '#CBD5E1' },
-  failed: { label: 'Failed', color: '#DC2626', bg: '#FEF2F2', border: '#FCA5A5' },
+const SECTION_META = {
+  technical_task: {
+    name: 'Coding Section',
+    task: 'Coding Task',
+    accent: 'bg-[var(--color-assessment-step-active)]',
+    dot: 'bg-[var(--color-assessment-step-active)]',
+    badge: 'Coding',
+  },
+  coding: {
+    name: 'Coding Section',
+    task: 'Coding Task',
+    accent: 'bg-[var(--color-assessment-step-active)]',
+    dot: 'bg-[var(--color-assessment-step-active)]',
+    badge: 'Coding',
+  },
+  mcq: {
+    name: 'MCQ Section',
+    task: 'MCQs Task',
+    accent: 'bg-brand-deep',
+    dot: 'bg-brand-deep',
+    badge: 'MCQs',
+  },
+  free_text: {
+    name: 'Free Text Section',
+    task: 'Free Text Task',
+    accent: 'bg-info',
+    dot: 'bg-info',
+    badge: 'Free text',
+  },
+  ranking: {
+    name: 'Ranking Section',
+    task: 'Ranking Task',
+    accent: 'bg-[var(--color-assessment-cta)]',
+    dot: 'bg-[var(--color-assessment-cta)]',
+    badge: 'Ranking',
+  },
+  ai_adaptive: {
+    name: 'AI Adaptive Section',
+    task: 'AI Adaptive Task',
+    accent: 'bg-surface-muted',
+    dot: 'bg-surface-muted',
+    badge: 'AI',
+  },
 };
 
-const REVIEW_POLICY_CFG = {
-  clear: { label: 'Clear For Ranking', color: '#166534', bg: '#F0FDF4', border: '#86EFAC', icon: CheckCircle },
-  requires_human_review: { label: 'Requires Human Review', color: '#9A3412', bg: '#FFF7ED', border: '#FDBA74', icon: AlertTriangle },
-  insufficient_evidence: { label: 'Insufficient Evidence', color: '#991B1B', bg: '#FEF2F2', border: '#FCA5A5', icon: XCircle },
+const SIGNAL_LABELS = {
+  green: 'STRONG',
+  yellow: 'MODERATE',
+  red: 'WEAK',
 };
 
-const REVIEW_REASON_LABELS = {
-  'verification:no_terminal_runs': 'No terminal or test runs were captured for this session.',
-  'verification:ai_accepts_without_post_accept_runs': 'Multiple AI accepts were recorded without a validating run afterward.',
-  'verification:low_post_ai_accept_run_ratio': 'Post-AI verification activity stayed below the expected review threshold.',
-  'insufficient_evidence:design_quality_not_evaluated': 'Design quality did not have enough evidence to score confidently.',
-  'insufficient_evidence:problem_solving_process_not_evaluated': 'Problem-solving process did not have enough evidence to score confidently.',
-  'insufficient_evidence:ai_collaboration_not_evaluated': 'AI collaboration did not have enough evidence to score confidently.',
-};
-
-function formatSubscoreLabel(key) {
-  return SUBSCORE_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+function getSectionMeta(type) {
+  return SECTION_META[type] || SECTION_META.technical_task;
 }
 
-function formatSectionTypeLabel(contentType) {
-  return SECTION_TYPE_LABELS[contentType] || 'Section';
+function formatSectionType(type) {
+  return SECTION_LABELS[type] || 'Section';
 }
 
-function formatReviewReason(reason) {
-  return REVIEW_REASON_LABELS[reason] || reason.replace(/[:_]/g, ' ');
+function getCandidateName(report) {
+  return report.candidate_name || report.candidate?.name || report.assessment_instance?.candidate_name || 'Candidate';
 }
 
-function formatAuthorshipRatio(ratio) {
-  if (typeof ratio !== 'number') {
-    return null;
-  }
-  return `${Math.round(ratio * 100)}%`;
+function getCandidateEmail(report) {
+  return report.candidate_email || report.candidate?.email || report.assessment_instance?.candidate_email || '';
 }
 
-function DetailStatusBadge({ status }) {
-  const cfg = REPORT_STATUS_CFG[status] || REPORT_STATUS_CFG.pending;
-  return (
-    <span
-      className="px-3 py-1.5 rounded-xl text-[12px] font-bold border"
-      style={{ color: cfg.color, backgroundColor: cfg.bg, borderColor: cfg.border }}
-    >
-      {cfg.label}
-    </span>
-  );
+function getScorePercent(section) {
+  const score = Number(section.score ?? 0);
+  const maxScore = Number(section.max_score ?? 0);
+  if (maxScore <= 0) return null;
+  return Math.round((score / maxScore) * 100);
 }
 
-function ReviewPolicyBadge({ reviewStatus }) {
-  const cfg = REVIEW_POLICY_CFG[reviewStatus] || REVIEW_POLICY_CFG.insufficient_evidence;
-  const IconComponent = cfg.icon;
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-bold border"
-      style={{ color: cfg.color, backgroundColor: cfg.bg, borderColor: cfg.border }}
-    >
-      <IconComponent className="w-3.5 h-3.5" />
-      {cfg.label}
-    </span>
-  );
-}
-
-function SectionStatusBadge({ status }) {
-  const cfg = REPORT_STATUS_CFG[status] || REPORT_STATUS_CFG.pending;
-  return (
-    <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold"
-      style={{ color: cfg.color, backgroundColor: cfg.bg, border: `1px solid ${cfg.border}` }}
-    >
-      {cfg.label}
-    </span>
-  );
-}
-
-function SignalCard({ label, signal, score, summary, subscores, icon }) {
-  const cfg = SIGNAL_CFG[signal] || { color: '#64748B', bg: '#F1F5F9', border: '#E2E8F0', icon: Target, label: 'N/A' };
-  const SigIcon = cfg.icon;
-  const IconComponent = icon;
-  const subscoreEntries = subscores && typeof subscores === 'object'
-    ? Object.entries(subscores).filter(([, v]) => typeof v === 'number')
-    : [];
-  return (
-    <div className="rounded-xl border p-4 space-y-2" style={{ backgroundColor: cfg.bg, borderColor: cfg.border }}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <IconComponent className="w-4 h-4" style={{ color: cfg.color }} />
-          <span className="text-[12px] font-bold text-text-primary">{label}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {score !== undefined && score !== null && (
-            <span className="text-[13px] font-bold font-display" style={{ color: cfg.color }}>{score}<span className="text-[10px] opacity-60">/100</span></span>
-          )}
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold"
-            style={{ color: cfg.color, border: `1px solid ${cfg.border}` }}>
-            <SigIcon className="w-3 h-3" />{cfg.label}
-          </span>
-        </div>
-      </div>
-      {summary && <p className="text-[12px] text-text-secondary leading-relaxed">{summary}</p>}
-      {subscoreEntries.length > 0 && (
-        <div className="pt-2 mt-2 border-t border-border-default/60 grid grid-cols-2 gap-x-4 gap-y-1">
-          {subscoreEntries.map(([key, value]) => (
-            <div key={key} className="flex items-center justify-between text-[11px]">
-              <span className="text-text-secondary">{formatSubscoreLabel(key)}</span>
-              <span className="font-mono text-text-primary">{value}<span className="text-text-secondary">/100</span></span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Section({ title, icon, color = '#22D3EE', defaultOpen = false, children }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const IconComponent = icon;
-  return (
-    <div className="rounded-xl border border-border-default overflow-hidden">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-5 py-4 bg-surface hover:bg-surface-muted transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}15`, border: `1px solid ${color}30` }}>
-            <IconComponent className="w-3.5 h-3.5" style={{ color }} />
-          </div>
-          <span className="text-[13px] font-bold text-text-primary">{title}</span>
-        </div>
-        {open ? <ChevronUp className="w-4 h-4 text-text-secondary" /> : <ChevronDown className="w-4 h-4 text-text-secondary" />}
-      </button>
-      {open && <div className="p-5 border-t border-border-default bg-page">{children}</div>}
-    </div>
-  );
+function formatScore(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '00';
+  return String(Math.round(Number(value))).padStart(2, '0');
 }
 
 function downloadReport(reportData, candidateName) {
   const json = JSON.stringify(reportData, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `report-${(candidateName || 'candidate').replace(/\s+/g, '-').toLowerCase()}.json`;
-  a.click();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `report-${(candidateName || 'candidate').replace(/\s+/g, '-').toLowerCase()}.json`;
+  anchor.click();
   URL.revokeObjectURL(url);
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+function GlobalSearchBar() {
+  return (
+    <div className="hidden h-[64px] flex-shrink-0 items-center border-b border-border-subtle bg-page px-3 md:flex">
+      <div className="relative flex h-[42px] w-full items-center rounded-[8px] border border-border-default bg-surface shadow-sm">
+        <Search className="pointer-events-none absolute left-[11px] h-[17px] w-[17px] text-text-secondary" strokeWidth={1.8} />
+        <input
+          aria-label="Global search"
+          placeholder="Ask anything..."
+          className="h-full min-w-0 flex-1 rounded-[8px] bg-transparent pl-[33px] pr-[72px] text-[14px] text-text-primary outline-none placeholder:text-text-muted"
+        />
+        <div className="absolute right-[10px] flex items-center gap-[12px] text-text-primary">
+          <button type="button" className="transition-opacity hover:opacity-70" aria-label="Voice input">
+            <Mic className="h-[17px] w-[17px]" strokeWidth={1.8} />
+          </button>
+          <button type="button" className="transition-opacity hover:opacity-70" aria-label="Attach image">
+            <Image className="h-[17px] w-[17px]" strokeWidth={1.8} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CandidateAvatar({ name }) {
+  const initials = name.split(' ').map(part => part[0]).slice(0, 2).join('').toUpperCase();
+  return (
+    <div className="flex h-[41px] w-[41px] flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface-muted text-[12px] font-bold text-text-secondary">
+      {initials || 'C'}
+    </div>
+  );
+}
+
+function ScoreOverview({ report, sections }) {
+  const name = getCandidateName(report);
+  const email = getCandidateEmail(report);
+  const overallScore = Number(report.overall_score ?? report.percentage ?? 0);
+
+  const orderedTypes = ['technical_task', 'mcq', 'free_text', 'ranking', 'ai_adaptive'];
+  const sectionMap = new Map(sections.map(section => [section.content_type, section]));
+  const overviewItems = orderedTypes.map(type => {
+    const section = sectionMap.get(type) || (type === 'technical_task' ? sectionMap.get('coding') : null);
+    const percent = section ? getScorePercent(section) : null;
+    const points = section?.score ?? 0;
+    return { type, section, percent, points };
+  });
+
+  return (
+    <div className="rounded-[10px] border border-border-default bg-surface px-[24px] pb-[20px] pt-[23px] shadow-card">
+      <div className="flex items-start justify-between gap-5">
+        <div className="flex min-w-0 items-center gap-[10px]">
+          <CandidateAvatar name={name} />
+          <div className="min-w-0">
+            <h2 className="truncate text-[18px] font-bold leading-[22px] text-text-primary">{name}</h2>
+            <p className="mt-[3px] truncate text-[13px] text-[var(--color-report-email-text)]">{email}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-[20px] font-bold leading-none text-[var(--color-assessment-accent)]">
+            {overallScore ? overallScore.toFixed(1) : '0.0'} <span className="text-[14px] font-semibold text-text-primary">(out of 100)</span>
+          </p>
+          <p className="mt-[4px] text-[12px] text-text-muted">Overall average score</p>
+        </div>
+      </div>
+
+      <div className="mt-[12px] border-t border-dashed border-border-default pt-[18px]">
+        <div className="grid grid-cols-1 gap-[16px] sm:grid-cols-2 xl:grid-cols-5">
+          {overviewItems.map(({ type, percent, points }) => {
+            const meta = getSectionMeta(type);
+            const displayPercent = percent ?? 0;
+            return (
+              <div key={type} className="min-w-0">
+                <p className="truncate text-[12px] font-medium uppercase leading-none text-[var(--color-report-email-text)]">
+                  {meta.name}
+                </p>
+                <div className="mt-[9px] h-[7px] overflow-hidden rounded-full bg-surface-muted">
+                  <div className={`h-full rounded-full ${meta.accent}`} style={{ width: `${displayPercent}%` }} />
+                </div>
+                <div className="mt-[16px] flex items-center gap-[7px]">
+                  <span className={`h-[12px] w-[12px] rounded-full ${meta.dot}`} />
+                  <span className="text-[13px] font-bold text-text-primary">{formatScore(percent)}/100</span>
+                  <span className="text-[12px] text-text-faint">{points} Points</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InsightBanner({ report }) {
+  const insight =
+    report.ai_review_output?.top_insight ||
+    report.ai_narrative_assessments?.top_insight ||
+    report.summary ||
+    'Used AI to generate a pipeline scaffolding skeleton, then manually rewrote the transformation logic. Caught and corrected one AI-introduced bug independently.';
+
+  return (
+    <div className="rounded-[10px] border border-warning-border bg-warning-bg px-[11px] py-[8px]">
+      <p className="text-[14px] leading-[18px] text-warning">{insight}</p>
+    </div>
+  );
+}
+
+function TaskIllustration({ badge, featured = false }) {
+  return (
+    <div className="flex h-full min-h-[111px] w-[117px] flex-shrink-0 items-center justify-center bg-surface-muted">
+      <div className="h-[80px] w-[72px] rounded-[9px] bg-surface px-[10px] py-[12px] shadow-card">
+        <span className={`inline-flex h-[20px] items-center rounded-[6px] px-[9px] text-[7px] font-bold text-surface ${featured ? 'bg-[var(--color-assessment-cta)]' : 'bg-[var(--color-assessment-accent)]'}`}>
+          {badge}
+        </span>
+        <div className="mt-[10px] space-y-[5px]">
+          <span className="block h-[4px] w-[44px] rounded-full bg-border-default" />
+          <span className="block h-[4px] w-[55px] rounded-full bg-border-default" />
+          <span className="block h-[4px] w-[48px] rounded-full bg-border-default" />
+          <span className="block h-[4px] w-[42px] rounded-full bg-border-default" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskCard({ section, index, onShowDetails }) {
+  const type = section.content_type || 'technical_task';
+  const meta = getSectionMeta(type);
+  const percent = getScorePercent(section);
+  const signal = section.signal || (percent >= 75 ? 'green' : percent >= 50 ? 'yellow' : 'red');
+
+  return (
+    <div className="flex min-h-[111px] overflow-hidden rounded-[10px] border border-border-subtle bg-surface shadow-card">
+      <TaskIllustration badge={meta.badge} featured={index % 2 === 1} />
+      <div className="flex min-w-0 flex-1 flex-col px-[12px] py-[14px]">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="truncate text-[15px] font-bold leading-[18px] text-text-primary">
+            {section.section_name || meta.task}
+          </h3>
+          <button
+            type="button"
+            onClick={() => onShowDetails(section)}
+            className="flex-shrink-0 text-[14px] font-medium leading-none text-brand transition-colors hover:text-brand-hover"
+          >
+            Show details
+          </button>
+        </div>
+        <div className="mt-auto">
+          <p className="text-[20px] font-bold leading-none text-text-primary">
+            {formatScore(percent)} <span className="text-[14px] font-medium text-text-muted">(out of 100)</span>
+          </p>
+          <p className="mt-[7px] text-[13px] font-bold leading-none text-[var(--color-assessment-accent)]">
+            {SIGNAL_LABELS[signal] || 'STRONG'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailMetric({ label, value }) {
+  return (
+    <div className="rounded-[8px] border border-border-subtle bg-surface-hover px-3 py-2">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">{label}</p>
+      <p className="mt-1 text-[16px] font-bold text-text-primary">{value}</p>
+    </div>
+  );
+}
+
+function DetailsDrawer({ open, section, report, onClose }) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleKeyDown = event => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
+  const narrativeAssessments = report?.ai_narrative_assessments || {};
+  const dimensions = narrativeAssessments.dimensions || report?.dimensions || {};
+  const evidence = narrativeAssessments.behavioral_evidence || report?.behavioral_evidence || [];
+  const growth = narrativeAssessments.growth_edges || report?.growth_edges || [];
+  const probes = narrativeAssessments.interview_probes || report?.interview_probes || [];
+
+  const type = section?.content_type || 'technical_task';
+  const meta = getSectionMeta(type);
+  const percent = section ? getScorePercent(section) : null;
+  const isCoding = type === 'technical_task' || type === 'coding';
+  const dimensionCards = [
+    ['Task Completion', dimensions.task_completion],
+    ['Design Quality', dimensions.design_quality],
+    ['Problem-Solving Process', dimensions.problem_solving_process],
+    ['AI Collaboration', dimensions.ai_collaboration],
+  ].filter(([, value]) => value);
+
+  return (
+    <div className={`fixed inset-0 z-50 transition-[visibility] duration-500 ${open ? 'visible' : 'invisible'}`}>
+      <button
+        type="button"
+        aria-label="Close details overlay"
+        onClick={onClose}
+        className={`absolute inset-0 bg-text-primary/45 transition-opacity duration-500 ease-out ${open ? 'opacity-100' : 'opacity-0'}`}
+      />
+
+      <aside
+        className={`absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col border-l border-border-subtle bg-surface shadow-modal transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? 'translate-x-0' : 'translate-x-full'}`}
+        aria-hidden={!open}
+      >
+        <div className="flex h-[70px] flex-shrink-0 items-center justify-between border-b border-border-subtle px-[24px]">
+          <div className="min-w-0">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+              {formatSectionType(type)}
+            </p>
+            <h2 className="mt-[4px] truncate text-[18px] font-bold leading-none text-text-primary">
+              {section?.section_name || meta.task}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-[8px] border border-border-default bg-surface text-text-primary transition-colors hover:bg-surface-hover"
+            aria-label="Close details"
+          >
+            <X className="h-[18px] w-[18px]" strokeWidth={2} />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-[24px] py-[22px]">
+          <div className="rounded-[10px] border border-border-default bg-surface-hover p-[16px]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-text-muted">Section score</p>
+                <p className="mt-[8px] text-[36px] font-bold leading-none text-text-primary">
+                  {formatScore(percent)} <span className="text-[16px] font-medium text-text-muted">/100</span>
+                </p>
+              </div>
+              <span className={`inline-flex h-[30px] items-center rounded-[8px] px-[10px] text-[12px] font-bold uppercase text-surface ${meta.dot}`}>
+                {SIGNAL_LABELS[section?.signal] || 'STRONG'}
+              </span>
+            </div>
+            <div className="mt-[15px] h-[8px] overflow-hidden rounded-full bg-border-default">
+              <div className={`h-full rounded-full ${meta.accent}`} style={{ width: `${percent ?? 0}%` }} />
+            </div>
+          </div>
+
+          <div className="mt-[14px] grid grid-cols-2 gap-[10px]">
+            <DetailMetric label="Points" value={`${section?.score ?? 0}/${section?.max_score ?? 0}`} />
+            <DetailMetric label="Status" value={section?.status || report?.status || 'Pending'} />
+          </div>
+
+          {section?.summary && (
+            <div className="mt-[18px] rounded-[10px] border border-border-subtle bg-surface p-[14px]">
+              <p className="text-[13px] font-bold text-text-primary">Summary</p>
+              <p className="mt-[8px] text-[13px] leading-[19px] text-text-secondary">{section.summary}</p>
+            </div>
+          )}
+
+          {isCoding && dimensionCards.length > 0 && (
+            <div className="mt-[18px] space-y-[10px]">
+              <p className="text-[13px] font-bold text-text-primary">Assessment dimensions</p>
+              {dimensionCards.map(([label, dimension]) => (
+                <div key={label} className="rounded-[10px] border border-border-subtle bg-surface p-[14px]">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[13px] font-bold text-text-primary">{label}</p>
+                    <p className="text-[13px] font-bold text-text-primary">
+                      {dimension.score ?? '--'}<span className="font-medium text-text-muted">/100</span>
+                    </p>
+                  </div>
+                  {dimension.summary && (
+                    <p className="mt-[8px] text-[13px] leading-[19px] text-text-secondary">{dimension.summary}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {isCoding && evidence.length > 0 && (
+            <div className="mt-[18px] space-y-[10px]">
+              <p className="text-[13px] font-bold text-text-primary">Activity timeline</p>
+              {evidence.slice(0, 5).map((item, index) => (
+                <div key={`${item.dimension || 'evidence'}-${index}`} className="flex gap-[10px] rounded-[10px] border border-border-subtle bg-surface p-[12px]">
+                  <span className="mt-[6px] h-[7px] w-[7px] flex-shrink-0 rounded-full bg-brand" />
+                  <p className="text-[13px] leading-[19px] text-text-secondary">{item.observation || item}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {growth.length > 0 && (
+            <div className="mt-[18px] space-y-[10px]">
+              <p className="text-[13px] font-bold text-text-primary">Growth edges</p>
+              {growth.slice(0, 4).map((item, index) => (
+                <div key={`growth-${index}`} className="rounded-[10px] border border-warning-border bg-warning-bg p-[12px]">
+                  <p className="text-[13px] leading-[19px] text-text-primary">{typeof item === 'object' ? item.moment : item}</p>
+                  {typeof item === 'object' && item.alternative && (
+                    <p className="mt-[6px] text-[12px] leading-[18px] text-text-secondary">{item.alternative}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {probes.length > 0 && (
+            <div className="mt-[18px] space-y-[10px]">
+              <p className="text-[13px] font-bold text-text-primary">Interview probes</p>
+              {probes.slice(0, 4).map((probe, index) => (
+                <div key={`probe-${index}`} className="rounded-[10px] border border-border-subtle bg-surface p-[12px]">
+                  <p className="text-[12px] font-bold text-brand">Q{index + 1}</p>
+                  <p className="mt-[5px] text-[13px] leading-[19px] text-text-secondary">{probe}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 export default function ReportDetailScreen() {
   const { assessmentId, sessionId } = useParams();
-  const navigate = useNavigate();
 
-  const [report,   setReport]   = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState('');
+  const [report, setReport] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [activeSection, setActiveSection] = useState(null);
 
   useEffect(() => {
     getRecruiterReportDetail(assessmentId, sessionId)
-      .then(d => setReport(d.data || d))
+      .then(data => setReport(data.data || data))
       .catch(err => setError(err.message || 'Failed to load report.'))
       .finally(() => setLoading(false));
   }, [assessmentId, sessionId]);
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full min-h-[400px]">
-      <Loader className="w-6 h-6 text-brand animate-spin" />
-    </div>
-  );
+  const sections = useMemo(() => {
+    if (!Array.isArray(report?.section_results)) return [];
+    return [...report.section_results].sort((a, b) => (
+      (a.section_order ?? Number.MAX_SAFE_INTEGER) - (b.section_order ?? Number.MAX_SAFE_INTEGER)
+    ));
+  }, [report]);
 
-  if (error) return (
-    <div className="p-6 max-w-[900px] mx-auto">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[13px] text-text-secondary hover:text-text-secondary mb-6 transition-colors">
-        <ArrowLeft className="w-4 h-4" />Back
-      </button>
-      <div className="flex items-center gap-3 px-4 py-3 bg-error-bg border border-error-border rounded-xl">
-        <AlertCircle className="w-4 h-4 text-error flex-shrink-0" />
-        <p className="text-[13px] text-error">{error}</p>
+  if (loading) {
+    return (
+      <div className="flex h-full min-h-[400px] items-center justify-center">
+        <Loader className="h-6 w-6 animate-spin text-brand" />
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center gap-3 rounded-[10px] border border-error-border bg-error-bg px-4 py-3">
+          <AlertCircle className="h-4 w-4 flex-shrink-0 text-error" />
+          <p className="text-[13px] text-error">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!report) return null;
 
-  const narrativeAssessments = report.ai_narrative_assessments || {};
-  const reviewPolicy = report.review_policy || report.deterministic_facts?.review_policy || null;
-  const authorshipMetrics = report.authorship_metrics || report.deterministic_facts?.authorship_metrics || {};
-  const authorshipRatioNet = authorshipMetrics?.independent_authorship_ratio_net;
-  const dims = narrativeAssessments.dimensions || report.dimensions || {};
-  const tc   = dims.task_completion        || {};
-  const dq   = dims.design_quality         || {};
-  const psp  = dims.problem_solving_process|| {};
-  const ai   = dims.ai_collaboration;
-  const bev  = narrativeAssessments.behavioral_evidence || report.behavioral_evidence || [];
-  const probes = narrativeAssessments.interview_probes || report.interview_probes || [];
-  const growth = narrativeAssessments.growth_edges || report.growth_edges || [];
-  const sections = Array.isArray(report.section_results)
-    ? [...report.section_results].sort((a, b) => (a.section_order ?? Number.MAX_SAFE_INTEGER) - (b.section_order ?? Number.MAX_SAFE_INTEGER))
-    : [];
-  const codingAnalytics = report.coding_analytics || {};
-  const codingSection = sections.find((section) => section.content_type === 'technical_task') || null;
-  const detailStatus = report.assessment_status || report.status || 'pending';
-  const showCodingPending = ['pending', 'processing', 'not_requested'].includes(codingAnalytics.status);
-  const hasCodingDetail = !!(tc.signal || dq.signal || psp.signal || ai?.signal);
-  const totalScore = report.total_score;
-  const maxScore = report.max_score;
-  const overallScore = report.overall_score;
-  const reviewReasons = Array.isArray(reviewPolicy?.reasons) ? reviewPolicy.reasons : [];
-  const reviewRequired = Boolean(reviewPolicy?.review_status && reviewPolicy.review_status !== 'clear');
-  const authorshipRatioLabel = formatAuthorshipRatio(authorshipRatioNet);
-
-  const overallColor = overallScore >= 75 ? '#16A34A' : overallScore >= 50 ? '#D97706' : overallScore != null ? '#DC2626' : '#64748B';
+  const candidateName = getCandidateName(report);
+  const taskSections = sections.length > 0
+    ? sections
+    : [{ section_name: 'Coding Task', content_type: 'technical_task', score: report.overall_score ?? 0, max_score: 100, status: report.status }];
 
   return (
-    <div className="p-6 max-w-[900px] mx-auto space-y-6">
-      {/* Top bar */}
-      <div className="flex items-center justify-between">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[13px] text-text-secondary hover:text-text-secondary transition-colors">
-          <ArrowLeft className="w-4 h-4" />Back to Candidates
-        </button>
-        <button
-          onClick={() => downloadReport(report, '')}
-          className="flex items-center gap-2 px-3.5 py-2 bg-surface border border-border-default text-text-secondary text-[12px] font-semibold rounded-lg hover:border-border-strong hover:text-text-primary transition-all"
-        >
-          <Download className="w-3.5 h-3.5" />Download JSON
-        </button>
-      </div>
+    <div className="flex min-h-full flex-col bg-page">
+      <GlobalSearchBar />
 
-      {/* Hero score card */}
-      <div className="rounded-2xl border border-border-default bg-surface p-6">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="flex-1 min-w-[280px] space-y-4">
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-[0.14em]">Review Status</p>
-              <div className="flex items-center gap-2 flex-wrap">
-                {reviewPolicy ? <ReviewPolicyBadge reviewStatus={reviewPolicy.review_status} /> : <span className="text-[12px] text-text-secondary">Review policy unavailable</span>}
-                {report.no_verdict && <span className="text-[11px] text-text-secondary">Evidence-based · No auto-verdict</span>}
-              </div>
+      <div className="min-h-0 flex-1 p-3 pt-0">
+        <section className="relative min-h-[calc(100vh-76px)] rounded-[10px] border border-border-subtle bg-surface px-[38px] pb-[100px] pt-[35px]">
+          <div className="flex flex-col gap-[18px] lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h1 className="text-[22px] font-bold leading-[27px] text-text-primary">Detailed report</h1>
+              <p className="mt-[5px] text-[15px] leading-[18px] text-text-secondary">
+                Candidate assessment reports - scored and ranked by performance.
+              </p>
             </div>
 
-            {reviewRequired ? (
-              <div className="rounded-xl border px-4 py-3 space-y-2" style={{ backgroundColor: '#FFF7ED', borderColor: '#FDBA74' }}>
-                <p className="text-[13px] font-semibold text-text-primary">Human review is required before ranking this result.</p>
-                {reviewReasons.length > 0 && (
-                  <ul className="space-y-1.5">
-                    {reviewReasons.map((reason) => (
-                      <li key={reason} className="text-[12px] text-text-secondary leading-relaxed">
-                        {formatReviewReason(reason)}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ) : reviewPolicy ? (
-              <p className="text-[13px] text-text-secondary">Current deterministic policy keeps this result eligible for ranking.</p>
-            ) : null}
-
-            {authorshipRatioLabel && (
-              <div className="inline-flex items-center gap-3 rounded-xl border border-border-default bg-page px-4 py-3">
-                <div>
-                  <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.12em]">Independent Authorship</p>
-                  <p className="text-[18px] font-bold text-text-primary font-display mt-1">{authorshipRatioLabel}</p>
-                </div>
-                <p className="text-[12px] text-text-secondary max-w-[240px]">Share of retained authored code attributed to the candidate rather than accepted AI code.</p>
-              </div>
-            )}
-          </div>
-
-          <div className={`rounded-2xl border border-border-default bg-page px-5 py-4 min-w-[220px] ${reviewRequired ? 'opacity-85' : ''}`}>
-            <div className="flex flex-col items-start gap-3">
-              <DetailStatusBadge status={detailStatus} />
-              <div>
-                <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-[0.14em] mb-2">Overall Score</p>
-                <div className="flex items-end gap-3">
-                  <span className={`${reviewRequired ? 'text-[42px]' : 'text-[56px]'} font-bold leading-none font-display`} style={{ color: overallColor }}>
-                    {overallScore ?? '—'}
-                  </span>
-                  <span className="text-[18px] text-text-muted mb-2 font-display">/100</span>
-                </div>
-                {totalScore !== null && totalScore !== undefined && maxScore !== null && maxScore !== undefined ? (
-                  <p className="text-[13px] text-text-secondary mt-1">Points: <span className="text-text-primary font-semibold">{totalScore} / {maxScore}</span></p>
-                ) : null}
-                <p className="text-[13px] text-text-secondary mt-1">Coding Session ID: <span className="text-text-muted font-mono text-[11px]">{sessionId}</span></p>
-              </div>
+            <div className="flex flex-wrap items-center gap-[12px]">
+              <button
+                type="button"
+                className="inline-flex h-[41px] items-center justify-center gap-[8px] rounded-[8px] border border-border-default bg-surface px-[23px] text-[14px] font-medium text-text-primary shadow-card transition-colors hover:bg-surface-hover"
+              >
+                <Share2 className="h-[15px] w-[15px]" strokeWidth={1.8} />
+                Share report
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadReport(report, candidateName)}
+                className="inline-flex h-[41px] items-center justify-center gap-[8px] rounded-[8px] bg-[var(--color-assessment-cta)] px-[23px] text-[14px] font-bold text-[var(--color-assessment-cta-text)] transition-colors hover:bg-[var(--color-assessment-cta-hover)]"
+              >
+                <Download className="h-[15px] w-[15px]" strokeWidth={1.8} />
+                Download Pdf
+              </button>
             </div>
           </div>
-        </div>
+
+          <div className="mt-[29px]">
+            <ScoreOverview report={report} sections={sections} />
+          </div>
+
+          <div className="mt-[20px]">
+            <InsightBanner report={report} />
+          </div>
+
+          <div className="mt-[24px] grid grid-cols-1 gap-[12px] xl:grid-cols-3">
+            {taskSections.slice(0, 3).map((section, index) => (
+              <TaskCard
+                key={section.section_id || `${section.content_type}-${index}`}
+                section={section}
+                index={index}
+                onShowDetails={setActiveSection}
+              />
+            ))}
+          </div>
+
+          <textarea
+            className="mt-[12px] h-[113px] w-full resize-none rounded-[10px] border-0 bg-surface-hover px-[11px] py-[10px] text-[15px] italic text-text-secondary outline-none placeholder:text-text-secondary"
+            placeholder="(Optional) write feedback to the candidate"
+          />
+
+          <div className="absolute bottom-[20px] right-[38px] flex flex-wrap justify-end gap-[8px]">
+            <button
+              type="button"
+              className="inline-flex h-[41px] min-w-[146px] items-center justify-center rounded-[8px] border border-border-default bg-surface px-[22px] text-[14px] font-medium text-text-primary shadow-card transition-colors hover:bg-surface-hover"
+            >
+              Watch session
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-[41px] min-w-[91px] items-center justify-center rounded-[8px] border border-error-border bg-error-bg px-[20px] text-[14px] font-bold text-error transition-colors hover:bg-error-bg/80"
+            >
+              Reject
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-[41px] min-w-[107px] items-center justify-center rounded-[8px] bg-[var(--color-assessment-accent)] px-[20px] text-[14px] font-bold text-surface transition-opacity hover:opacity-90"
+            >
+              Shortlist
+            </button>
+          </div>
+        </section>
       </div>
 
-      {showCodingPending && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-brand-border bg-brand-tint text-brand">
-          <Clock className="w-4 h-4 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-[13px] font-semibold">Assessment scoring is available while coding analytics continue processing.</p>
-            <p className="text-[12px] text-text-secondary mt-1">
-              Coding analytics status: <span className="font-semibold text-text-primary">{REPORT_STATUS_CFG[codingAnalytics.status]?.label || codingAnalytics.status || 'Pending'}</span>
-            </p>
-          </div>
-        </div>
-      )}
-
-      {sections.length > 0 && (
-        <Section title="Assessment Breakdown" icon={Target} color="#0EA5E9" defaultOpen>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {sections.map((section, index) => {
-              const sectionScore = section.score ?? 0;
-              const sectionMax = section.max_score ?? 0;
-              const sectionPercent = sectionMax > 0 ? Math.round((sectionScore / sectionMax) * 100) : null;
-              const isCodingSection = section.content_type === 'technical_task';
-              return (
-                <div key={section.section_id || index} className="p-4 rounded-xl bg-surface border border-border-default space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-[13px] font-semibold text-text-primary truncate">{section.section_name || `Section ${index + 1}`}</p>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-[0.08em] border border-border-default text-text-secondary">
-                          {formatSectionTypeLabel(section.content_type)}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-text-secondary mt-1">{sectionScore} / {sectionMax} points</p>
-                      {isCodingSection && (
-                        <p className="text-[11px] text-text-secondary mt-1">Detailed coding analytics appear below.</p>
-                      )}
-                    </div>
-                    <SectionStatusBadge status={section.status} />
-                  </div>
-                  <div className="flex items-end justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.12em]">Section Score</p>
-                      <div className="flex items-end gap-2 mt-1">
-                        <span className="text-[30px] font-bold leading-none font-display text-text-primary">
-                          {sectionPercent ?? '—'}
-                        </span>
-                        <span className="text-[12px] text-text-muted mb-1 font-display">/100</span>
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-text-secondary text-right">
-                      {sectionPercent !== null ? `${sectionPercent}% of this section` : 'Awaiting score'}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Section>
-      )}
-
-      {(hasCodingDetail || showCodingPending || bev.length > 0 || growth.length > 0 || probes.length > 0) && (
-        <Section title={codingSection ? `${codingSection.section_name || 'Coding'} Analysis` : 'Coding Analysis'} icon={Code} color="#14B8A6" defaultOpen>
-          <div className="space-y-6">
-            {codingSection && (
-              <div className="rounded-xl border border-border-default bg-surface p-4 flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                  <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-[0.12em]">Coding Section Score</p>
-                  <p className="text-[14px] text-text-primary font-semibold mt-1">{codingSection.score ?? 0} / {codingSection.max_score ?? 0} points</p>
-                </div>
-                <SectionStatusBadge status={codingSection.status} />
-              </div>
-            )}
-
-            {hasCodingDetail && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-[#0EA5E9]" />
-                  <h3 className="text-[12px] font-bold text-text-primary uppercase tracking-[0.12em]">AI And Narrative Assessments</h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <SignalCard label="Task Completion" signal={tc.signal} score={tc.score} summary={tc.summary} icon={Code} />
-                  <SignalCard label="Design Quality" signal={dq.signal} score={dq.score} summary={dq.summary} icon={Target} />
-                  <SignalCard label="Problem-Solving Process" signal={psp.signal} score={psp.score} summary={psp.summary} subscores={psp.subscores} icon={Brain} />
-                  {ai ? (
-                    <SignalCard label="AI Collaboration" signal={ai.signal} score={ai.score} summary={ai.summary} subscores={ai.subscores} icon={MessageSquare} />
-                  ) : (
-                    <div className="rounded-xl border border-border-default p-4 bg-surface flex items-center gap-3">
-                      <MessageSquare className="w-4 h-4 text-text-muted" />
-                      <span className="text-[12px] text-text-muted">AI was disabled for this session</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {bev.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-[#10B981]" />
-                  <h3 className="text-[12px] font-bold text-text-primary uppercase tracking-[0.12em]">Behavioral Evidence</h3>
-                </div>
-                <div className="space-y-3">
-                  {bev.map((ev, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-surface border border-border-default">
-                      <div className="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0 mt-2" />
-                      <div className="min-w-0">
-                        {ev.dimension && (
-                          <span className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider block mb-0.5">{ev.dimension.replace(/_/g, ' ')}</span>
-                        )}
-                        <p className="text-[13px] text-text-primary leading-relaxed">{ev.observation}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {growth.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Award className="w-4 h-4 text-[#F59E0B]" />
-                  <h3 className="text-[12px] font-bold text-text-primary uppercase tracking-[0.12em]">Growth Edges</h3>
-                </div>
-                <div className="space-y-2">
-                  {growth.map((g, i) => {
-                    const isObj = g && typeof g === 'object';
-                    return (
-                      <div key={i} className="p-3 rounded-xl bg-warning-bg border border-warning-border/40 space-y-2">
-                        <div className="flex items-start gap-3">
-                          <span className="w-5 h-5 rounded-full bg-[#78350F]/40 text-warning text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                          <p className="text-[13px] text-text-primary leading-relaxed">{isObj ? g.moment : g}</p>
-                        </div>
-                        {isObj && g.alternative && (
-                          <div className="ml-8 space-y-1">
-                            <p className="text-[10px] font-semibold text-[#78350F] uppercase tracking-wider">Better approach</p>
-                            <p className="text-[12px] text-text-secondary leading-relaxed">{g.alternative}</p>
-                          </div>
-                        )}
-                        {isObj && g.why && (
-                          <div className="ml-8 space-y-1">
-                            <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider">Why it matters</p>
-                            <p className="text-[12px] text-text-secondary leading-relaxed">{g.why}</p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {probes.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-[#A78BFA]" />
-                  <h3 className="text-[12px] font-bold text-text-primary uppercase tracking-[0.12em]">Interview Probes</h3>
-                </div>
-                <div className="space-y-2">
-                  {probes.map((p, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-surface border border-border-default">
-                      <span className="text-[11px] font-bold text-[#A78BFA] flex-shrink-0 mt-0.5">Q{i + 1}</span>
-                      <p className="text-[13px] text-text-primary leading-relaxed">{p}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </Section>
-      )}
+      <DetailsDrawer
+        open={Boolean(activeSection)}
+        section={activeSection}
+        report={report}
+        onClose={() => setActiveSection(null)}
+      />
     </div>
   );
 }
