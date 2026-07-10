@@ -309,8 +309,17 @@ export async function unlockRankingQuestion(id) {
 /**
  * GET /api/v1/recruiter/library/tasks
  */
-export async function getLibraryTasks() {
-  const res = await authFetch('/api/v1/recruiter/library/tasks');
+export async function getLibraryTasks(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.difficulty) params.set('difficulty', filters.difficulty);
+  if (filters.seniority) params.set('seniority', filters.seniority);
+  if (filters.domain) params.set('domain', filters.domain);
+  if (filters.language) params.set('language', filters.language);
+  if (filters.search) params.set('search', filters.search);
+  if (filters.tag) params.set('tag', filters.tag);
+  if (filters.assessment_id) params.set('assessment_id', filters.assessment_id);
+  const qs = params.toString();
+  const res = await authFetch(`/api/v1/recruiter/library/tasks${qs ? `?${qs}` : ''}`);
   return handleResponse(res);
 }
 
