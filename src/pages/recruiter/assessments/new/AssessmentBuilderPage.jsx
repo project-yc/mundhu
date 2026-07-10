@@ -1,69 +1,11 @@
 import { useNavigate } from 'react-router-dom';
+import { Image, Mic, Search } from 'lucide-react';
 import { AssessmentBuilderProvider } from './context/AssessmentBuilderContext';
 import { useAssessmentBuilder } from './context/AssessmentBuilderContext';
 import { AssessmentDetailsStep } from './steps/AssessmentDetailsStep';
 import { AssessmentBuilderStep } from './steps/AssessmentBuilderStep';
 import { AssessmentReviewStep } from './steps/AssessmentReviewStep';
-
-const STEPS = [
-  { number: 1, label: 'Details' },
-  { number: 2, label: 'Build' },
-  { number: 3, label: 'Review' },
-];
-
-function StepperBar({ currentStep, onCancel }) {
-  return (
-    <div className="flex-shrink-0 h-14 flex items-center justify-between px-6 bg-surface border-b border-border-default">
-      {/* Step indicators */}
-      <div className="flex items-center gap-1">
-        {STEPS.map((step, idx) => {
-          const isPast = currentStep > step.number;
-          const isActive = currentStep === step.number;
-          const isFuture = currentStep < step.number;
-          return (
-            <div key={step.number} className="flex items-center gap-1">
-              <div className="flex items-center gap-2">
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
-                    isActive
-                      ? 'bg-brand text-on-brand'
-                      : isPast
-                      ? 'bg-success text-white'
-                      : 'bg-surface-muted text-text-muted border border-border-default'
-                  }`}
-                >
-                  {isPast ? (
-                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                      <path d="M1 4l2.5 2.5L9 1.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  ) : (
-                    step.number
-                  )}
-                </div>
-                <span className={`text-[13px] font-semibold ${
-                  isActive ? 'text-text-primary' : isFuture ? 'text-text-muted' : 'text-text-secondary'
-                }`}>
-                  {step.label}
-                </span>
-              </div>
-              {idx < STEPS.length - 1 && (
-                <div className={`w-8 h-px mx-1 ${isPast ? 'bg-success' : 'bg-border-default'}`} />
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Cancel */}
-      <button
-        onClick={onCancel}
-        className="text-[13px] font-semibold text-text-secondary hover:text-text-primary hover:bg-surface-muted px-3 py-1.5 rounded-lg transition-colors"
-      >
-        Cancel
-      </button>
-    </div>
-  );
-}
+import { Input } from '../../../../components/ui/input';
 
 function BuilderLayout() {
   const { state } = useAssessmentBuilder();
@@ -72,17 +14,38 @@ function BuilderLayout() {
   const handleCancel = () => navigate('/recruiter/assessments');
 
   return (
-    <div className="h-full flex flex-col">
-      <StepperBar currentStep={state.currentStep} onCancel={handleCancel} />
-      {state.currentStep === 1 && (
-        <AssessmentDetailsStep onCancel={handleCancel} />
-      )}
-      {state.currentStep === 2 && (
-        <AssessmentBuilderStep />
-      )}
-      {state.currentStep === 3 && (
-        <AssessmentReviewStep />
-      )}
+    <div className="flex h-full min-h-0 flex-col bg-page">
+      <div className="hidden h-[64px] flex-shrink-0 items-center border-b border-border-subtle bg-page px-3 md:flex">
+        <div className="relative flex h-[42px] w-full items-center rounded-[8px] border border-border-default bg-surface shadow-sm">
+          <Search className="pointer-events-none absolute left-[11px] h-[17px] w-[17px] text-text-secondary" strokeWidth={1.8} />
+          <Input
+            aria-label="Global search"
+            placeholder="Ask anything..."
+            className="h-full border-0 bg-transparent pl-[33px] pr-[72px] shadow-none focus-visible:ring-0"
+          />
+          <div className="absolute right-[10px] flex items-center gap-[12px] text-text-primary">
+            <button type="button" className="transition-opacity hover:opacity-70" aria-label="Voice input">
+              <Mic className="h-[17px] w-[17px]" strokeWidth={1.8} />
+            </button>
+            <button type="button" className="transition-opacity hover:opacity-70" aria-label="Attach image">
+              <Image className="h-[17px] w-[17px]" strokeWidth={1.8} />
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 p-3 pt-0 md:pt-0">
+        <div className="h-full min-h-0 overflow-hidden rounded-[10px] border border-border-subtle bg-surface">
+          {state.currentStep === 1 && (
+            <AssessmentDetailsStep onCancel={handleCancel} />
+          )}
+          {state.currentStep === 2 && (
+            <AssessmentBuilderStep />
+          )}
+          {state.currentStep === 3 && (
+            <AssessmentReviewStep />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
