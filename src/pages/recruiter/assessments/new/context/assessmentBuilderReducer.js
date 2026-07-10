@@ -104,7 +104,7 @@ export function assessmentBuilderReducer(state, action) {
 
     case ACTIONS.ADD_SECTION: {
       const newSection = {
-        id: crypto.randomUUID(),
+        id: action.payload.id ?? crypto.randomUUID(),
         backendId: null,
         name: action.payload.name,
         type: action.payload.type,
@@ -114,11 +114,11 @@ export function assessmentBuilderReducer(state, action) {
         items: [],
       };
       // If it's a non-coding section, seed with one blank question
-      let items = [];
-      if (action.payload.type === 'mcq') items = [makeMcqQuestion()];
-      else if (action.payload.type === 'free_text') items = [makeFreeTextQuestion()];
-      else if (action.payload.type === 'ranking') items = [makeRankingQuestion()];
-      else if (action.payload.type === 'coding') items = [makeCodingItem()];
+      let items = action.payload.items ?? [];
+      if (items.length === 0 && action.payload.type === 'mcq') items = [makeMcqQuestion()];
+      else if (items.length === 0 && action.payload.type === 'free_text') items = [makeFreeTextQuestion()];
+      else if (items.length === 0 && action.payload.type === 'ranking') items = [makeRankingQuestion()];
+      else if (items.length === 0 && action.payload.type === 'coding') items = [makeCodingItem()];
 
       newSection.items = items;
       const firstQuestion = items[0] ?? null;
