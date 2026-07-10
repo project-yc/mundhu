@@ -32,6 +32,7 @@ export default {
           border:     'var(--color-brand-border)',
         },
         'on-brand': 'var(--color-on-brand)',
+        'assessment-allocation': 'var(--color-assessment-allocation)',
         success: {
           DEFAULT: 'var(--color-success)',
           bg:      'var(--color-success-bg)',
@@ -135,7 +136,7 @@ export default {
       animation: {
         fadeIn:       'fadeIn 0.2s ease-out',
         slideUp:      'slideUp 0.2s ease-out',
-        slideInRight: 'slideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
+        slideInRight: 'slideInRight 0.38s cubic-bezier(0.16, 1, 0.3, 1)',
         slideInUp:    'slideInUp 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
         spin:         'spin 1s linear infinite',
         rowIn:        'rowIn 0.18s ease-out both',
