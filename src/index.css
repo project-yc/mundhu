@@ -52,6 +52,12 @@
   --color-info:           #0E7490;
   --color-info-bg:        #CFFAFE;
   --color-info-border:    #67E8F9;
+  --color-assessment-allocation: #FF7A1A;
+  --color-report-metric-start: #6678EF;
+  --color-report-metric-end: #32B5C2;
+  --color-report-metric-icon-bg: #90A6F8;
+  --color-report-metric-icon-text: #6F82F4;
+  --color-report-email-text: #9AA9BD;
 
   /* ── Dark palette reference (not applied — keep for future dark-mode screens) ── */
   --dark-page:            #0C0C0E;
