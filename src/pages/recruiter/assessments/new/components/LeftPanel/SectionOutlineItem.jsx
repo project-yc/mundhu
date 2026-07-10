@@ -1,18 +1,39 @@
-import { IconChevronRight, IconClock, IconPlus } from '@tabler/icons-react';
+import { ChevronDown, Menu, Plus } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { SECTION_TYPE_CONFIG } from '../../constants/sectionTypeConfig';
 import { useAssessmentBuilder } from '../../context/AssessmentBuilderContext';
 import { makeMcqQuestion, makeFreeTextQuestion, makeRankingQuestion } from '../../context/assessmentBuilderReducer';
+import mcqIcon from '../../../../../../assets/recruiter/icons/mcq.svg';
+import rankingIcon from '../../../../../../assets/recruiter/icons/ranking.svg';
+import freeTextIcon from '../../../../../../assets/recruiter/icons/free_text.svg';
+import codingIcon from '../../../../../../assets/recruiter/icons/coding.svg';
 import { QuestionOutlineItem } from './QuestionOutlineItem';
 
-/**
- * A single section row in the left panel outline, with collapsible question list.
- * Implements dnd-kit sortable handle.
- */
+const TYPE_ICON = {
+  mcq: mcqIcon,
+  ranking: rankingIcon,
+  free_text: freeTextIcon,
+  coding: codingIcon,
+};
+
+function getPointValue(item) {
+  if (Number.isFinite(Number(item.points))) return Number(item.points);
+  return item.type === 'coding' ? 5 : 0;
+}
+
+function pluralize(count, singular) {
+  return `${count} ${singular}${count === 1 ? '' : 's'}`;
+}
+
 export function SectionOutlineItem({ section, activeQuestion }) {
   const { dispatch, ACTIONS } = useAssessmentBuilder();
   const cfg = SECTION_TYPE_CONFIG[section.type] || SECTION_TYPE_CONFIG.mcq;
+  const icon = TYPE_ICON[section.type] || TYPE_ICON.mcq;
+  const items = section.items || [];
+  const questionCount = items.length;
+  const totalPoints = items.reduce((sum, item) => sum + getPointValue(item), 0);
+  const timerMinutes = section.timer_minutes ?? cfg.defaultTimerMinutes;
 
   const {
     attributes,
@@ -26,28 +47,30 @@ export function SectionOutlineItem({ section, activeQuestion }) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.56 : 1,
   };
 
-  const handleToggle = () => {
+  const handleToggle = (event) => {
+    event.stopPropagation();
     dispatch({ type: ACTIONS.TOGGLE_SECTION_EXPANDED, payload: { sectionId: section.id } });
   };
 
   const handleSectionClick = () => {
-    if (!section.expanded) {
-      dispatch({ type: ACTIONS.TOGGLE_SECTION_EXPANDED, payload: { sectionId: section.id } });
-    }
-    // Select first question if any
-    const firstItem = section.items[0];
-    if (firstItem) {
-      dispatch({ type: ACTIONS.SET_ACTIVE, payload: { sectionId: section.id, questionId: firstItem.id } });
-    } else {
-      dispatch({ type: ACTIONS.SET_ACTIVE, payload: { sectionId: section.id, questionId: null } });
-    }
+    const firstItem = items[0];
+    dispatch({
+      type: ACTIONS.SET_ACTIVE,
+      payload: { sectionId: section.id, questionId: firstItem?.id ?? null },
+    });
   };
 
-  const handleAddQuestion = (e) => {
-    e.stopPropagation();
+  const handleSectionKeyDown = (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    handleSectionClick();
+  };
+
+  const handleAddQuestion = (event) => {
+    event.stopPropagation();
     let newQuestion;
     if (section.type === 'mcq') {
       newQuestion = makeMcqQuestion();
@@ -56,80 +79,82 @@ export function SectionOutlineItem({ section, activeQuestion }) {
     } else if (section.type === 'ranking') {
       newQuestion = makeRankingQuestion();
     } else {
-      return; // coding sections can't add more questions
+      return;
     }
     dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: section.id, question: newQuestion } });
   };
 
   return (
     <div ref={setNodeRef} style={style} className="select-none">
-      {/* Section header row */}
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={handleSectionClick}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-surface-muted transition-colors group"
+        onKeyDown={handleSectionKeyDown}
+        className="grid w-full grid-cols-[26px_minmax(0,1fr)_48px] items-start gap-[8px] text-left"
       >
-        {/* Drag handle */}
-        <span
-          {...attributes}
-          {...listeners}
-          onClick={e => e.stopPropagation()}
-          className="cursor-grab active:cursor-grabbing text-text-muted hover:text-text-secondary p-0.5 -ml-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
-            <circle cx="3" cy="3" r="1.5" /><circle cx="7" cy="3" r="1.5" />
-            <circle cx="3" cy="7" r="1.5" /><circle cx="7" cy="7" r="1.5" />
-            <circle cx="3" cy="11" r="1.5" /><circle cx="7" cy="11" r="1.5" />
-          </svg>
-        </span>
+        <img src={icon} alt="" className="mt-[1px] h-[26px] w-[26px] flex-shrink-0" />
 
-        {/* Chevron */}
-        <span
-          onClick={e => { e.stopPropagation(); handleToggle(); }}
-          className="text-text-muted"
-        >
-          <IconChevronRight
-            size={13}
-            className={`transition-transform duration-150 ${section.expanded ? 'rotate-90' : ''}`}
-          />
-        </span>
-
-        {/* Colored dot */}
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot}`} />
-
-        {/* Section name */}
-        <span className="flex-1 text-[12px] font-semibold text-text-primary truncate text-left min-w-0">
-          {section.name}
-        </span>
-
-        {/* Timer */}
-        {section.timer_minutes && (
-          <span className="flex items-center gap-0.5 text-[11px] text-text-muted flex-shrink-0">
-            <IconClock size={11} />
-            {section.timer_minutes}m
+        <span className="block min-w-0 pt-[1px]">
+          <span className="block truncate text-[14px] font-bold leading-[17px] text-text-primary">
+            {section.name || cfg.label}
           </span>
-        )}
-      </button>
+          <span className="mt-[2px] block truncate text-[12px] font-medium leading-[15px] text-text-faint">
+            {pluralize(questionCount, 'question')} | {totalPoints} points | {timerMinutes} min
+          </span>
+        </span>
 
-      {/* Expanded question list */}
-      {section.expanded && (
-        <div className="ml-6 space-y-0.5 mb-1">
-          {section.items.map((item, idx) => (
-            <QuestionOutlineItem
-              key={item.id}
-              sectionId={section.id}
-              item={item}
-              index={idx}
-              isActive={activeQuestion === item.id}
+        <span className="flex items-center justify-end gap-[9px] pt-[5px] text-[var(--color-assessment-step-active)]">
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={section.expanded ? 'Collapse section' : 'Expand section'}
+            onClick={handleToggle}
+            onKeyDown={event => {
+              if (event.key === 'Enter' || event.key === ' ') handleToggle(event);
+            }}
+            className="rounded-button transition-opacity hover:opacity-70"
+          >
+            <ChevronDown
+              className={`h-[16px] w-[16px] transition-transform ${section.expanded ? '' : '-rotate-90'}`}
+              strokeWidth={2.2}
             />
-          ))}
-          {/* Add question button (not for coding sections) */}
+          </span>
+          <span
+            {...attributes}
+            {...listeners}
+            role="button"
+            tabIndex={0}
+            aria-label="Reorder section"
+            onClick={event => event.stopPropagation()}
+            className="cursor-grab rounded-button transition-opacity hover:opacity-70 active:cursor-grabbing"
+          >
+            <Menu className="h-[16px] w-[16px]" strokeWidth={2.2} />
+          </span>
+        </span>
+      </div>
+
+      {section.expanded && (
+        <div className="ml-[34px] mt-[10px] border-l border-border-subtle pl-[9px]">
+          <div className="space-y-[10px]">
+            {items.map((item, index) => (
+              <QuestionOutlineItem
+                key={item.id}
+                sectionId={section.id}
+                item={item}
+                index={index}
+                isActive={activeQuestion === item.id}
+              />
+            ))}
+          </div>
           {section.type !== 'coding' && (
             <button
+              type="button"
               onClick={handleAddQuestion}
-              className="flex items-center gap-1.5 w-full px-3 py-1.5 text-[11px] text-text-muted hover:text-brand hover:bg-brand-tint-light rounded-lg transition-colors"
+              className="mt-[14px] flex h-[30px] items-center gap-[6px] rounded-button border border-brand px-[10px] text-[12px] font-medium leading-none text-brand transition-colors hover:bg-brand-tint-light"
             >
-              <IconPlus size={11} />
-              Add question
+              <Plus className="h-[13px] w-[13px]" strokeWidth={2} />
+              Add another question
             </button>
           )}
         </div>
