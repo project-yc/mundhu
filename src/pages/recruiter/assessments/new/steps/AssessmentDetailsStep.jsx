@@ -1,35 +1,113 @@
 import { useState } from 'react';
-import { IconArrowRight } from '@tabler/icons-react';
+import { ChevronDown, FileText } from 'lucide-react';
+import assessmentCard from '../../../../../assets/recruiter/images/assessmentCard.png';
 import { useAssessmentBuilder } from '../context/AssessmentBuilderContext';
 import { createAssessment } from '../api/assessmentBuilderApi';
 
-const DURATION_PRESETS = [30, 45, 60, 90, 120];
-const SENIORITY_OPTIONS = ['Junior', 'Mid-level', 'Senior', 'Lead', 'Staff'];
+const DURATION_OPTIONS = [30, 45, 60, 90, 120];
+const DEFAULT_DURATION = 45;
+const SENIORITY_OPTIONS = ['Junior Level', 'Mid Level', 'Senior Level', 'Lead Level', 'Staff Level'];
+const DEFAULT_SENIORITY = 'Junior Level';
+
+function StepProgress({ currentStep }) {
+  const steps = [
+    { number: 1, label: 'Add details' },
+    { number: 2, label: 'Build Assessment' },
+    { number: 3, label: 'Review' },
+  ];
+
+  return (
+    <div className="flex items-center h-[34px]">
+      {steps.map((step, idx) => {
+        const isActive = currentStep === step.number;
+        const isPast = currentStep > step.number;
+        const isFuture = currentStep < step.number;
+
+        return (
+          <div key={step.number} className="flex items-center">
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-[34px] h-[34px] rounded-full flex items-center justify-center text-[15px] leading-none font-medium ${
+                  isActive || isPast
+                    ? 'bg-[var(--color-assessment-step-active)] text-surface shadow-card'
+                    : 'bg-surface text-text-muted border border-border-strong'
+                }`}
+              >
+                {step.number}
+              </div>
+              <span
+                className={`text-[16px] leading-none font-semibold ${
+                  isActive ? 'text-text-primary' : isFuture ? 'text-text-muted' : 'text-text-secondary'
+                }`}
+              >
+                {step.label}
+              </span>
+            </div>
+            {idx < steps.length - 1 && (
+              <div className="relative w-[56px] h-px mx-[12px] bg-border-strong">
+                <span className="absolute right-0 top-1/2 h-[6px] w-[6px] -translate-y-1/2 rotate-45 border-r border-t border-border-strong" />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Field({ label, children, className = '' }) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="block text-[15px] leading-none font-semibold text-text-primary mb-[10px]">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function TextInput({ value, onChange, placeholder }) {
+  return (
+    <div className="relative">
+      <FileText className="absolute left-[14px] top-1/2 -translate-y-1/2 w-[17px] h-[17px] text-text-muted pointer-events-none" strokeWidth={1.8} />
+      <input
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="w-full h-[44px] pl-[42px] pr-4 bg-surface border border-border-strong rounded-[8px] text-[15px] leading-[44px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
+      />
+    </div>
+  );
+}
+
+function SelectInput({ value, onChange, children }) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={onChange}
+        className="w-full h-[44px] appearance-none px-4 pr-10 bg-surface border border-border-strong rounded-[8px] text-[15px] leading-[44px] text-text-primary focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
+      >
+        {children}
+      </select>
+      <ChevronDown className="absolute right-[14px] top-1/2 -translate-y-1/2 w-[17px] h-[17px] text-text-muted pointer-events-none" strokeWidth={1.8} />
+    </div>
+  );
+}
 
 export function AssessmentDetailsStep({ onCancel }) {
   const { state, dispatch, ACTIONS } = useAssessmentBuilder();
-  const [customDuration, setCustomDuration] = useState('');
-  const [useCustom, setUseCustom] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [savedAsDraft, setSavedAsDraft] = useState(false);
 
-  const selectedDuration = state.duration_minutes;
+  const durationValue = state.duration_minutes ?? DEFAULT_DURATION;
+  const seniorityValue = state.seniority || DEFAULT_SENIORITY;
 
-  const handleDurationPreset = (val) => {
-    setUseCustom(false);
-    dispatch({ type: ACTIONS.SET_DETAILS, payload: { duration_minutes: val } });
-  };
-
-  const handleCustom = () => {
-    setUseCustom(true);
-    dispatch({ type: ACTIONS.SET_DETAILS, payload: { duration_minutes: customDuration ? Number(customDuration) : null } });
-  };
-
-  const handleCustomInput = (val) => {
-    setCustomDuration(val);
-    if (useCustom) {
-      dispatch({ type: ACTIONS.SET_DETAILS, payload: { duration_minutes: val ? Number(val) : null } });
-    }
+  const handleSaveDraft = () => {
+    localStorage.setItem(
+      'assessmentBuilderDraft',
+      JSON.stringify({ ...state, duration_minutes: durationValue, seniority: seniorityValue }),
+    );
+    setSavedAsDraft(true);
   };
 
   const handleContinue = async () => {
@@ -40,10 +118,20 @@ export function AssessmentDetailsStep({ onCancel }) {
       const res = await createAssessment({
         name: state.name,
         description: state.description,
-        duration_minutes: state.duration_minutes,
-        config_json: { role: state.role || '', seniority: state.seniority || '' },
+        duration_minutes: durationValue,
+        config_json: {
+          role: state.role || '',
+          seniority: seniorityValue,
+        },
       });
-      dispatch({ type: ACTIONS.SET_DETAILS, payload: { backendId: res.id || res.data?.id } });
+      dispatch({
+        type: ACTIONS.SET_DETAILS,
+        payload: {
+          backendId: res.id || res.data?.id,
+          duration_minutes: durationValue,
+          seniority: seniorityValue,
+        },
+      });
       dispatch({ type: ACTIONS.SET_STEP, payload: 2 });
     } catch (err) {
       setError(err.message || 'Failed to create assessment.');
@@ -53,144 +141,114 @@ export function AssessmentDetailsStep({ onCancel }) {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto py-12 px-6">
-      <div className="max-w-[640px] mx-auto space-y-6">
-        <div>
-          <h2 className="text-[20px] font-bold text-text-primary mb-1">Assessment details</h2>
-          <p className="text-[13px] text-text-secondary">This information is shown to candidates before they begin.</p>
-        </div>
-
-        {/* Name */}
-        <div>
-          <label className="block text-[11px] font-bold uppercase tracking-widest text-text-secondary mb-1.5">
-            Assessment name <span className="text-error normal-case font-normal">*</span>
-          </label>
-          <input
-            value={state.name}
-            onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { name: e.target.value } })}
-            placeholder="e.g. Senior Backend Engineer"
-            className="w-full px-3.5 py-2.5 bg-page border border-border-default rounded-lg text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
+    <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[390px_minmax(0,1fr)] bg-surface overflow-hidden">
+      <aside className="hidden lg:flex flex-col border-r border-border-subtle bg-surface">
+        <div className="px-[36px] pt-[46px]">
+          <h1 className="text-[24px] leading-[29px] font-bold text-text-primary tracking-normal">
+            Build assessments
+            <span className="block text-[var(--color-assessment-accent)]">that truly evaluate.</span>
+          </h1>
+          <p className="mt-[22px] max-w-[300px] text-[15px] leading-[22px] text-text-secondary">
+            Create structured assessments with the right mix of question types or leverage AI to adapt in real-time.
+          </p>
+          <img
+            src={assessmentCard}
+            alt=""
+            className="mt-[46px] w-[585px] max-w-full select-none"
+            draggable={false}
           />
         </div>
 
-        {/* Description */}
-        <div>
-          <label className="block text-[11px] font-bold uppercase tracking-widest text-text-secondary mb-1.5">
-            Description
-          </label>
-          <textarea
-            value={state.description}
-            onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { description: e.target.value } })}
-            placeholder="Brief description shown to candidates…"
-            rows={3}
-            className="w-full px-3.5 py-2.5 bg-page border border-border-default rounded-lg text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 resize-none transition-all"
-          />
-        </div>
+      </aside>
 
-        {/* Duration */}
-        <div>
-          <label className="block text-[11px] font-bold uppercase tracking-widest text-text-secondary mb-2">
-            Duration cap
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {DURATION_PRESETS.map(val => (
-              <button
-                key={val}
-                onClick={() => handleDurationPreset(val)}
-                className={`px-4 py-2 rounded-lg border text-[13px] font-semibold transition-all ${
-                  !useCustom && selectedDuration === val
-                    ? 'bg-brand border-brand text-on-brand'
-                    : 'bg-surface border-border-default text-text-secondary hover:border-brand hover:text-text-primary'
-                }`}
-              >
-                {val}m
-              </button>
-            ))}
-            <button
-              onClick={handleCustom}
-              className={`px-4 py-2 rounded-lg border text-[13px] font-semibold transition-all ${
-                useCustom
-                  ? 'bg-brand border-brand text-on-brand'
-                  : 'bg-surface border-border-default text-text-secondary hover:border-brand hover:text-text-primary'
-              }`}
-            >
-              Custom
-            </button>
-            {useCustom && (
-              <input
-                type="number"
-                min={1}
-                max={999}
-                value={customDuration}
-                onChange={e => handleCustomInput(e.target.value)}
-                placeholder="min"
-                autoFocus
-                className="w-20 px-3 py-2 bg-page border border-border-default rounded-lg text-[13px] text-text-primary focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20"
-              />
-            )}
-          </div>
-        </div>
+      <section className="min-w-0 overflow-y-auto">
+        <div className="pt-[42px] px-8 xl:pl-[44px] xl:pr-[54px] pb-10">
+          <StepProgress currentStep={state.currentStep} />
 
-        {/* Role */}
-        <div>
-          <label className="block text-[11px] font-bold uppercase tracking-widest text-text-secondary mb-1.5">
-            Role / Position
-          </label>
-          <input
-            value={state.role ?? ''}
-            onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { role: e.target.value } })}
-            placeholder="e.g. Backend Engineer, Data Scientist…"
-            className="w-full px-3.5 py-2.5 bg-page border border-border-default rounded-lg text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
-          />
-        </div>
+          <div className="mt-[54px] w-full max-w-[760px]">
+            <div>
+              <h2 className="text-[25px] leading-[31px] font-bold text-text-primary tracking-normal">Assessment details</h2>
+              <p className="mt-[6px] text-[16px] leading-[22px] text-text-secondary">
+                This information is shown to candidates before they begin.
+              </p>
+            </div>
 
-        {/* Seniority */}
-        <div>
-          <label className="block text-[11px] font-bold uppercase tracking-widest text-text-secondary mb-2">
-            Seniority level
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {SENIORITY_OPTIONS.map(level => {
-              const active = state.seniority === level;
-              return (
-                <button
-                  key={level}
-                  onClick={() => dispatch({ type: ACTIONS.SET_DETAILS, payload: { seniority: active ? '' : level } })}
-                  className={`px-4 py-2 rounded-lg border text-[13px] font-semibold transition-all ${
-                    active
-                      ? 'bg-brand border-brand text-on-brand'
-                      : 'bg-surface border-border-default text-text-secondary hover:border-brand hover:text-text-primary'
-                  }`}
+            <div className="mt-[34px] grid grid-cols-1 lg:grid-cols-2 gap-x-[18px] gap-y-[26px]">
+              <Field label="Assessment name">
+                <TextInput
+                  value={state.name}
+                  onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { name: e.target.value } })}
+                  placeholder="e.g. Backend Engineer"
+                />
+              </Field>
+
+              <Field label="Role/Position">
+                <TextInput
+                  value={state.role ?? ''}
+                  onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { role: e.target.value } })}
+                  placeholder="e.g. Backend Engineer"
+                />
+              </Field>
+
+              <Field label="Description" className="sm:col-span-2">
+                <textarea
+                  value={state.description}
+                  onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { description: e.target.value } })}
+                  placeholder="Descript your assessment here."
+                  rows={3}
+                  className="w-full h-[96px] px-4 py-[14px] bg-surface border border-border-strong rounded-[8px] text-[15px] leading-[22px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 resize-none transition-all"
+                />
+              </Field>
+
+              <Field label="Seniority Level">
+                <SelectInput
+                  value={seniorityValue}
+                  onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { seniority: e.target.value } })}
                 >
-                  {level}
-                </button>
-              );
-            })}
+                  {SENIORITY_OPTIONS.map(level => (
+                    <option key={level} value={level}>{level}</option>
+                  ))}
+                </SelectInput>
+              </Field>
+
+              <Field label="Duration cap">
+                <SelectInput
+                  value={durationValue}
+                  onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { duration_minutes: Number(e.target.value) } })}
+                >
+                  {DURATION_OPTIONS.map(minutes => (
+                    <option key={minutes} value={minutes}>{minutes}m</option>
+                  ))}
+                </SelectInput>
+              </Field>
+            </div>
+
+            {error && (
+              <p className="mt-[22px] text-[13px] leading-[18px] text-error bg-error-bg border border-error-border rounded-[8px] px-4 py-3">
+                {error}
+              </p>
+            )}
+
+            <div className="mt-[32px] flex items-center justify-end gap-[12px]">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="h-[44px] px-[28px] rounded-[8px] border border-border-default bg-surface text-[15px] leading-none font-medium text-text-primary shadow-card hover:bg-surface-hover transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleContinue}
+                disabled={!state.name.trim() || creating}
+                className="h-[44px] px-[30px] rounded-[8px] bg-[var(--color-assessment-cta)] hover:bg-[var(--color-assessment-cta-hover)] text-[var(--color-assessment-cta-text)] text-[15px] leading-none font-bold shadow-card transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {creating ? 'Creating...' : 'Continue'}
+              </button>
+            </div>
           </div>
         </div>
-
-        {error && (
-          <p className="text-[13px] text-error bg-error-bg border border-error/30 rounded-lg px-4 py-2.5">{error}</p>
-        )}
-
-        {/* Footer */}
-        <div className="flex items-center justify-between pt-2">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2.5 text-[13px] font-semibold text-text-secondary hover:text-text-primary hover:bg-surface-muted rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleContinue}
-            disabled={!state.name.trim() || creating}
-            className="flex items-center gap-2 px-5 py-2.5 bg-brand hover:bg-brand-hover text-on-brand text-[13px] font-bold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {creating ? 'Creating…' : 'Continue'}
-            {!creating && <IconArrowRight size={15} />}
-          </button>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }
