@@ -6,38 +6,9 @@ import { McqEditor } from '../components/editors/McqEditor';
 import { FreeTextEditor } from '../components/editors/FreeTextEditor';
 import { RankingEditor } from '../components/editors/RankingEditor';
 
-function EmptyState({ onAddSection }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-full text-center px-8">
-      <div className="w-14 h-14 rounded-2xl bg-surface-muted border border-border-default flex items-center justify-center mb-4">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-text-muted" stroke="currentColor" strokeWidth={1.5}>
-          <rect x="3" y="3" width="7" height="7" rx="1" />
-          <rect x="14" y="3" width="7" height="7" rx="1" />
-          <rect x="3" y="14" width="7" height="7" rx="1" />
-          <path d="M17.5 14v7M14 17.5h7" />
-        </svg>
-      </div>
-      <p className="text-[15px] font-bold text-text-primary mb-1">No sections yet</p>
-      <p className="text-[13px] text-text-secondary mb-5">
-        Add your first section to start building the assessment.
-      </p>
-      <button
-        onClick={onAddSection}
-        className="px-4 py-2.5 bg-brand hover:bg-brand-hover text-on-brand text-[13px] font-bold rounded-lg transition-colors"
-      >
-        + Add section
-      </button>
-    </div>
-  );
-}
-
 function RightPanel() {
-  const { state, dispatch, ACTIONS } = useAssessmentBuilder();
+  const { state } = useAssessmentBuilder();
   const { sections, activeSection, activeQuestion } = state;
-
-  const handleAddSection = () => {
-    dispatch({ type: ACTIONS.SET_ACTIVE, payload: { sectionId: '__add_section__', questionId: null } });
-  };
 
   // Show add-section panel
   if (activeSection === '__add_section__') {
@@ -51,8 +22,8 @@ function RightPanel() {
   // No sections
   if (sections.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <EmptyState onAddSection={handleAddSection} />
+      <div className="flex-1 overflow-y-auto">
+        <AddSectionPanel />
       </div>
     );
   }
