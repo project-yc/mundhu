@@ -1,31 +1,122 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconArrowLeft, IconRocket } from '@tabler/icons-react';
+import { Plus } from 'lucide-react';
 import { useAssessmentBuilder } from '../context/AssessmentBuilderContext';
 import { SECTION_TYPE_CONFIG, AI_LEVEL_LABELS } from '../constants/sectionTypeConfig';
 import { publishAssessmentFlow } from '../api/assessmentBuilderApi';
+import { LeftPanel } from '../components/LeftPanel/LeftPanel';
+import { Button } from '../../../../../components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../../../../components/ui/table';
 
-function SectionRow({ section }) {
-  const cfg = SECTION_TYPE_CONFIG[section.type] || SECTION_TYPE_CONFIG.mcq;
-  const totalCount = section.items.length;
+const REVIEW_STEPS = [
+  { number: 1, label: 'Add details' },
+  { number: 2, label: 'Build Assessment' },
+  { number: 3, label: 'Review' },
+];
 
+const TYPE_DOT_CLASS = {
+  mcq: 'bg-warning',
+  coding: 'bg-success',
+  free_text: 'bg-info',
+  ranking: 'bg-error',
+};
+
+function getPointValue(item) {
+  if (Number.isFinite(Number(item.points))) return Number(item.points);
+  return item.type === 'coding' ? 5 : 0;
+}
+
+function formatTwoDigit(value) {
+  return String(Math.max(Number(value) || 0, 0)).padStart(2, '0');
+}
+
+function ReviewStepper({ currentStep }) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-border-default last:border-0">
-      <div className="flex items-center gap-2.5">
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot}`} />
-        <span className="text-[13px] font-semibold text-text-primary">{section.name}</span>
-        <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-full ${cfg.badge}`}>
-          {cfg.label}
-        </span>
-        {section.timer_minutes && (
-          <span className="text-[11px] text-text-muted">{section.timer_minutes}m</span>
-        )}
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="text-[12px] font-semibold text-text-secondary">
-          {totalCount} question{totalCount !== 1 ? 's' : ''}
-        </span>
-      </div>
+    <div className="flex h-[34px] items-center overflow-x-auto">
+      {REVIEW_STEPS.map((step, index) => (
+        <div key={step.number} className="flex flex-shrink-0 items-center">
+          <div className="flex items-center gap-[8px]">
+            <span className="flex h-[32px] w-[32px] items-center justify-center rounded-full bg-[var(--color-assessment-step-active)] text-[14px] font-semibold leading-none text-surface shadow-card">
+              {step.number}
+            </span>
+            <span className="text-[14px] font-semibold leading-none text-text-primary">
+              {step.label}
+            </span>
+          </div>
+          {index < REVIEW_STEPS.length - 1 && (
+            <div className="relative mx-[12px] h-px w-[48px] bg-border-strong md:w-[58px]">
+              <span className="absolute right-0 top-1/2 h-[5px] w-[5px] -translate-y-1/2 rotate-45 border-r border-t border-border-strong" />
+            </div>
+          )}
+        </div>
+      ))}
+      <span className="sr-only">Current step {currentStep}</span>
+    </div>
+  );
+}
+
+function Metric({ value, label }) {
+  return (
+    <span className="inline-flex items-center gap-[5px] text-[12px] leading-none text-text-secondary">
+      <span className="rounded-[7px] bg-surface-muted px-[5px] py-[4px] text-[12px] font-bold text-text-primary">
+        {value}
+      </span>
+      {label}
+    </span>
+  );
+}
+
+function EmptyReviewTable() {
+  return (
+    <TableRow>
+      <TableCell colSpan={5} className="h-[92px] text-center text-text-muted">
+        No sections added yet.
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function ReviewTable({ rows }) {
+  return (
+    <div className="overflow-hidden rounded-[8px] border border-border-subtle bg-surface shadow-card">
+      <Table>
+        <TableHeader className="bg-surface-hover">
+          <TableRow className="hover:bg-surface-hover">
+            <TableHead className="w-[94px] pl-[12px]">Type</TableHead>
+            <TableHead>Section name</TableHead>
+            <TableHead className="w-[132px]">Total Questions</TableHead>
+            <TableHead className="w-[112px]">Total time</TableHead>
+            <TableHead className="w-[104px] pr-[16px]">Total points</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.length === 0 ? (
+            <EmptyReviewTable />
+          ) : (
+            rows.map(row => (
+              <TableRow key={row.id}>
+                <TableCell className="pl-[12px]">
+                  <span className="inline-flex items-center gap-[8px] font-medium text-text-secondary">
+                    <span className={`h-[8px] w-[8px] rounded-full ${row.dotClass}`} />
+                    {row.typeLabel}
+                  </span>
+                </TableCell>
+                <TableCell className="font-medium text-text-secondary">{row.name}</TableCell>
+                <TableCell className="font-medium text-text-secondary">{row.questionCount}</TableCell>
+                <TableCell className="font-medium text-text-secondary">{row.time}</TableCell>
+                <TableCell className="pr-[16px] font-semibold text-text-primary">{row.points}</TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -35,13 +126,41 @@ export function AssessmentReviewStep() {
   const navigate = useNavigate();
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState('');
+  const [draftSaved, setDraftSaved] = useState(false);
 
   const { sections, name, duration_minutes, ai_level } = state;
 
-  const totalQuestions = sections.reduce((acc, s) => acc + s.items.length, 0);
-  const totalPts = sections.reduce((acc, s) => s.items.reduce((a, i) => a + (i.points || 0), acc), 0);
+  const totalQuestions = sections.reduce((acc, section) => acc + section.items.length, 0);
+  const totalPts = sections.reduce(
+    (acc, section) => acc + section.items.reduce((sum, item) => sum + getPointValue(item), 0),
+    0,
+  );
 
-  const handleBack = () => dispatch({ type: ACTIONS.SET_STEP, payload: 2 });
+  const rows = useMemo(() => sections.map(section => {
+    const cfg = SECTION_TYPE_CONFIG[section.type] || SECTION_TYPE_CONFIG.mcq;
+    const points = section.items.reduce((sum, item) => sum + getPointValue(item), 0);
+    const minutes = Number(section.timer_minutes ?? cfg.defaultTimerMinutes ?? 0);
+
+    return {
+      id: section.id,
+      dotClass: TYPE_DOT_CLASS[section.type] || TYPE_DOT_CLASS.mcq,
+      typeLabel: cfg.label,
+      name: section.name || cfg.label,
+      questionCount: formatTwoDigit(section.items.length),
+      time: `${minutes}m`,
+      points: `${points} pts`,
+    };
+  }), [sections]);
+
+  const handleAddSection = () => {
+    dispatch({ type: ACTIONS.SET_STEP, payload: 2 });
+    dispatch({ type: ACTIONS.SET_ACTIVE, payload: { sectionId: '__add_section__', questionId: null } });
+  };
+
+  const handleSaveDraft = () => {
+    localStorage.setItem('assessmentBuilderDraft', JSON.stringify(state));
+    setDraftSaved(true);
+  };
 
   const handlePublish = async () => {
     setPublishing(true);
@@ -51,7 +170,7 @@ export function AssessmentReviewStep() {
       navigate(`/recruiter/assessments/${result.id || state.backendId}`);
     } catch (err) {
       if (err.message?.startsWith('MISSING_ENDPOINT')) {
-        setError(`Cannot publish yet — some backend endpoints are not implemented:\n${err.message.replace('MISSING_ENDPOINT: ', '')}`);
+        setError(`Cannot publish yet - some backend endpoints are not implemented:\n${err.message.replace('MISSING_ENDPOINT: ', '')}`);
       } else {
         setError(err.message || 'Failed to publish assessment.');
       }
@@ -61,61 +180,88 @@ export function AssessmentReviewStep() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto py-10 px-6">
-      <div className="max-w-[640px] mx-auto space-y-6">
-        <div>
-          <h2 className="text-[20px] font-bold text-text-primary mb-1">Review &amp; publish</h2>
-          <p className="text-[13px] text-text-secondary">Check everything looks right before sharing with candidates.</p>
-        </div>
+    <div className="flex h-full min-h-0 overflow-hidden">
+      <div className="hidden min-h-0 md:block">
+        <LeftPanel />
+      </div>
 
-        {/* Summary card */}
-        <div className="bg-surface border border-border-default rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-border-default">
-            <h3 className="text-[15px] font-bold text-text-primary truncate">{name || 'Untitled assessment'}</h3>
-            <div className="flex flex-wrap gap-3 mt-2 text-[12px] text-text-secondary">
-              {duration_minutes && <span>{duration_minutes}m cap</span>}
-              {ai_level && <span>AI: {AI_LEVEL_LABELS[ai_level] || ai_level}</span>}
-              <span>{sections.length} section{sections.length !== 1 ? 's' : ''}</span>
-              <span>{totalQuestions} question{totalQuestions !== 1 ? 's' : ''}</span>
-              {totalPts > 0 && <span>{totalPts} pts</span>}
+      <section className="relative flex min-w-0 flex-1 flex-col overflow-y-auto bg-surface">
+        <div className="mx-auto w-full max-w-[720px] px-[24px] pb-[112px] pt-[38px] lg:max-w-[760px] xl:max-w-[650px]">
+          <ReviewStepper currentStep={state.currentStep} />
+
+          <div className="mt-[38px]">
+            <h2 className="text-[20px] font-bold leading-[24px] text-text-primary">Review &amp; Publish</h2>
+            <p className="mt-[6px] text-[15px] leading-[20px] text-text-secondary">
+              Check everything looks right before sharing with candidates.
+            </p>
+          </div>
+
+          <div className="mt-[26px] flex min-h-[49px] items-center justify-between gap-[16px] rounded-[7px] bg-[var(--color-assessment-step-active)] px-[12px] py-[10px] text-surface">
+            <p className="min-w-0 text-[15px] font-medium leading-[20px]">
+              Consider including additional sections that delve deeper into the topic.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleAddSection}
+              className="h-[29px] flex-shrink-0 bg-surface px-[11px] text-[14px] font-semibold text-text-primary hover:bg-surface-muted"
+            >
+              <Plus className="h-[14px] w-[14px] md:hidden" />
+              Add section
+            </Button>
+          </div>
+
+          <div className="mt-[21px]">
+            <h3 className="text-[15px] font-semibold leading-none text-text-primary">
+              {name || 'Assessment name'}
+            </h3>
+            <div className="mt-[16px] flex flex-wrap gap-x-[18px] gap-y-[10px]">
+              <Metric value={formatTwoDigit(duration_minutes || 0)} label="Duration" />
+              <Metric value={formatTwoDigit(sections.length)} label="Sections" />
+              <Metric value={formatTwoDigit(totalQuestions)} label="Questions" />
+              <Metric value={formatTwoDigit(totalPts)} label="Points" />
+              {ai_level && <Metric value="AI" label={AI_LEVEL_LABELS[ai_level] || ai_level} />}
             </div>
           </div>
 
-          {/* Section rows */}
-          <div className="px-5">
-            {sections.length === 0 ? (
-              <p className="text-[13px] text-text-muted py-5 text-center">No sections added yet.</p>
-            ) : (
-              sections.map(section => <SectionRow key={section.id} section={section} />)
-            )}
+          <div className="mt-[17px]">
+            <ReviewTable rows={rows} />
           </div>
+
+          {draftSaved && (
+            <p className="mt-[14px] text-[13px] font-medium text-success">Draft saved locally.</p>
+          )}
+
+          {error && (
+            <div className="mt-[16px] rounded-[8px] border border-error-border bg-error-bg p-4">
+              <p className="whitespace-pre-line text-[13px] leading-[18px] text-error">{error}</p>
+            </div>
+          )}
         </div>
 
-        {error && (
-          <div className="p-4 bg-error-bg border border-error/30 rounded-xl">
-            <p className="text-[13px] text-error whitespace-pre-line">{error}</p>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="flex items-center justify-between pt-2">
-          <button
-            onClick={handleBack}
-            className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold text-text-secondary hover:text-text-primary hover:bg-surface-muted rounded-lg transition-colors"
+        <div className="sticky bottom-0 mt-auto flex justify-end gap-[8px] border-t border-border-subtle bg-surface/95 px-[28px] py-[30px] backdrop-blur-sm">
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            onClick={handleSaveDraft}
+            className="h-[41px] min-w-[136px] px-[24px] text-[14px] font-medium"
           >
-            <IconArrowLeft size={15} />
-            Back
-          </button>
-          <button
+            Save as draft
+          </Button>
+          <Button
+            type="button"
+            variant="cta"
+            size="lg"
             onClick={handlePublish}
             disabled={publishing || sections.length === 0}
-            className="flex items-center gap-2 px-5 py-2.5 bg-brand hover:bg-brand-hover text-on-brand text-[13px] font-bold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="h-[41px] min-w-[163px] px-[24px] text-[14px] font-bold"
           >
-            <IconRocket size={15} />
-            {publishing ? 'Publishing…' : 'Publish assessment'}
-          </button>
+            {publishing ? 'Publishing...' : 'Review & Publish'}
+          </Button>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
