@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -11,37 +11,59 @@ import {
   verticalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable';
-import { IconPlus, IconClock, IconCoin } from '@tabler/icons-react';
+import { ChevronsLeft, List, Pencil, Plus } from 'lucide-react';
 import { useAssessmentBuilder } from '../../context/AssessmentBuilderContext';
 import { SECTION_TYPE_CONFIG } from '../../constants/sectionTypeConfig';
 import { SectionOutlineItem } from './SectionOutlineItem';
 
+const ALLOCATION_SEGMENTS = 52;
+
+function SectionAllocation({ durationMinutes, sections }) {
+  const allocatedMinutes = sections.reduce((sum, section) => (
+    sum + Number(section.timer_minutes ?? SECTION_TYPE_CONFIG[section.type]?.defaultTimerMinutes ?? 0)
+  ), 0);
+  const totalMinutes = Math.max(Number(durationMinutes) || allocatedMinutes || 0, 0);
+  const remainingMinutes = Math.max(totalMinutes - allocatedMinutes, 0);
+  const filledSegments = totalMinutes > 0
+    ? Math.min(ALLOCATION_SEGMENTS, Math.round((allocatedMinutes / totalMinutes) * ALLOCATION_SEGMENTS))
+    : 0;
+
+  return (
+    <div className="mt-[14px] rounded-[8px] border border-border-default bg-surface px-[12px] pb-[10px] pt-[11px]">
+      <div className="flex items-end justify-between gap-3">
+        <p className="text-[12px] font-medium leading-none text-text-muted">
+          <span className="text-[20px] font-bold leading-none text-text-primary">
+            {String(remainingMinutes).padStart(2, '0')}
+          </span>{' '}
+          min left to allocate
+        </p>
+        <p className="text-[12px] font-medium leading-none text-text-muted">
+          Total time :{' '}
+          <span className="font-bold text-text-primary">{String(allocatedMinutes).padStart(2, '0')} min</span>
+        </p>
+      </div>
+      <div className="mt-[10px] grid h-[16px] grid-cols-[repeat(52,minmax(0,1fr))] gap-[2px]" aria-hidden="true">
+        {Array.from({ length: ALLOCATION_SEGMENTS }).map((_, index) => (
+          <span
+            key={index}
+            className={index < filledSegments ? 'bg-assessment-allocation' : 'bg-surface-muted'}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function LeftPanel() {
   const { state, dispatch, ACTIONS } = useAssessmentBuilder();
-  const { sections, name, duration_minutes, activeQuestion } = state;
-  const [savedAsDraft, setSavedAsDraft] = useState(false);
-
-  const handleSaveDraft = () => {
-    // Persists local builder state to localStorage so the user can navigate away
-    // and resume. Full server-side persistence happens in publishAssessmentFlow.
-    localStorage.setItem('assessmentBuilderDraft', JSON.stringify(state));
-    setSavedAsDraft(true);
-  };
+  const { sections, name, activeQuestion, duration_minutes } = state;
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  // Stats for footer
-  const stats = useMemo(() => {
-    let totalQ = 0, totalPts = 0, totalMin = 0;
-    sections.forEach(s => {
-      totalMin += s.timer_minutes || 0;
-      s.items.forEach(item => {
-        totalQ++;
-        totalPts += item.points || 0;
-      });
-    });
-    return { totalQ, totalPts, totalMin };
-  }, [sections]);
+  const sectionCountText = useMemo(() => {
+    if (sections.length === 0) return 'No sections added yet.';
+    return `${sections.length} section${sections.length !== 1 ? 's' : ''}`;
+  }, [sections.length]);
 
   function handleDragEnd(event) {
     const { active, over } = event;
@@ -59,73 +81,70 @@ export function LeftPanel() {
   };
 
   return (
-    <div className="w-[260px] flex-shrink-0 flex flex-col border-r border-border-default bg-surface overflow-hidden">
+    <div className="w-full flex-shrink-0 overflow-hidden border-r border-border-subtle bg-surface md:w-[409px]">
+      <div className="flex h-full min-w-0 flex-col overflow-hidden px-[18px] py-[18px]">
+        <div className="flex min-w-0 items-center gap-[10px] text-[14px] font-bold leading-none">
+          <span className="text-text-muted">Dashboard</span>
+          <span className="text-text-muted">/</span>
+          <span className="min-w-0 truncate text-text-primary">Create assessment</span>
+        </div>
 
-      {/* Header — pinned */}
-      <div className="px-4 pt-4 pb-3 border-b border-border-default flex-shrink-0">
-        <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-text-muted mb-1.5">Assessment</p>
-        <input
-          value={name}
-          onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { name: e.target.value } })}
-          className="w-full bg-transparent border-none outline-none text-[14px] font-semibold text-text-primary placeholder:text-text-muted"
-          placeholder="Untitled assessment"
-        />
-        {/* Meta pills */}
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {duration_minutes && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-surface-muted border border-border-default rounded-md text-[11px] text-text-secondary">
-              <IconClock size={10} />
-              {duration_minutes}m cap
-            </span>
+        <div className="mt-[22px] flex min-w-0 items-center border-b border-border-default pb-[11px]">
+          <div className="flex min-w-0 flex-1 items-center gap-[10px]">
+            <input
+              value={name}
+              onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { name: e.target.value } })}
+              className="min-w-0 flex-1 bg-transparent text-[14px] font-bold leading-none text-text-primary outline-none placeholder:text-text-primary"
+              placeholder="Assessment name"
+            />
+            <Pencil className="h-[15px] w-[15px] flex-shrink-0 text-[var(--color-assessment-step-active)]" strokeWidth={2.3} />
+          </div>
+
+          <div className="ml-[14px] flex flex-shrink-0 items-center gap-[13px] text-[var(--color-assessment-step-active)]">
+            <button type="button" className="transition-opacity hover:opacity-70" aria-label="List options">
+              <List className="h-[16px] w-[16px]" strokeWidth={2} />
+            </button>
+            <button type="button" className="transition-opacity hover:opacity-70" aria-label="Collapse builder panel">
+              <ChevronsLeft className="h-[16px] w-[16px]" strokeWidth={2} />
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-[20px] min-h-0 flex-1 overflow-y-auto pr-[2px]">
+          <p className="text-[11px] font-bold uppercase leading-none text-text-secondary">Section</p>
+          <SectionAllocation durationMinutes={duration_minutes} sections={sections} />
+          {sections.length === 0 ? (
+            <p className="mt-[20px] text-[14px] italic leading-none text-text-faint">
+              {sectionCountText}
+            </p>
+          ) : (
+            <div className="mt-[18px]">
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-[18px]">
+                    {sections.map(section => (
+                      <SectionOutlineItem
+                        key={section.id}
+                        section={section}
+                        activeQuestion={activeQuestion}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
           )}
         </div>
-      </div>
-
-      {/* Section list — scrollable */}
-      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
-            {sections.map(section => (
-              <SectionOutlineItem
-                key={section.id}
-                section={section}
-                activeQuestion={activeQuestion}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
-
-        {/* Add section */}
-        <button
-          onClick={handleAddSection}
-          className="flex items-center gap-2 w-full px-3 py-2 mt-1 text-[12px] font-semibold text-text-muted hover:text-brand hover:bg-brand-tint-light rounded-lg border border-dashed border-border-default hover:border-brand transition-all duration-150"
-        >
-          <IconPlus size={13} />
-          Add section
-        </button>
-      </div>
-
-      {/* Footer — pinned */}
-      <div className="px-4 py-3 border-t border-border-default flex-shrink-0">
-        <p className="text-[11px] text-text-muted leading-relaxed mb-3">
-          {stats.totalQ} question{stats.totalQ !== 1 ? 's' : ''} · {stats.totalPts} pts · {stats.totalMin} min across {sections.length} section{sections.length !== 1 ? 's' : ''}
-        </p>
-        <button
-          onClick={handleSaveDraft}
-          disabled={sections.length === 0}
-          className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-border-strong hover:bg-surface-muted text-text-primary text-[12px] font-bold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {savedAsDraft ? '✓ Draft saved' : 'Save as draft'}
-        </button>
-        {savedAsDraft && (
+        <div className="flex-shrink-0 pt-[16px]">
           <button
-            onClick={() => dispatch({ type: ACTIONS.SET_STEP, payload: 3 })}
-            className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hover text-on-brand text-[12px] font-bold rounded-lg transition-colors"
+            type="button"
+            onClick={handleAddSection}
+            className="flex h-[44px] w-full items-center justify-center gap-[8px] rounded-[8px] border border-dashed border-border-strong bg-surface text-[14px] font-bold text-text-primary transition-colors hover:bg-surface-hover"
           >
-            Review &amp; Publish
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            <Plus className="h-[17px] w-[17px]" strokeWidth={1.9} />
+            Add new section
           </button>
-        )}
+        </div>
       </div>
     </div>
   );
