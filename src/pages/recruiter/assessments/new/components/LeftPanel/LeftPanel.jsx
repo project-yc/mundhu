@@ -24,9 +24,10 @@ function SectionAllocation({ durationMinutes, sections }) {
   ), 0);
   const totalMinutes = Math.max(Number(durationMinutes) || allocatedMinutes || 0, 0);
   const remainingMinutes = Math.max(totalMinutes - allocatedMinutes, 0);
-  const filledSegments = totalMinutes > 0
-    ? Math.min(ALLOCATION_SEGMENTS, Math.round((allocatedMinutes / totalMinutes) * ALLOCATION_SEGMENTS))
-    : 0;
+  const availableRatio = totalMinutes > 0 ? remainingMinutes / totalMinutes : 0;
+  const filledSegments = sections.length === 0
+    ? ALLOCATION_SEGMENTS
+    : Math.max(0, Math.min(ALLOCATION_SEGMENTS, Math.round(availableRatio * ALLOCATION_SEGMENTS)));
 
   return (
     <div className="mt-[14px] rounded-[8px] border border-border-default bg-surface px-[12px] pb-[10px] pt-[11px]">
@@ -42,7 +43,11 @@ function SectionAllocation({ durationMinutes, sections }) {
           <span className="font-bold text-text-primary">{String(allocatedMinutes).padStart(2, '0')} min</span>
         </p>
       </div>
-      <div className="mt-[10px] grid h-[16px] grid-cols-[repeat(52,minmax(0,1fr))] gap-[2px]" aria-hidden="true">
+      <div
+        className="mt-[10px] grid h-[16px] gap-[2px]"
+        style={{ gridTemplateColumns: `repeat(${ALLOCATION_SEGMENTS}, minmax(0, 1fr))` }}
+        aria-hidden="true"
+      >
         {Array.from({ length: ALLOCATION_SEGMENTS }).map((_, index) => (
           <span
             key={index}

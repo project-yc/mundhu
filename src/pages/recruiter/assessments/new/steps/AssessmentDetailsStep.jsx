@@ -17,7 +17,7 @@ function StepProgress({ currentStep }) {
   ];
 
   return (
-    <div className="flex items-center h-[34px]">
+    <div className="flex items-center h-[30px]">
       {steps.map((step, idx) => {
         const isActive = currentStep === step.number;
         const isPast = currentStep > step.number;
@@ -27,16 +27,16 @@ function StepProgress({ currentStep }) {
           <div key={step.number} className="flex items-center">
             <div className="flex items-center gap-2">
               <div
-                className={`w-[34px] h-[34px] rounded-full flex items-center justify-center text-[15px] leading-none font-medium ${
+                className={`w-[30px] h-[30px] rounded-full flex items-center justify-center text-[13px] leading-none font-medium ${
                   isActive || isPast
-                    ? 'bg-[var(--color-assessment-step-active)] text-surface shadow-card'
+                    ? 'bg-[var(--color-assessment-accent)]  text-surface shadow-card'
                     : 'bg-surface text-text-muted border border-border-strong'
                 }`}
               >
                 {step.number}
               </div>
               <span
-                className={`text-[16px] leading-none font-semibold ${
+                className={`text-[14px] leading-none font-semibold ${
                   isActive ? 'text-text-primary' : isFuture ? 'text-text-muted' : 'text-text-secondary'
                 }`}
               >
@@ -44,8 +44,8 @@ function StepProgress({ currentStep }) {
               </span>
             </div>
             {idx < steps.length - 1 && (
-              <div className="relative w-[56px] h-px mx-[12px] bg-border-strong">
-                <span className="absolute right-0 top-1/2 h-[6px] w-[6px] -translate-y-1/2 rotate-45 border-r border-t border-border-strong" />
+              <div className="relative w-[48px] h-px mx-[10px] bg-border-strong">
+                <span className="absolute right-0 top-1/2 h-[5px] w-[5px] -translate-y-1/2 rotate-45 border-r border-t border-border-strong" />
               </div>
             )}
           </div>
@@ -58,7 +58,7 @@ function StepProgress({ currentStep }) {
 function Field({ label, children, className = '' }) {
   return (
     <label className={`block ${className}`}>
-      <span className="block text-[15px] leading-none font-semibold text-text-primary mb-[10px]">{label}</span>
+      <span className="block text-[13px] leading-none font-semibold text-text-primary mb-[8px]">{label}</span>
       {children}
     </label>
   );
@@ -67,12 +67,12 @@ function Field({ label, children, className = '' }) {
 function TextInput({ value, onChange, placeholder }) {
   return (
     <div className="relative">
-      <FileText className="absolute left-[14px] top-1/2 -translate-y-1/2 w-[17px] h-[17px] text-text-muted pointer-events-none" strokeWidth={1.8} />
+      <FileText className="absolute left-[13px] top-1/2 -translate-y-1/2 w-[15px] h-[15px] text-text-muted pointer-events-none" strokeWidth={1.8} />
       <input
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full h-[44px] pl-[42px] pr-4 bg-surface border border-border-strong rounded-[8px] text-[15px] leading-[44px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
+        className="w-full h-[40px] pl-[38px] pr-4 bg-surface border border-border-strong rounded-[8px] text-[14px] leading-[40px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
       />
     </div>
   );
@@ -84,11 +84,11 @@ function SelectInput({ value, onChange, children }) {
       <select
         value={value}
         onChange={onChange}
-        className="w-full h-[44px] appearance-none px-4 pr-10 bg-surface border border-border-strong rounded-[8px] text-[15px] leading-[44px] text-text-primary focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
+        className="w-full h-[40px] appearance-none px-4 pr-10 bg-surface border border-border-strong rounded-[8px] text-[14px] leading-[40px] text-text-primary focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
       >
         {children}
       </select>
-      <ChevronDown className="absolute right-[14px] top-1/2 -translate-y-1/2 w-[17px] h-[17px] text-text-muted pointer-events-none" strokeWidth={1.8} />
+      <ChevronDown className="absolute right-[13px] top-1/2 -translate-y-1/2 w-[15px] h-[15px] text-text-muted pointer-events-none" strokeWidth={1.8} />
     </div>
   );
 }
@@ -162,18 +162,18 @@ export function AssessmentDetailsStep({ onCancel }) {
       </aside>
 
       <section className="min-w-0 overflow-y-auto">
-        <div className="pt-[42px] px-8 xl:pl-[44px] xl:pr-[54px] pb-10">
+        <div className="pt-[38px] px-8 xl:pl-[44px] xl:pr-[54px] pb-10">
           <StepProgress currentStep={state.currentStep} />
 
-          <div className="mt-[54px] w-full max-w-[760px]">
+          <div className="mt-[48px] w-full max-w-[760px]">
             <div>
-              <h2 className="text-[25px] leading-[31px] font-bold text-text-primary tracking-normal">Assessment details</h2>
-              <p className="mt-[6px] text-[16px] leading-[22px] text-text-secondary">
+              <h2 className="text-[22px] leading-[28px] font-bold text-text-primary tracking-normal">Assessment details</h2>
+              <p className="mt-[6px] text-[14px] leading-[20px] text-text-secondary">
                 This information is shown to candidates before they begin.
               </p>
             </div>
 
-            <div className="mt-[34px] grid grid-cols-1 lg:grid-cols-2 gap-x-[18px] gap-y-[26px]">
+            <div className="mt-[30px] grid grid-cols-1 lg:grid-cols-2 gap-x-[18px] gap-y-[22px]">
               <Field label="Assessment name">
                 <TextInput
                   value={state.name}
@@ -196,7 +196,7 @@ export function AssessmentDetailsStep({ onCancel }) {
                   onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { description: e.target.value } })}
                   placeholder="Descript your assessment here."
                   rows={3}
-                  className="w-full h-[96px] px-4 py-[14px] bg-surface border border-border-strong rounded-[8px] text-[15px] leading-[22px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 resize-none transition-all"
+                  className="w-full h-[88px] px-4 py-[12px] bg-surface border border-border-strong rounded-[8px] text-[14px] leading-[20px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 resize-none transition-all"
                 />
               </Field>
 
@@ -229,11 +229,11 @@ export function AssessmentDetailsStep({ onCancel }) {
               </p>
             )}
 
-            <div className="mt-[32px] flex items-center justify-end gap-[12px]">
+            <div className="mt-[28px] flex items-center justify-end gap-[10px]">
               <button
                 type="button"
                 onClick={onCancel}
-                className="h-[44px] px-[28px] rounded-[8px] border border-border-default bg-surface text-[15px] leading-none font-medium text-text-primary shadow-card hover:bg-surface-hover transition-colors"
+                className="h-[40px] px-[24px] rounded-[8px] border border-border-default bg-surface text-[14px] leading-none font-medium text-text-primary shadow-card hover:bg-surface-hover transition-colors"
               >
                 Cancel
               </button>
@@ -241,7 +241,7 @@ export function AssessmentDetailsStep({ onCancel }) {
                 type="button"
                 onClick={handleContinue}
                 disabled={!state.name.trim() || creating}
-                className="h-[44px] px-[30px] rounded-[8px] bg-[var(--color-assessment-cta)] hover:bg-[var(--color-assessment-cta-hover)] text-[var(--color-assessment-cta-text)] text-[15px] leading-none font-bold shadow-card transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="h-[40px] px-[26px] rounded-[8px] bg-[var(--color-assessment-cta)] hover:bg-[var(--color-assessment-cta-hover)] text-[var(--color-assessment-cta-text)] text-[14px] leading-none font-bold shadow-card transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {creating ? 'Creating...' : 'Continue'}
               </button>

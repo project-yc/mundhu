@@ -57,7 +57,7 @@ function LayoutShell({ children }) {
   const initials = userName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
   const renderSidebarContent = () => (
-    <div className="flex h-full flex-col bg-surface">
+    <div className="flex h-full flex-col bg-page">
       <div className={`h-[60px] flex items-center px-3 ${collapsed ? 'justify-center' : 'justify-between'}`}>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'}`}>
           <div className="w-7 h-7 rounded-[7px] bg-[var(--color-sidebar-control)] flex items-center justify-center flex-shrink-0 overflow-hidden">

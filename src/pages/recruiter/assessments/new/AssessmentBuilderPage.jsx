@@ -15,8 +15,8 @@ function BuilderLayout() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-page">
-      <div className="hidden h-[64px] flex-shrink-0 items-center border-b border-border-subtle bg-page px-3 md:flex">
-        <div className="relative flex h-[42px] w-full items-center rounded-[8px] border border-border-default bg-surface shadow-sm">
+      <div className="hidden h-[58px] flex-shrink-0 items-center border-b border-border-subtle bg-page px-3 md:flex">
+        <div className="relative flex h-[32px] w-full items-center rounded-[8px] border border-border-default bg-surface shadow-sm">
           <Search className="pointer-events-none absolute left-[11px] h-[17px] w-[17px] text-text-secondary" strokeWidth={1.8} />
           <Input
             aria-label="Global search"
