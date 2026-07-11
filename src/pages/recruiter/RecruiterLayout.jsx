@@ -68,22 +68,22 @@ function LayoutShell({ children }) {
         {!collapsed && (
           <button
             onClick={() => setCollapsed(true)}
-            className="w-5 h-5 rounded-[6px] border border-brand-navy flex items-center justify-center text-brand-navy hover:bg-brand-tint transition-colors"
+            className="w-5 h-5 rounded-[6px] flex items-center justify-center text-brand-navy hover:bg-brand-tint transition-colors"
             aria-label="Collapse sidebar"
           >
-            <PanelLeftClose className="w-3.5 h-3.5" strokeWidth={2} />
+            <PanelLeftClose className="w-5 h-5" strokeWidth={1.5} />
           </button>
         )}
       </div>
 
       <div
-        className={`mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[20px] ${collapsed ? 'px-2 py-3' : 'px-[11px] pt-[10px] pb-[14px]'}`}
+        className={`mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl ${collapsed ? 'px-2 py-3' : 'px-[11px] pt-[10px] pb-[14px]'}`}
         style={{ background: 'linear-gradient(180deg, var(--color-sidebar-bg-top) 0%, var(--color-sidebar-bg-mid) 38%, var(--color-sidebar-bg-bottom) 100%)' }}
       >
         {!collapsed && (
           <button
             onClick={() => navigate('/recruiter/assessments/new')}
-            className="mb-[18px] flex h-[35px] w-full items-center justify-center gap-2 rounded-[6px] bg-[var(--color-sidebar-control)] px-3 text-[13px] font-semibold text-[var(--color-sidebar-control-text)] shadow-[0_12px_26px_var(--color-sidebar-shadow)] transition-colors hover:bg-[var(--color-sidebar-control-hover)]"
+            className="mb-[18px] flex h-[39px] w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-sidebar-control)] px-3 text-[13px] font-semibold text-[var(--color-sidebar-control-text)] shadow-[0_12px_26px_var(--color-sidebar-shadow)] transition-colors hover:bg-[var(--color-sidebar-control-hover)]"
           >
             <Plus className="w-4 h-4" strokeWidth={1.8} />
             Create assignment
@@ -112,10 +112,10 @@ function LayoutShell({ children }) {
                       <button
                         key={`${group.label}-${item.label}`}
                         type="button"
-                        className={`${baseClass} text-[var(--color-sidebar-text)] hover:bg-[var(--color-sidebar-active)]`}
+                        className={`${baseClass} text-[var(--color-sidebar-text)] hover:bg-white/15`}
                         title={collapsed ? item.label : undefined}
                       >
-                        <IconComponent className="w-[17px] h-[17px] flex-shrink-0 text-[var(--color-sidebar-icon)]" strokeWidth={1.8} />
+                        <IconComponent className="w-[17px] h-[17px] flex-shrink-0 text-current" strokeWidth={1.8} />
                         {!collapsed && <span>{item.label}</span>}
                       </button>
                     );
@@ -128,13 +128,13 @@ function LayoutShell({ children }) {
                       className={({ isActive }) =>
                         `${baseClass} ${
                           isActive
-                            ? 'bg-[var(--color-sidebar-active)] text-[var(--color-sidebar-text)]'
-                            : 'text-[var(--color-sidebar-text)] hover:bg-[var(--color-sidebar-active)]'
+                            ? 'bg-[var(--color-sidebar-active)] text-black shadow-[0_10px_22px_rgba(15,23,42,0.18)]'
+                            : 'text-[var(--color-sidebar-text)] hover:bg-white/15'
                         }`
                       }
                       title={collapsed ? item.label : undefined}
                     >
-                      <IconComponent className="w-[17px] h-[17px] flex-shrink-0 text-[var(--color-sidebar-icon)]" strokeWidth={1.8} />
+                      <IconComponent className="w-[17px] h-[17px] flex-shrink-0 text-current" strokeWidth={1.8} />
                       {!collapsed && <span>{item.label}</span>}
                     </NavLink>
                   );
@@ -147,7 +147,7 @@ function LayoutShell({ children }) {
         {!collapsed && (
           <button
             type="button"
-            className="mt-auto flex h-[58px] w-full items-center gap-[10px] rounded-[10px] border border-[var(--color-sidebar-stroke)] bg-surface px-[10px] text-left shadow-[0_8px_24px_var(--color-sidebar-shadow)]"
+            className="mt-auto flex h-[50px] w-full items-center gap-[10px] rounded-[10px] border border-[var(--color-sidebar-stroke)] bg-surface px-[10px] text-left shadow-[0_8px_24px_var(--color-sidebar-shadow)]"
           >
             <div className="w-[34px] h-[34px] rounded-full bg-surface-muted border border-[var(--color-sidebar-stroke)] flex items-center justify-center overflow-hidden text-[11px] font-bold text-[var(--color-sidebar-muted)] flex-shrink-0">
               {avatarUrl
@@ -169,7 +169,7 @@ function LayoutShell({ children }) {
     <div className="flex h-screen bg-page font-sans antialiased overflow-hidden text-text-primary">
 
       {/* Desktop sidebar */}
-      <aside className={`hidden md:flex flex-col bg-surface border-r border-[var(--color-sidebar-stroke)] flex-shrink-0 transition-all duration-200 ${collapsed ? 'w-[58px]' : 'w-[228px]'}`}>
+      <aside className={`hidden md:flex flex-col bg-surface flex-shrink-0 transition-all duration-200 ${collapsed ? 'w-[58px]' : 'w-[228px]'}`}>
         {renderSidebarContent()}
         {collapsed && (
           <button
@@ -186,7 +186,7 @@ function LayoutShell({ children }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-text-primary/40" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-[228px] bg-surface border-r border-[var(--color-sidebar-stroke)] z-10">
+          <aside className="absolute left-0 top-0 bottom-0 w-[228px] bg-surface z-10">
             <button onClick={() => setMobileOpen(false)} className="absolute top-4 right-3 p-1.5 text-text-muted hover:text-text-primary">
               <X className="w-4 h-4" />
             </button>
