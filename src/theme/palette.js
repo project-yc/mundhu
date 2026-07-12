@@ -16,7 +16,7 @@
 
 export const RECRUITER_PALETTE = {
   // ── Surfaces ──────────────────────────────────────────────────────────────
-  pageBg:        '#F8FAFC', // Slate 50  — fixed, NOT brand-driven
+  pageBg:        '#F0EEE6', // Slate 50  — fixed, NOT brand-driven
   surface:       '#FFFFFF', // card surfaces
   surfaceMuted:  '#F1F5F9', // Slate 100 — input fills, sub-surfaces
   surfaceHover:  '#F8FAFC',
@@ -43,6 +43,29 @@ export const RECRUITER_PALETTE = {
   reportMetricIconBg:'#90A6F8',
   reportMetricIconText:'#6F82F4',
   reportEmailText:'#9AA9BD',
+  pipelineCanvas:'#F0EEE7',
+  pipelinePanel:'#FFFFFF',
+  pipelineToolbar:'#F6F6F6',
+  pipelineTableHeader:'#FAFAFA',
+  pipelineNotice:'#000000',
+  pipelineSelected:'#FF791F',
+  pipelineSelectedText:'#1D4DFF',
+  pipelineShadow:'rgba(15, 23, 42, 0.08)',
+  pipelineStageShortlistedText:'#4A63D9',
+  pipelineStageShortlistedBg:'#EEF1FF',
+  pipelineStageShortlistedBorder:'#B8C3FF',
+  pipelineStageRejectedText:'#D80000',
+  pipelineStageRejectedBg:'#FFE8E8',
+  pipelineStageRejectedBorder:'#FFB8B8',
+  pipelineStageHiredText:'#2F8F16',
+  pipelineStageHiredBg:'#EAF8E4',
+  pipelineStageHiredBorder:'#BDE9AE',
+  pipelineStageSubmittedText:'#737373',
+  pipelineStageSubmittedBg:'#F2F2F2',
+  pipelineStageSubmittedBorder:'#D3D3D3',
+  pipelineStageReviewingText:'#D58A00',
+  pipelineStageReviewingBg:'#FFF5DD',
+  pipelineStageReviewingBorder:'#F6D18A',
 
   // ── Borders ───────────────────────────────────────────────────────────────
   border:        '#E2E8F0', // Slate 200
@@ -166,6 +189,29 @@ export const CSS_VAR_KEYS = {
   reportMetricIconBg:'--color-report-metric-icon-bg',
   reportMetricIconText:'--color-report-metric-icon-text',
   reportEmailText:'--color-report-email-text',
+  pipelineCanvas:'--color-pipeline-canvas',
+  pipelinePanel:'--color-pipeline-panel',
+  pipelineToolbar:'--color-pipeline-toolbar',
+  pipelineTableHeader:'--color-pipeline-table-header',
+  pipelineNotice:'--color-pipeline-notice',
+  pipelineSelected:'--color-pipeline-selected',
+  pipelineSelectedText:'--color-pipeline-selected-text',
+  pipelineShadow:'--color-pipeline-shadow',
+  pipelineStageShortlistedText:'--color-pipeline-stage-shortlisted-text',
+  pipelineStageShortlistedBg:'--color-pipeline-stage-shortlisted-bg',
+  pipelineStageShortlistedBorder:'--color-pipeline-stage-shortlisted-border',
+  pipelineStageRejectedText:'--color-pipeline-stage-rejected-text',
+  pipelineStageRejectedBg:'--color-pipeline-stage-rejected-bg',
+  pipelineStageRejectedBorder:'--color-pipeline-stage-rejected-border',
+  pipelineStageHiredText:'--color-pipeline-stage-hired-text',
+  pipelineStageHiredBg:'--color-pipeline-stage-hired-bg',
+  pipelineStageHiredBorder:'--color-pipeline-stage-hired-border',
+  pipelineStageSubmittedText:'--color-pipeline-stage-submitted-text',
+  pipelineStageSubmittedBg:'--color-pipeline-stage-submitted-bg',
+  pipelineStageSubmittedBorder:'--color-pipeline-stage-submitted-border',
+  pipelineStageReviewingText:'--color-pipeline-stage-reviewing-text',
+  pipelineStageReviewingBg:'--color-pipeline-stage-reviewing-bg',
+  pipelineStageReviewingBorder:'--color-pipeline-stage-reviewing-border',
   border:         '--color-border',
   borderStrong:   '--color-border-strong',
   borderSubtle:   '--color-border-subtle',

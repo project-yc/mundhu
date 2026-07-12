@@ -4,18 +4,14 @@ import { CANDIDATE_PALETTE as CP, RECRUITER_PALETTE as RP } from '../../theme/pa
 import Particles from '../../components/particles/Particles';
 
 // ─── Accent shortcuts ────────────────────────────────────────────────────────
-const DEV_ACCENT        = CP.brand;                   // #18D3FF
 const REC_ACCENT        = CP.recruiterAccent;         // #A78BFA
 const REC_ACCENT_DIM    = CP.recruiterAccentDim;
 const REC_ACCENT_GLOW   = CP.recruiterAccentGlow;
 const REC_ACCENT_BORDER = CP.recruiterAccentBorder;
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
-async function doLogin(role, email, password) {
-  const endpoint = role === 'dev'
-    ? '/api/auth/v1/developer/login'
-    : '/api/auth/v1/recruiter/login';
-  const res  = await fetch(endpoint, {
+async function doLogin(email, password) {
+  const res  = await fetch('/api/auth/v1/recruiter/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -52,16 +48,6 @@ function resolveRedirect(userRole) {
 }
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
-function DevIcon({ color = 'currentColor' }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="4,5 1,8 4,11" />
-      <polyline points="12,5 15,8 12,11" />
-      <line x1="9" y1="3" x2="7" y2="13" />
-    </svg>
-  );
-}
-
 function RecruiterIcon({ color = 'currentColor' }) {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
@@ -173,16 +159,16 @@ function LeftPanel() {
           fontSize: 14, color: CP.textSecondary,
           marginTop: 16, maxWidth: 340, lineHeight: 1.65,
         }}>
-          Evaluate engineers on the problems they'll actually face — not
-          contrived puzzles. Build your team with confidence.
+          Create work-sample assessments, review candidate evidence, and move
+          hiring decisions forward with a clearer signal.
         </p>
       </div>
 
       {/* Role chips */}
       <div style={{ marginTop: 36, display: 'flex', gap: 10, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
         {[
-          { label: 'For Developers', dot: DEV_ACCENT,  border: 'rgba(24,211,255,0.2)', bg: 'rgba(24,211,255,0.06)' },
-          { label: 'For Recruiters', dot: REC_ACCENT,  border: REC_ACCENT_BORDER,      bg: REC_ACCENT_DIM         },
+          { label: 'Role-ready reports', dot: CP.brand, border: 'rgba(24,211,255,0.2)', bg: 'rgba(24,211,255,0.06)' },
+          { label: 'Recruiter workspace', dot: REC_ACCENT,  border: REC_ACCENT_BORDER, bg: REC_ACCENT_DIM },
         ].map(({ label, dot, border, bg }) => (
           <div key={label} style={{
             display: 'inline-flex', alignItems: 'center', gap: 7,
@@ -212,7 +198,6 @@ function LeftPanel() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function LoginPage() {
-  const [role,       setRole]       = useState('dev');
   const [email,      setEmail]      = useState('');
   const [password,   setPassword]   = useState('');
   const [showPw,     setShowPw]     = useState(false);
@@ -223,13 +208,10 @@ export default function LoginPage() {
   const [emailFocus, setEmailFocus] = useState(false);
   const [passFocus,  setPassFocus]  = useState(false);
 
-  const isDev       = role === 'dev';
-  const palette     = isDev ? CP : RP;
-  const accentColor = isDev ? DEV_ACCENT : REC_ACCENT;
-  const accentDim   = isDev ? CP.brandTint : REC_ACCENT_DIM;
-  const accentGlow  = isDev ? 'rgba(24,211,255,0.25)' : REC_ACCENT_GLOW;
-
-  const switchRole = (r) => { setRole(r); setError(''); setSuccess(''); };
+  const palette     = RP;
+  const accentColor = REC_ACCENT;
+  const accentDim   = REC_ACCENT_DIM;
+  const accentGlow  = REC_ACCENT_GLOW;
 
   const baseInput = {
     width: '100%', height: 46,
@@ -246,7 +228,7 @@ export default function LoginPage() {
   };
 
   const inputStyle = (focused) => focused
-    ? { ...baseInput, borderColor: accentColor, background: isDev ? 'rgba(255,255,255,0.03)' : palette.surfaceHover, boxShadow: `0 0 0 3px ${accentGlow}` }
+    ? { ...baseInput, borderColor: accentColor, background: palette.surfaceHover, boxShadow: `0 0 0 3px ${accentGlow}` }
     : baseInput;
 
   const handleSubmit = async (e) => {
@@ -254,7 +236,7 @@ export default function LoginPage() {
     if (!email || !password) { setError('Email and password are required.'); return; }
     setError(''); setSuccess(''); setLoading(true);
     try {
-      const data     = await doLogin(role, email, password);
+      const data     = await doLogin(email, password);
       const userRole = storeAuthData(data);
       setSuccess('Login successful! Redirecting…');
       setTimeout(() => { window.location.href = resolveRedirect(userRole); }, 900);
@@ -264,11 +246,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
-  const toggleActiveStyle = (r) => r === 'dev'
-    ? { color: DEV_ACCENT, background: CP.brandTint,  border: `1px solid ${CP.brandBorder}` }
-    : { color: REC_ACCENT, background: REC_ACCENT_DIM, border: `1px solid ${REC_ACCENT_BORDER}` };
-  const toggleInactiveStyle = { color: palette.textMuted, background: 'transparent', border: '1px solid transparent' };
 
   return (
     <>
@@ -338,46 +315,21 @@ export default function LoginPage() {
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: accentColor, border: `1px solid ${accentColor}40`, background: accentDim, padding: '3px 8px', borderRadius: 4, letterSpacing: '0.04em' }}>beta</span>
             </div>
 
-            {/* Role toggle */}
-            <div style={{ marginBottom: 32 }}>
-              <p style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-                color: palette.textMuted, margin: '0 0 10px',
-              }}>
-                I am signing in as
-              </p>
-              <div style={{
-                display: 'grid', gridTemplateColumns: '1fr 1fr',
-                background: palette.surfaceMuted,
-                border: `1px solid ${palette.border}`,
-                borderRadius: 12, padding: 4, gap: 4,
-              }}>
-                {[
-                  { r: 'dev', label: 'Developer', icon: <DevIcon color={isDev ? DEV_ACCENT : palette.textMuted} /> },
-                  { r: 'rec', label: 'Recruiter',  icon: <RecruiterIcon color={!isDev ? REC_ACCENT : palette.textMuted} /> },
-                ].map(({ r, label, icon }) => {
-                  const active = role === r;
-                  return (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => switchRole(r)}
-                      style={{
-                        height: 44, borderRadius: 9,
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 13, fontWeight: 500,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                        cursor: 'pointer', transition: 'all 0.2s ease',
-                        ...(active ? toggleActiveStyle(r) : toggleInactiveStyle),
-                      }}
-                    >
-                      {icon}
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
+            {/* Recruiter badge */}
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              alignSelf: 'flex-start',
+              color: REC_ACCENT,
+              background: REC_ACCENT_DIM,
+              border: `1px solid ${REC_ACCENT_BORDER}`,
+              borderRadius: 999,
+              padding: '8px 12px',
+              marginBottom: 30,
+              fontSize: 12,
+              fontWeight: 600,
+            }}>
+              <RecruiterIcon color={REC_ACCENT} />
+              Recruiter portal
             </div>
 
             {/* Heading */}
@@ -388,12 +340,10 @@ export default function LoginPage() {
                 color: palette.textPrimary, letterSpacing: '-0.3px',
                 margin: 0,
               }}>
-                {isDev ? 'Welcome back' : 'Good to see you'}
+                Sign in to your recruiter workspace
               </h2>
-              <p style={{ fontSize: 13, color: palette.textSecondary, marginTop: 6 }}>
-                Sign in to your{' '}
-                <span style={{ color: accentColor }}>{isDev ? 'developer' : 'recruiter'}</span>{' '}
-                workspace
+              <p style={{ fontSize: 13, color: palette.textSecondary, marginTop: 8, lineHeight: 1.6 }}>
+                Manage assessments, review reports, and keep hiring decisions moving.
               </p>
             </div>
 
@@ -504,7 +454,7 @@ export default function LoginPage() {
                 style={{
                   width: '100%', height: 48,
                   background: accentColor,
-                  color: isDev ? CP.onBrand : '#1A0050',
+                  color: '#1A0050',
                   borderRadius: 10, border: 'none',
                   fontSize: 14, fontWeight: 600,
                   fontFamily: "'DM Sans', sans-serif",
@@ -523,8 +473,8 @@ export default function LoginPage() {
                   <>
                     <div style={{
                       width: 15, height: 15, borderRadius: '50%', flexShrink: 0,
-                      border: `2px solid ${isDev ? 'rgba(4,9,20,0.2)' : 'rgba(26,0,80,0.2)'}`,
-                      borderTopColor: isDev ? CP.onBrand : '#1A0050',
+                      border: '2px solid rgba(26,0,80,0.2)',
+                      borderTopColor: '#1A0050',
                       animation: 'spin 0.7s linear infinite',
                     }} />
                     Signing in…
@@ -532,83 +482,43 @@ export default function LoginPage() {
                 ) : (
                   <>
                     Sign in
-                    <ArrowRightIcon color={isDev ? CP.onBrand : '#1A0050'} />
+                    <ArrowRightIcon color="#1A0050" />
                   </>
                 )}
               </button>
             </form>
 
-            {/* Divider */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0', color: palette.textFaint, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
-              <span style={{ flex: 1, height: 1, background: palette.border }} />
-              OR
-              <span style={{ flex: 1, height: 1, background: palette.border }} />
-            </div>
-
-            {/* Bottom — waitlist (dev) or signup CTA (recruiter) */}
-            {isDev ? (
+            {/* Signup CTA */}
               <div style={{
-                background: CP.surfaceMuted,
-                border: `1px solid ${CP.border}`,
-                borderRadius: 10, padding: '13px 16px',
+                background: RP.surfaceMuted,
+                border: `1px solid ${RP.border}`,
+                borderRadius: 10, padding: '14px 16px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                marginTop: 22,
               }}>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{
-                      width: 7, height: 7, borderRadius: '50%',
-                      background: CP.success, boxShadow: `0 0 6px ${CP.success}`,
-                      flexShrink: 0, animation: 'pulse-dot 2s ease infinite',
-                    }} />
-                    <strong style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: CP.success, letterSpacing: '0.06em' }}>
-                      EARLY ACCESS · OPEN
-                    </strong>
-                  </div>
-                  <p style={{ fontSize: 12, color: CP.textSecondary, margin: 0, lineHeight: 1.5 }}>
-                    New to TruDev? Get early access.
+                  <strong style={{ display: 'block', fontSize: 13, color: RP.textPrimary, marginBottom: 3 }}>
+                    Need recruiter access?
+                  </strong>
+                  <p style={{ fontSize: 12, color: RP.textSecondary, margin: 0, lineHeight: 1.5 }}>
+                    Request an account for your hiring team.
                   </p>
                 </div>
                 <Link
                   to="/waitlist"
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
-                    color: DEV_ACCENT, border: `1px solid ${DEV_ACCENT}40`,
-                    background: CP.brandTint,
-                    borderRadius: 7, padding: '7px 14px',
-                    fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
-                    textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
-                  }}
-                >
-                  Join waitlist
-                  <ArrowRightIcon color={DEV_ACCENT} size={11} />
-                </Link>
-              </div>
-            ) : (
-              <div style={{
-                background: RP.surfaceMuted,
-                border: `1px solid ${RP.border}`,
-                borderRadius: 10, padding: '13px 16px',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-              }}>
-                <p style={{ fontSize: 13, color: RP.textSecondary, margin: 0, lineHeight: 1.5 }}>
-                  Don't have a recruiter account?
-                </p>
-                <Link
-                  to="/waitlist"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
                     color: REC_ACCENT, border: `1px solid ${REC_ACCENT}40`,
                     background: REC_ACCENT_DIM,
-                    borderRadius: 7, padding: '7px 14px',
+                    borderRadius: 7, padding: '8px 14px',
                     fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
                     textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
                   }}
                 >
-                  Sign up free
+                  Request access
                   <ArrowRightIcon color={REC_ACCENT} size={11} />
                 </Link>
               </div>
-            )}
 
           </div>
         </div>

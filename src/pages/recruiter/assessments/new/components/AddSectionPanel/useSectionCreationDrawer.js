@@ -14,11 +14,12 @@ const DEFAULT_CODING_FILTERS = { role: 'Front-end developer', language: '', diff
 
 const createInitialRubricPoints = () => CODING_RUBRICS.reduce((acc, name) => ({ ...acc, [name]: 5 }), {});
 
-export function useSectionCreationDrawer({ dispatch, ACTIONS }) {
+export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerClosing, setDrawerClosing] = useState(false);
   const [drawerStep, setDrawerStep] = useState('section');
   const [drawerType, setDrawerType] = useState('mcq');
+  const [targetSectionId, setTargetSectionId] = useState(null);
   const [sectionName, setSectionName] = useState('');
   const [sectionTimer, setSectionTimer] = useState(45);
   const [itemTimer, setItemTimer] = useState(5);
@@ -47,6 +48,7 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS }) {
     setDrawerClosing(false);
     setDrawerStep('section');
     setDrawerType('mcq');
+    setTargetSectionId(null);
     setSectionName('');
     setSectionTimer(45);
     setItemTimer(5);
@@ -76,7 +78,7 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS }) {
     }, DRAWER_CLOSE_MS);
   };
 
-  const openDrawer = (type) => {
+  const openDrawer = (type, options = {}) => {
     if (closeTimerRef.current) {
       window.clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
@@ -84,7 +86,8 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS }) {
     setDrawerClosing(false);
     setDrawerOpen(true);
     setDrawerType(type);
-    setDrawerStep('section');
+    setDrawerStep(options.step ?? 'section');
+    setTargetSectionId(options.targetSectionId ?? null);
     setSectionTimer(45);
     setItemTimer(5);
     setAiLevel('chat');
@@ -111,6 +114,18 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS }) {
   useEffect(() => () => {
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    const request = state.addQuestionDrawerRequest;
+    if (!request) return;
+    if (!DRAWER_SECTION_TYPES.includes(request.sectionType)) return;
+
+    openDrawer(request.sectionType, {
+      step: 'question',
+      targetSectionId: request.sectionId,
+    });
+    dispatch({ type: ACTIONS.CLEAR_ADD_QUESTION_DRAWER });
+  }, [ACTIONS.CLEAR_ADD_QUESTION_DRAWER, dispatch, state.addQuestionDrawerRequest?.requestId]);
 
   useEffect(() => {
     if (!drawerOpen || drawerType !== 'coding' || drawerStep !== 'question') return;
@@ -229,14 +244,7 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS }) {
       ? normalizedOptions
       : normalizedOptions.map((option, index) => ({ ...option, is_correct: index === 0 }));
 
-    dispatch({
-      type: ACTIONS.ADD_SECTION,
-      payload: {
-        name: sectionName.trim() || 'MCQ Section',
-        type: 'mcq',
-        timer_minutes: Number(sectionTimer),
-        ai_level_override: null,
-        items: [{
+    const question = {
           id: crypto.randomUUID(),
           type: 'mcq',
           backendMcqId: null,
@@ -250,22 +258,28 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS }) {
           shuffle_options: shuffleOptions,
           show_explanation_after: false,
           options: finalOptions,
-        }],
-      },
-    });
+    };
+
+    if (targetSectionId) {
+      dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
+    } else {
+      dispatch({
+        type: ACTIONS.ADD_SECTION,
+        payload: {
+          name: sectionName.trim() || 'MCQ Section',
+          type: 'mcq',
+          timer_minutes: Number(sectionTimer),
+          ai_level_override: null,
+          items: [question],
+        },
+      });
+    }
     closeDrawer();
   };
 
   const handleCreateCoding = () => {
     const task = selectedTask || codingTasks[0] || null;
-    dispatch({
-      type: ACTIONS.ADD_SECTION,
-      payload: {
-        name: sectionName.trim() || 'Coding Section',
-        type: 'coding',
-        timer_minutes: Number(sectionTimer),
-        ai_level_override: aiLevel || null,
-        items: [{
+    const question = {
           id: crypto.randomUUID(),
           type: 'coding',
           task_id: task?.id ?? null,
@@ -273,21 +287,27 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS }) {
           points: Number(points),
           published: false,
           locked: true,
-        }],
-      },
-    });
+    };
+
+    if (targetSectionId) {
+      dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
+    } else {
+      dispatch({
+        type: ACTIONS.ADD_SECTION,
+        payload: {
+          name: sectionName.trim() || 'Coding Section',
+          type: 'coding',
+          timer_minutes: Number(sectionTimer),
+          ai_level_override: aiLevel || null,
+          items: [question],
+        },
+      });
+    }
     closeDrawer();
   };
 
   const handleCreateFreeText = () => {
-    dispatch({
-      type: ACTIONS.ADD_SECTION,
-      payload: {
-        name: sectionName.trim() || 'Free Text Section',
-        type: 'free_text',
-        timer_minutes: Number(sectionTimer),
-        ai_level_override: null,
-        items: [{
+    const question = {
           id: crypto.randomUUID(),
           type: 'free_text',
           backendFreeTextId: null,
@@ -300,9 +320,22 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS }) {
           answer: freeTextAnswer.trim(),
           word_limit: Number(wordLimit),
           grading_hints: gradingHints.trim(),
-        }],
-      },
-    });
+    };
+
+    if (targetSectionId) {
+      dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
+    } else {
+      dispatch({
+        type: ACTIONS.ADD_SECTION,
+        payload: {
+          name: sectionName.trim() || 'Free Text Section',
+          type: 'free_text',
+          timer_minutes: Number(sectionTimer),
+          ai_level_override: null,
+          items: [question],
+        },
+      });
+    }
     closeDrawer();
   };
 
@@ -312,14 +345,7 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS }) {
       text: item.text.trim() || `Item ${index + 1}`,
     }));
 
-    dispatch({
-      type: ACTIONS.ADD_SECTION,
-      payload: {
-        name: sectionName.trim() || 'Ranking Section',
-        type: 'ranking',
-        timer_minutes: Number(sectionTimer),
-        ai_level_override: null,
-        items: [{
+    const question = {
           id: crypto.randomUUID(),
           type: 'ranking',
           backendRankingId: null,
@@ -331,9 +357,22 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS }) {
           prompt: questionPrompt.trim(),
           grading_hints: gradingHints.trim(),
           items: normalizedItems,
-        }],
-      },
-    });
+    };
+
+    if (targetSectionId) {
+      dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
+    } else {
+      dispatch({
+        type: ACTIONS.ADD_SECTION,
+        payload: {
+          name: sectionName.trim() || 'Ranking Section',
+          type: 'ranking',
+          timer_minutes: Number(sectionTimer),
+          ai_level_override: null,
+          items: [question],
+        },
+      });
+    }
     closeDrawer();
   };
 

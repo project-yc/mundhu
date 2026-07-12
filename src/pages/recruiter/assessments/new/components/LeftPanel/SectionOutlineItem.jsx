@@ -3,7 +3,6 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { SECTION_TYPE_CONFIG } from '../../constants/sectionTypeConfig';
 import { useAssessmentBuilder } from '../../context/AssessmentBuilderContext';
-import { makeMcqQuestion, makeFreeTextQuestion, makeRankingQuestion } from '../../context/assessmentBuilderReducer';
 import mcqIcon from '../../../../../../assets/recruiter/icons/mcq.svg';
 import rankingIcon from '../../../../../../assets/recruiter/icons/ranking.svg';
 import freeTextIcon from '../../../../../../assets/recruiter/icons/free_text.svg';
@@ -71,17 +70,10 @@ export function SectionOutlineItem({ section, activeQuestion }) {
 
   const handleAddQuestion = (event) => {
     event.stopPropagation();
-    let newQuestion;
-    if (section.type === 'mcq') {
-      newQuestion = makeMcqQuestion();
-    } else if (section.type === 'free_text') {
-      newQuestion = makeFreeTextQuestion();
-    } else if (section.type === 'ranking') {
-      newQuestion = makeRankingQuestion();
-    } else {
-      return;
-    }
-    dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: section.id, question: newQuestion } });
+    dispatch({
+      type: ACTIONS.OPEN_ADD_QUESTION_DRAWER,
+      payload: { sectionId: section.id, sectionType: section.type },
+    });
   };
 
   return (

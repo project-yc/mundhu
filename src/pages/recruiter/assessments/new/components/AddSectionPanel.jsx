@@ -5,13 +5,14 @@ import { useSectionCreationDrawer } from './AddSectionPanel/useSectionCreationDr
 
 export function AddSectionPanel() {
   const { dispatch, ACTIONS, state } = useAssessmentBuilder();
-  const { drawer, form, actions } = useSectionCreationDrawer({ dispatch, ACTIONS });
+  const { drawer, form, actions } = useSectionCreationDrawer({ dispatch, ACTIONS, state });
 
   const handleSaveDraft = () => {
     localStorage.setItem('assessmentBuilderDraft', JSON.stringify(state));
   };
 
   const handleReview = () => {
+    if (state.sections.length === 0) return;
     dispatch({ type: ACTIONS.SET_STEP, payload: 3 });
   };
 
@@ -22,6 +23,7 @@ export function AddSectionPanel() {
         onAddSection={actions.addSection}
         onSaveDraft={handleSaveDraft}
         onReview={handleReview}
+        canReview={state.sections.length > 0}
       />
       <SectionCreationDrawer drawer={drawer} form={form} actions={actions} />
     </div>

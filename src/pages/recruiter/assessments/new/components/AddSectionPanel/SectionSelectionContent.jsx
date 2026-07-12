@@ -6,6 +6,7 @@ export function SectionSelectionContent({
   onAddSection,
   onSaveDraft,
   onReview,
+  canReview = false,
 }) {
   return (
     <>
@@ -58,7 +59,8 @@ export function SectionSelectionContent({
         <button
           type="button"
           onClick={onReview}
-          className="h-[40px] rounded-button bg-[var(--color-assessment-cta)] px-[28px] text-[14px] font-bold text-[var(--color-assessment-cta-text)] shadow-card transition-colors hover:bg-[var(--color-assessment-cta-hover)]"
+          disabled={!canReview}
+          className="h-[40px] rounded-button bg-[var(--color-assessment-cta)] px-[28px] text-[14px] font-bold text-[var(--color-assessment-cta-text)] shadow-card transition-colors hover:bg-[var(--color-assessment-cta-hover)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--color-assessment-cta)]"
         >
           Review &amp; Publish
         </button>

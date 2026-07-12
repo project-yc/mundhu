@@ -13,6 +13,8 @@ export const ACTIONS = {
   PUBLISH_QUESTION: 'PUBLISH_QUESTION',
   UNLOCK_QUESTION: 'UNLOCK_QUESTION',
   SET_ACTIVE: 'SET_ACTIVE',
+  OPEN_ADD_QUESTION_DRAWER: 'OPEN_ADD_QUESTION_DRAWER',
+  CLEAR_ADD_QUESTION_DRAWER: 'CLEAR_ADD_QUESTION_DRAWER',
   SET_STEP: 'SET_STEP',
 };
 
@@ -32,6 +34,7 @@ export const initialState = {
   currentStep: 1,
   activeSection: null,  // section.id or '__add_section__'
   activeQuestion: null, // question.id
+  addQuestionDrawerRequest: null,
 };
 
 // ─── Helper: create a blank MCQ question ──────────────────────────────────────
@@ -121,13 +124,11 @@ export function assessmentBuilderReducer(state, action) {
       else if (items.length === 0 && action.payload.type === 'coding') items = [makeCodingItem()];
 
       newSection.items = items;
-      const firstQuestion = items[0] ?? null;
-
       return {
         ...state,
         sections: [...state.sections, newSection],
-        activeSection: newSection.id,
-        activeQuestion: firstQuestion?.id ?? null,
+        activeSection: '__add_section__',
+        activeQuestion: null,
       };
     }
 
@@ -177,8 +178,8 @@ export function assessmentBuilderReducer(state, action) {
             ? { ...s, items: [...s.items, question], expanded: true }
             : s
         ),
-        activeSection: sectionId,
-        activeQuestion: question.id,
+        activeSection: '__add_section__',
+        activeQuestion: null,
       };
     }
 
@@ -265,6 +266,21 @@ export function assessmentBuilderReducer(state, action) {
         activeSection: action.payload.sectionId ?? state.activeSection,
         activeQuestion: action.payload.questionId ?? null,
       };
+
+    case ACTIONS.OPEN_ADD_QUESTION_DRAWER:
+      return {
+        ...state,
+        activeSection: '__add_section__',
+        activeQuestion: null,
+        addQuestionDrawerRequest: {
+          sectionId: action.payload.sectionId,
+          sectionType: action.payload.sectionType,
+          requestId: crypto.randomUUID(),
+        },
+      };
+
+    case ACTIONS.CLEAR_ADD_QUESTION_DRAWER:
+      return { ...state, addQuestionDrawerRequest: null };
 
     case ACTIONS.SET_STEP:
       return { ...state, currentStep: action.payload };

@@ -1,770 +1,332 @@
-// PipelineScreen — recruiter decision board.
-// Three views: NEEDS ACTION queue (default), BOARD (kanban), TRAYS (in-flight + expired).
-// Detail rail slides in from the right when a card is selected.
-
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Loader, AlertCircle, Search, ChevronDown, X, Inbox, LayoutGrid, Archive,
-  Sparkles, Shield, Clock, Mail, Hash, ArrowRight, ExternalLink,
-  CheckCircle2, XCircle, UserCheck, Send, Eye, Star, Tag, Plus,
-  ChevronRight, MoreHorizontal, FileText,
+  AlertCircle,
+  ChevronDown,
+  Download,
+  Filter,
+  ListFilter,
+  Loader,
+  Share2,
 } from 'lucide-react';
 
-const PIPELINE_POLL_MS = 10000;
 import {
-  getPipeline, getNeedsAction, updatePipelineCandidate,
+  getNeedsAction,
+  getPipeline,
+  updatePipelineCandidate,
 } from '../../../api/recruiter/pipeline.jsx';
+import { AskAnythingBar } from '../../../components/recruiter/AskAnythingBar';
+import { cn } from '../../../lib/utils';
 
-// ─── Stage taxonomy + theming ─────────────────────────────────────────────────
-const STAGES = [
-  { key: 'new',          label: 'New',          color: '#22D3EE', bg: '#CFFAFE', border: '#0E7490', icon: Sparkles },
-  { key: 'reviewing',    label: 'Reviewing',    color: '#D97706', bg: '#FFFBEB', border: '#FCD34D', icon: Eye },
-  { key: 'shortlisted',  label: 'Shortlisted',  color: '#7C3AED', bg: '#F5F3FF', border: '#C4B5FD', icon: Star },
-  { key: 'sent_to_hm',   label: 'Sent to HM',   color: '#2563EB', bg: '#EFF6FF', border: '#93C5FD', icon: Send },
-  { key: 'hired',        label: 'Hired',        color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC', icon: CheckCircle2 },
-  { key: 'rejected',     label: 'Rejected',     color: '#DC2626', bg: '#FEF2F2', border: '#FCA5A5', icon: XCircle },
+const PIPELINE_POLL_MS = 10000;
+
+const TAB_CONFIG = [
+  { key: 'all', label: 'All' },
+  { key: 'submitted', label: 'Submitted' },
+  { key: 'reviewing', label: 'Reviewing' },
+  { key: 'shortlisted', label: 'Shortlisted' },
+  { key: 'hired', label: 'Hired' },
+  { key: 'rejected', label: 'Rejected' },
 ];
-const STAGE_BY_KEY = Object.fromEntries(STAGES.map(s => [s.key, s]));
 
-const ASSESSMENT_STATUS = {
-  'Invited':     { color: '#22D3EE', label: 'Invited' },
-  'In Progress': { color: '#D97706', label: 'Active' },
-  'Submitted':   { color: '#16A34A', label: 'Submitted' },
-  'Expired':     { color: '#64748B', label: 'Expired' },
+const STAGE_OPTIONS = [
+  { key: 'shortlisted', label: 'Shortlisted', apiStage: 'shortlisted' },
+  { key: 'rejected', label: 'Rejected', apiStage: 'rejected' },
+  { key: 'hired', label: 'Hired', apiStage: 'hired' },
+  { key: 'submitted', label: 'Submitted', apiStage: 'new' },
+  { key: 'reviewing', label: 'Reviewing', apiStage: 'reviewing' },
+];
+
+const STAGE_META = {
+  shortlisted: {
+    label: 'Shortlisted',
+    text: 'var(--color-pipeline-stage-shortlisted-text)',
+    bg: 'var(--color-pipeline-stage-shortlisted-bg)',
+    border: 'var(--color-pipeline-stage-shortlisted-border)',
+  },
+  rejected: {
+    label: 'Rejected',
+    text: 'var(--color-pipeline-stage-rejected-text)',
+    bg: 'var(--color-pipeline-stage-rejected-bg)',
+    border: 'var(--color-pipeline-stage-rejected-border)',
+  },
+  hired: {
+    label: 'Hired',
+    text: 'var(--color-pipeline-stage-hired-text)',
+    bg: 'var(--color-pipeline-stage-hired-bg)',
+    border: 'var(--color-pipeline-stage-hired-border)',
+  },
+  submitted: {
+    label: 'Submitted',
+    text: 'var(--color-pipeline-stage-submitted-text)',
+    bg: 'var(--color-pipeline-stage-submitted-bg)',
+    border: 'var(--color-pipeline-stage-submitted-border)',
+  },
+  reviewing: {
+    label: 'Reviewing',
+    text: 'var(--color-pipeline-stage-reviewing-text)',
+    bg: 'var(--color-pipeline-stage-reviewing-bg)',
+    border: 'var(--color-pipeline-stage-reviewing-border)',
+  },
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function relativeTime(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  const diff = (Date.now() - d.getTime()) / 1000;
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+function getCardId(card) {
+  return card?.id ?? card?.instance_id ?? card?.assessment_instance_id;
 }
 
-function getInitials(name = '') {
-  return name.split(/[\s.@]+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+function normalizeStage(card) {
+  const stage = String(card?.stage || '').toLowerCase();
+  if (stage === 'shortlisted' || stage === 'hired' || stage === 'rejected' || stage === 'reviewing') return stage;
+  if (stage === 'sent_to_hm') return 'reviewing';
+  return 'submitted';
 }
 
-function scoreColor(score) {
-  if (score == null) return { color: '#64748B', bg: '#F1F5F9', border: '#E2E8F0' };
-  if (score >= 80) return { color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC' };
-  if (score >= 60) return { color: '#22D3EE', bg: '#CFFAFE', border: '#0E7490' };
-  if (score >= 40) return { color: '#D97706', bg: '#FFFBEB', border: '#FCD34D' };
-  return { color: '#DC2626', bg: '#FEF2F2', border: '#FCA5A5' };
+function getCardName(card) {
+  return card?.candidate_name || card?.candidate?.name || 'Candidate';
 }
 
-// ─── Drag context ───────────────────────────────────────────────────────────
-// Shared across board via a module-level ref; avoids prop drilling.
-const dragState = { cardId: null, fromStage: null };
-
-// ─── Compact UI atoms ─────────────────────────────────────────────────────────
-function Avatar({ name, size = 32 }) {
-  return (
-    <div
-      className="rounded-full bg-surface-muted border border-border-default flex items-center justify-center font-bold text-text-secondary flex-shrink-0 font-display"
-      style={{ width: size, height: size, fontSize: size * 0.36 }}
-    >
-      {getInitials(name)}
-    </div>
-  );
+function getCardEmail(card) {
+  return card?.candidate_email || card?.candidate?.email || '';
 }
 
-function FitScoreChip({ score }) {
-  const c = scoreColor(score);
-  return (
-    <span
-      className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded font-display tabular-nums"
-      style={{ color: c.color, backgroundColor: c.bg, border: `1px solid ${c.border}` }}
-      title="Fit score"
-    >
-      {score == null ? '—' : score}
-    </span>
-  );
+function getAssessmentName(card, selectedAssessment) {
+  return card?.assessment_name || card?.assessment?.name || selectedAssessment?.name || 'Assessment';
 }
 
-function IntegrityDot({ score }) {
-  if (score == null) return null;
-  const ok = score >= 70;
-  const warn = score >= 40 && score < 70;
-  const color = ok ? '#16A34A' : warn ? '#D97706' : '#DC2626';
-  return (
-    <span title={`Integrity ${score}/100`} className="flex items-center gap-1 text-[10px] text-text-secondary">
-      <Shield className="w-2.5 h-2.5" style={{ color }} />
-    </span>
-  );
+function formatDate(value) {
+  if (!value) return '--/--/----';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '--/--/----';
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 }
 
-function StageChip({ stage }) {
-  const cfg = STAGE_BY_KEY[stage];
-  if (!cfg) return null;
-  const Icon = cfg.icon;
-  return (
-    <span
-      className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded"
-      style={{ color: cfg.color, backgroundColor: cfg.bg, border: `1px solid ${cfg.border}` }}
-    >
-      <Icon className="w-2.5 h-2.5" />
-      {cfg.label}
-    </span>
-  );
+function formatScore(card) {
+  const rawScore = card?.fit_score ?? card?.score ?? card?.overall_score;
+  if (rawScore === null || rawScore === undefined || Number.isNaN(Number(rawScore))) return '--/100';
+  return `${String(Math.round(Number(rawScore))).padStart(2, '0')}/100`;
 }
 
-// ─── Candidate card (board) ───────────────────────────────────────────────────
-function CandidateCard({ card, onClick, onDragStart, dense = false }) {
-  const [dragging, setDragging] = useState(false);
+function reportIsReady(card) {
+  return card?.report_status === 'completed' || card?.report_status === 'ready' || card?.report_status === 'generated';
+}
+
+function CandidateAvatar({ card }) {
+  const name = getCardName(card);
+  const avatarUrl = card?.avatar_url || card?.candidate_avatar || card?.candidate?.avatar_url || card?.candidate?.profile_image;
+  const initials = name.split(/\s+/).filter(Boolean).map(part => part[0]).slice(0, 2).join('').toUpperCase() || 'C';
 
   return (
-    <div
-      draggable
-      onDragStart={(e) => {
-        setDragging(true);
-        e.dataTransfer.effectAllowed = 'move';
-        // store globally so the column drop handler can read it
-        dragState.cardId = card.id;
-        dragState.fromStage = card.stage;
-        onDragStart?.(card);
-      }}
-      onDragEnd={() => setDragging(false)}
-      onClick={onClick}
-      className={`group w-full text-left bg-page hover:bg-surface border border-border-default hover:border-border-strong rounded-lg p-2.5 transition-all duration-100 cursor-grab active:cursor-grabbing select-none ${
-        dragging ? 'opacity-40 scale-[0.97] rotate-1' : ''
-      }`}
-    >
-      <div className="flex items-start gap-2.5">
-        <Avatar name={card.candidate_name} size={dense ? 24 : 28} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <p className="text-[12px] font-semibold text-text-primary truncate group-hover:text-text-primary">
-              {card.candidate_name}
-            </p>
-            <FitScoreChip score={card.fit_score} />
-          </div>
-          {!dense && (
-            <p className="text-[10.5px] text-text-secondary truncate mb-1.5">{card.candidate_email}</p>
-          )}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] text-text-secondary flex items-center gap-1">
-              <Clock className="w-2.5 h-2.5" />
-              {relativeTime(card.submitted_at || card.started_at || card.invited_at)}
-            </span>
-            <IntegrityDot score={card.integrity_score} />
-            {card.tags?.slice(0, 2).map((t, i) => (
-              <span key={i} className="text-[9.5px] px-1 py-px rounded bg-surface-muted border border-border-default text-text-secondary">
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Pipeline column ──────────────────────────────────────────────────────────
-function PipelineColumn({ stage, cards, onSelect, onDrop }) {
-  const [expanded, setExpanded] = useState(true);
-  const [dragOver, setDragOver] = useState(false);
-  const cfg = STAGE_BY_KEY[stage];
-  const Icon = cfg.icon;
-  const visible = expanded ? cards.slice(0, 25) : [];
-  const dense = cards.length > 12;
-
-  const handleDragOver = (e) => {
-    // Only allow drop if dragging from a different stage
-    if (dragState.fromStage && dragState.fromStage !== stage) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      setDragOver(true);
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    if (dragState.cardId && dragState.fromStage !== stage) {
-      onDrop(dragState.cardId, stage);
-      dragState.cardId = null;
-      dragState.fromStage = null;
-    }
-  };
-
-  return (
-    <div
-      onDragOver={handleDragOver}
-      onDragEnter={(e) => { if (dragState.fromStage && dragState.fromStage !== stage) { e.preventDefault(); setDragOver(true); } }}
-      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
-      onDrop={handleDrop}
-      className="flex flex-col w-[280px] flex-shrink-0 rounded-xl overflow-hidden transition-all duration-150"
-      style={{
-        backgroundColor: dragOver ? cfg.bg : '#F8FAFC',
-        border: dragOver ? `1.5px solid ${cfg.border}` : '1px solid #E2E8F0',
-        boxShadow: dragOver ? `0 0 0 3px ${cfg.border}22` : 'none',
-      }}
-    >
-      {/* Header */}
-      <div
-        className="flex items-center gap-2 px-3 py-2.5 border-b border-border-default cursor-pointer"
-        onClick={() => setExpanded(e => !e)}
-        style={{ backgroundColor: '#FFFFFF' }}
-      >
-        <span
-          className="w-1 h-4 rounded-full"
-          style={{ backgroundColor: cfg.color }}
-        />
-        <Icon className="w-3.5 h-3.5" style={{ color: cfg.color }} />
-        <p className="text-[12px] font-semibold text-text-primary flex-1">{cfg.label}</p>
-        <span
-          className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded font-display"
-          style={{ color: cfg.color, backgroundColor: cfg.bg }}
-        >
-          {cards.length}
-        </span>
-      </div>
-
-      {/* Cards */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1.5 min-h-[200px]">
-        {cards.length === 0 && (
-          <div
-            className="flex flex-col items-center justify-center text-center py-8 px-3 rounded-lg transition-all duration-150"
-            style={dragOver ? { backgroundColor: `${cfg.bg}80`, border: `1px dashed ${cfg.border}` } : {}}
-          >
-            {dragOver ? (
-              <p className="text-[11px] font-semibold" style={{ color: cfg.color }}>Drop here</p>
-            ) : (
-              <>
-                <div
-                  className="w-8 h-8 rounded-lg mb-2 flex items-center justify-center"
-                  style={{ backgroundColor: cfg.bg, border: `1px dashed ${cfg.border}` }}
-                >
-                  <Icon className="w-3.5 h-3.5" style={{ color: cfg.color, opacity: 0.5 }} />
-                </div>
-                <p className="text-[10.5px] text-text-muted">No candidates here</p>
-              </>
-            )}
-          </div>
-        )}
-        {visible.map(card => (
-          <CandidateCard
-            key={card.id}
-            card={card}
-            onClick={() => onSelect(card)}
-            dense={dense}
-          />
-        ))}
-        {cards.length > 25 && (
-          <div className="text-center py-2">
-            <span className="text-[10px] text-text-secondary">Showing top 25 of {cards.length}</span>
-          </div>
-        )}
-        {/* Drop indicator strip at bottom when column has cards */}
-        {dragOver && cards.length > 0 && (
-          <div
-            className="h-1 rounded-full mx-1 transition-all"
-            style={{ backgroundColor: cfg.color, opacity: 0.6 }}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Tray (in-flight, expired) ────────────────────────────────────────────────
-function Tray({ title, icon: Icon, color, cards, onSelect, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="bg-page border border-border-default rounded-xl overflow-hidden">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-3.5 py-2.5 hover:bg-surface transition-colors"
-      >
-        <Icon className="w-3.5 h-3.5" style={{ color }} />
-        <p className="text-[12px] font-semibold text-text-primary">{title}</p>
-        <span className="text-[10px] font-bold text-text-secondary tabular-nums px-1.5 py-0.5 rounded bg-surface-muted font-display">
-          {cards.length}
-        </span>
-        <ChevronDown className={`ml-auto w-3.5 h-3.5 text-text-secondary transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && (
-        <div className="border-t border-border-default p-2 space-y-1 max-h-[300px] overflow-y-auto">
-          {cards.length === 0 ? (
-            <p className="text-[11px] text-text-muted text-center py-4">Empty</p>
-          ) : (
-            cards.map(card => (
-              <button
-                key={card.id}
-                onClick={() => onSelect(card)}
-                className="w-full text-left flex items-center gap-2.5 px-2 py-1.5 hover:bg-surface rounded-md transition-colors"
-              >
-                <Avatar name={card.candidate_name} size={22} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-semibold text-text-primary truncate">{card.candidate_name}</p>
-                  <p className="text-[10px] text-text-secondary truncate">{card.candidate_email}</p>
-                </div>
-                <span className="text-[10px] text-text-secondary flex-shrink-0">
-                  {relativeTime(card.invited_at)}
-                </span>
-              </button>
-            ))
-          )}
-        </div>
+    <div className="h-[31px] w-[31px] flex-shrink-0 overflow-hidden rounded-full border border-border-default bg-surface-muted text-[10px] font-bold text-text-secondary">
+      {avatarUrl ? (
+        <img src={avatarUrl} alt={name} className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">{initials}</div>
       )}
     </div>
   );
 }
 
-// ─── Needs-action queue ───────────────────────────────────────────────────────
-const REASON_THEME = {
-  submitted: { color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC', icon: Sparkles },
-  expiring:  { color: '#D97706', bg: '#FFFBEB', border: '#FCD34D', icon: Clock },
-  stale:     { color: '#DC2626', bg: '#FEF2F2', border: '#FCA5A5', icon: AlertCircle },
-};
+function StageSelect({ card, onChange }) {
+  const stage = normalizeStage(card);
+  const meta = STAGE_META[stage] || STAGE_META.submitted;
 
-function NeedsActionQueue({ items, onSelect, loading }) {
+  return (
+    <div
+      className="relative inline-flex h-[31px] min-w-[91px] items-center rounded-[8px] border text-[13px] leading-none"
+      style={{
+        color: meta.text,
+        backgroundColor: meta.bg,
+        borderColor: meta.border,
+      }}
+    >
+      <select
+        value={stage}
+        onChange={event => onChange(card, event.target.value)}
+        className="h-full w-full appearance-none rounded-[8px] bg-transparent pl-[10px] pr-[27px] text-[13px] font-normal outline-none"
+        aria-label={`Stage for ${getCardName(card)}`}
+      >
+        {STAGE_OPTIONS.map(option => (
+          <option key={option.key} value={option.key}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-[9px] top-1/2 h-[14px] w-[14px] -translate-y-1/2" strokeWidth={2.4} />
+    </div>
+  );
+}
+
+function AssessmentSelect({ assessments, selectedId, onSelect }) {
+  return (
+    <div className="relative h-[42px] w-full md:w-[460px]">
+      <select
+        value={selectedId || ''}
+        onChange={event => onSelect(event.target.value || null)}
+        className="h-full w-full appearance-none rounded-[7px] border border-[var(--color-pipeline-selected)] bg-surface px-[11px] pr-[40px] text-[14px] text-text-primary outline-none transition-colors focus:border-[var(--color-pipeline-selected)]"
+        aria-label="Select assessment"
+      >
+        {assessments.length === 0 ? (
+          <option value="">Select assessment</option>
+        ) : (
+          assessments.map(assessment => (
+            <option key={assessment.id} value={assessment.id}>
+              {assessment.name}
+            </option>
+          ))
+        )}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-[13px] top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
+    </div>
+  );
+}
+
+function PipelineTable({
+  cards,
+  loading,
+  selectedAssessment,
+  selectedIds,
+  onToggleAll,
+  onToggleRow,
+  onStageChange,
+  onViewReport,
+}) {
+  const allSelected = cards.length > 0 && cards.every(card => selectedIds.has(getCardId(card)));
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader className="w-5 h-5 text-brand animate-spin" />
+      <div className="flex h-[314px] items-center justify-center rounded-[8px] border border-border-subtle bg-surface">
+        <Loader className="h-[22px] w-[22px] animate-spin text-brand" />
       </div>
     );
   }
-  if (items.length === 0) {
+
+  if (cards.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center text-center py-24">
-        <div className="w-16 h-16 rounded-2xl bg-success-bg border border-success-border flex items-center justify-center mb-5">
-          <CheckCircle2 className="w-8 h-8 text-success" strokeWidth={2} />
-        </div>
-        <h3 className="text-[15px] font-bold text-text-primary font-display mb-1.5">Inbox zero</h3>
-        <p className="text-[12.5px] text-text-secondary max-w-xs leading-relaxed">
-          Nothing needs your attention. New submissions and expiring invites will appear here.
-        </p>
+      <div className="flex h-[314px] flex-col items-center justify-center rounded-[8px] border border-border-subtle bg-surface text-center">
+        <p className="text-[15px] font-semibold text-text-primary">No candidates found</p>
+        <p className="mt-1 text-[13px] text-text-secondary">Candidates will appear here once they enter this pipeline.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-1.5">
-      {items.map(item => {
-        const theme = REASON_THEME[item.reason] || REASON_THEME.submitted;
-        const ReasonIcon = theme.icon;
-        return (
-          <button
-            key={item.id}
-            onClick={() => onSelect(item)}
-            className="group w-full text-left flex items-center gap-3 px-4 py-3 bg-page hover:bg-surface border border-border-default hover:border-border-strong rounded-xl transition-all duration-100"
-          >
-            <div
-              className="w-1 h-10 rounded-full flex-shrink-0"
-              style={{ backgroundColor: theme.color }}
-            />
-            <Avatar name={item.candidate_name} size={36} />
+    <div className="overflow-hidden rounded-[8px] border border-border-subtle bg-surface shadow-[0_1px_3px_var(--color-pipeline-shadow)]">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1098px] border-collapse text-left">
+          <thead>
+            <tr className="h-[43px] bg-[var(--color-pipeline-table-header)] text-[14px] font-medium text-text-secondary">
+              <th className="w-[45px] px-[12px]">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={onToggleAll}
+                  className="h-[16px] w-[16px] rounded-[4px] border-border-strong accent-[var(--color-pipeline-selected)]"
+                  aria-label="Select all candidates"
+                />
+              </th>
+              <th className="w-[269px] px-[10px]">Candidate&apos;s name</th>
+              <th className="w-[247px] px-[10px]">Assessment</th>
+              <th className="w-[139px] px-[10px]">Submission Date</th>
+              <th className="w-[138px] px-[10px]">Stage</th>
+              <th className="w-[112px] px-[10px]">Score</th>
+              <th className="w-[148px] px-[10px]">Report status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cards.map(card => {
+              const id = getCardId(card);
+              const selected = selectedIds.has(id);
+              const submittedAt = card.submitted_at || card.completed_at || card.started_at || card.invited_at;
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-0.5">
-                <p className="text-[13px] font-semibold text-text-primary truncate group-hover:text-text-primary">
-                  {item.candidate_name}
-                </p>
-                <FitScoreChip score={item.fit_score} />
-                <IntegrityDot score={item.integrity_score} />
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className="inline-flex items-center gap-1 text-[10.5px] font-semibold px-1.5 py-0.5 rounded"
-                  style={{ color: theme.color, backgroundColor: theme.bg, border: `1px solid ${theme.border}` }}
-                >
-                  <ReasonIcon className="w-2.5 h-2.5" />
-                  {item.reason_label}
-                </span>
-                <span className="text-[10.5px] text-text-secondary truncate">{item.candidate_email}</span>
-              </div>
-            </div>
-
-            <div className="hidden md:block text-[10.5px] text-text-secondary truncate max-w-[140px]">
-              {item.assessment_name}
-            </div>
-
-            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text-secondary transition-colors" />
-          </button>
-        );
-      })}
+              return (
+                <tr key={id} className="h-[46px] border-t border-border-subtle bg-surface text-[14px] text-text-primary">
+                  <td className="px-[12px] align-middle">
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => onToggleRow(id)}
+                      className="h-[16px] w-[16px] rounded-[4px] border-border-strong accent-[var(--color-pipeline-selected)]"
+                      aria-label={`Select ${getCardName(card)}`}
+                    />
+                  </td>
+                  <td className="px-[10px] align-middle">
+                    <div className="flex min-w-0 items-center gap-[10px]">
+                      <CandidateAvatar card={card} />
+                      <div className="min-w-0">
+                        <p className="truncate text-[14px] font-semibold leading-[17px] text-text-primary">{getCardName(card)}</p>
+                        <p className="truncate text-[11px] leading-[14px] text-[var(--color-report-email-text)]">{getCardEmail(card)}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="max-w-[247px] px-[10px] align-middle">
+                    <p className="truncate text-[14px] leading-[18px] text-text-primary">{getAssessmentName(card, selectedAssessment)}</p>
+                  </td>
+                  <td className="px-[10px] align-middle text-[14px] text-text-secondary">{formatDate(submittedAt)}</td>
+                  <td className="px-[10px] align-middle">
+                    <StageSelect card={card} onChange={onStageChange} />
+                  </td>
+                  <td className="px-[10px] align-middle text-[14px] text-text-primary">{formatScore(card)}</td>
+                  <td className="px-[10px] align-middle">
+                    {reportIsReady(card) ? (
+                      <button
+                        type="button"
+                        onClick={() => onViewReport(card)}
+                        className="h-[30px] min-w-[96px] rounded-[8px] border border-border-default bg-surface px-[12px] text-[14px] text-text-primary shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors hover:border-border-strong"
+                      >
+                        View report
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="h-[30px] min-w-[96px] rounded-[8px] border border-border-subtle bg-surface px-[12px] text-[14px] text-text-muted shadow-[0_1px_2px_rgba(15,23,42,0.05)]"
+                      >
+                        Pending
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
-
-// ─── Detail rail (right slide-over) ───────────────────────────────────────────
-function DetailRail({ card, onClose, onUpdate, onSaving }) {
-  const [stage, setStage] = useState(card?.stage || '');
-  const [notes, setNotes] = useState(card?.notes || '');
-  const [tags, setTags] = useState(card?.tags || []);
-  const [tagInput, setTagInput] = useState('');
-  const [savingField, setSavingField] = useState(null);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    setStage(card?.stage || '');
-    setNotes(card?.notes || '');
-    setTags(card?.tags || []);
-    setTagInput('');
-  }, [card?.id]);
-
-  const save = async (payload, field) => {
-    if (!card) return;
-    setSavingField(field);
-    try {
-      const res = await onUpdate(card.id, payload);
-      if (res?.data) onSaving(res.data);
-    } finally {
-      setSavingField(null);
-    }
-  };
-
-  const handleStageChange = (newStage) => {
-    setStage(newStage);
-    save({ stage: newStage }, 'stage');
-  };
-
-  const notesTimer = useRef(null);
-  const handleNotesChange = (val) => {
-    setNotes(val);
-    if (notesTimer.current) clearTimeout(notesTimer.current);
-    notesTimer.current = setTimeout(() => save({ notes: val }, 'notes'), 600);
-  };
-
-  const addTag = () => {
-    const t = tagInput.trim();
-    if (!t || tags.includes(t)) return;
-    const next = [...tags, t];
-    setTags(next);
-    setTagInput('');
-    save({ tags: next }, 'tags');
-  };
-
-  const removeTag = (t) => {
-    const next = tags.filter(x => x !== t);
-    setTags(next);
-    save({ tags: next }, 'tags');
-  };
-
-  if (!card) return null;
-  const statusCfg = ASSESSMENT_STATUS[card.status] || ASSESSMENT_STATUS['Invited'];
-
-  return (
-    <>
-      <div
-        className="fixed inset-0 bg-text-primary/30 backdrop-blur-[2px] z-40 animate-fadeIn"
-        onClick={onClose}
-      />
-      <aside className="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-page border-l border-border-default z-50 flex flex-col animate-slideInRight">
-        {/* Header */}
-        <div className="flex items-start gap-3 p-5 border-b border-border-default">
-          <Avatar name={card.candidate_name} size={48} />
-          <div className="flex-1 min-w-0">
-            <p className="text-[15px] font-bold text-text-primary truncate font-display">{card.candidate_name}</p>
-            <p className="text-[12px] text-text-secondary truncate flex items-center gap-1.5 mt-0.5">
-              <Mail className="w-3 h-3" /> {card.candidate_email}
-            </p>
-            <div className="flex items-center gap-1.5 mt-2">
-              <span
-                className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                style={{ color: statusCfg.color }}
-              >
-                <span className="w-1 h-1 rounded-full" style={{ backgroundColor: statusCfg.color }} />
-                {statusCfg.label}
-              </span>
-              {card.assessment_name && (
-                <span className="text-[10.5px] text-text-secondary truncate">· {card.assessment_name}</span>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-surface rounded-md transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* Scores */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="bg-page border border-border-default rounded-xl p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-text-secondary font-semibold mb-1.5 flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5" /> Fit Score
-              </p>
-              <p className="text-[24px] font-bold font-display tabular-nums" style={{ color: scoreColor(card.fit_score).color }}>
-                {card.fit_score == null ? '—' : card.fit_score}
-              </p>
-            </div>
-            <div className="bg-page border border-border-default rounded-xl p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-text-secondary font-semibold mb-1.5 flex items-center gap-1">
-                <Shield className="w-2.5 h-2.5" /> Integrity
-              </p>
-              <p className="text-[24px] font-bold font-display tabular-nums" style={{ color: scoreColor(card.integrity_score).color }}>
-                {card.integrity_score == null ? '—' : card.integrity_score}
-              </p>
-            </div>
-          </div>
-
-          {/* Stage selector */}
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.14em] text-text-secondary font-semibold mb-2 flex items-center gap-1.5">
-              Pipeline Stage
-              {savingField === 'stage' && <Loader className="w-2.5 h-2.5 animate-spin text-brand" />}
-            </p>
-            <div className="grid grid-cols-2 gap-1.5">
-              {STAGES.map(s => {
-                const Icon = s.icon;
-                const active = stage === s.key;
-                return (
-                  <button
-                    key={s.key}
-                    onClick={() => handleStageChange(s.key)}
-                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 border"
-                    style={{
-                      color: active ? s.color : '#64748B',
-                      backgroundColor: active ? s.bg : '#FFFFFF',
-                      borderColor: active ? s.border : '#E2E8F0',
-                    }}
-                  >
-                    <Icon className="w-3 h-3" />
-                    {s.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.14em] text-text-secondary font-semibold mb-2 flex items-center gap-1.5">
-              Recruiter Notes
-              {savingField === 'notes' && <Loader className="w-2.5 h-2.5 animate-spin text-brand" />}
-            </p>
-            <textarea
-              value={notes}
-              onChange={(e) => handleNotesChange(e.target.value)}
-              placeholder="Quick context for yourself or the hiring manager…"
-              rows={4}
-              className="w-full bg-page border border-border-default focus:border-border-strong rounded-lg p-2.5 text-[12px] text-text-primary placeholder:text-text-muted focus:outline-none resize-none"
-            />
-          </div>
-
-          {/* Tags */}
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.14em] text-text-secondary font-semibold mb-2 flex items-center gap-1.5">
-              <Tag className="w-2.5 h-2.5" /> Tags
-              {savingField === 'tags' && <Loader className="w-2.5 h-2.5 animate-spin text-brand" />}
-            </p>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {tags.map(t => (
-                <span
-                  key={t}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-surface-muted border border-border-default text-text-secondary"
-                >
-                  {t}
-                  <button onClick={() => removeTag(t)} className="text-text-secondary hover:text-error">
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                </span>
-              ))}
-              {tags.length === 0 && (
-                <span className="text-[11px] text-text-muted">No tags yet</span>
-              )}
-            </div>
-            <div className="flex gap-1.5">
-              <input
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
-                placeholder="Add tag…"
-                className="flex-1 bg-page border border-border-default focus:border-border-strong rounded-lg px-2.5 py-1.5 text-[11.5px] text-text-primary placeholder:text-text-muted focus:outline-none"
-              />
-              <button
-                onClick={addTag}
-                className="px-2.5 py-1.5 bg-surface border border-border-default hover:border-border-strong rounded-lg text-text-secondary hover:text-text-primary"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Timeline */}
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.14em] text-text-secondary font-semibold mb-2">Timeline</p>
-            <div className="space-y-1 text-[11.5px]">
-              <div className="flex justify-between text-text-secondary">
-                <span className="text-text-secondary">Invited</span>
-                <span>{relativeTime(card.invited_at)}</span>
-              </div>
-              {card.started_at && (
-                <div className="flex justify-between text-text-secondary">
-                  <span className="text-text-secondary">Started</span>
-                  <span>{relativeTime(card.started_at)}</span>
-                </div>
-              )}
-              {card.submitted_at && (
-                <div className="flex justify-between text-text-secondary">
-                  <span className="text-text-secondary">Submitted</span>
-                  <span>{relativeTime(card.submitted_at)}</span>
-                </div>
-              )}
-              {card.expires_at && (
-                <div className="flex justify-between text-text-secondary">
-                  <span className="text-text-secondary">Invite expires</span>
-                  <span>{relativeTime(card.expires_at)}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-border-default flex gap-2">
-          {card.report_status === 'completed' && card.session_id && card.assessment_id ? (
-            <button
-              onClick={() => navigate(`/recruiter/reports/${card.assessment_id}/${card.session_id}`)}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hover text-on-brand text-[12px] font-bold rounded-lg transition-colors active:scale-[0.97]"
-            >
-              <FileText className="w-3.5 h-3.5" strokeWidth={2.5} />
-              View Report
-            </button>
-          ) : card.report_status === 'processing' ? (
-            <div className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-tint border border-brand-border text-brand text-[12px] font-semibold rounded-lg">
-              <Loader className="w-3.5 h-3.5 animate-spin" />
-              Generating Report…
-            </div>
-          ) : card.report_status === 'pending' ? (
-            <div className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-warning-bg border border-warning-border text-warning text-[12px] font-semibold rounded-lg">
-              <Clock className="w-3.5 h-3.5" />
-              Report Queued
-            </div>
-          ) : card.report_status === 'failed' ? (
-            <div className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-error-bg border border-error-border text-error text-[12px] font-semibold rounded-lg">
-              <XCircle className="w-3.5 h-3.5" />
-              Report Failed
-            </div>
-          ) : null}
-          {card.assessment_id && (
-            <button
-              onClick={() => navigate(`/recruiter/assessments/${card.assessment_id}`)}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-surface border border-border-default hover:border-border-strong text-text-secondary hover:text-text-primary text-[12px] font-semibold rounded-lg"
-            >
-              Assessment
-            </button>
-          )}
-        </div>
-      </aside>
-    </>
-  );
-}
-
-// ─── Assessment switcher ──────────────────────────────────────────────────────
-function AssessmentSwitcher({ assessments, selectedId, onSelect }) {
-  const [open, setOpen] = useState(false);
-  const [q, setQ] = useState('');
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const onClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
-
-  const selected = assessments.find(a => a.id === selectedId);
-  const filtered = assessments.filter(a => a.name.toLowerCase().includes(q.toLowerCase()));
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 px-3 py-2 bg-surface border border-border-default hover:border-border-strong rounded-lg transition-colors min-w-[220px]"
-      >
-        <Hash className="w-3.5 h-3.5 text-text-secondary" />
-        <span className="text-[13px] font-semibold text-text-primary truncate flex-1 text-left">
-          {selected ? selected.name : 'Select assessment'}
-        </span>
-        {selected && (
-          <span className="text-[10px] font-bold text-text-secondary tabular-nums px-1.5 py-0.5 rounded bg-surface-muted font-display">
-            {selected.total}
-          </span>
-        )}
-        <ChevronDown className={`w-3.5 h-3.5 text-text-secondary transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-
-      {open && (
-        <div className="absolute top-full left-0 mt-1.5 w-[320px] bg-page border border-border-default rounded-xl shadow-2xl z-30 overflow-hidden animate-fadeIn">
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-border-default">
-            <Search className="w-3.5 h-3.5 text-text-secondary" />
-            <input
-              autoFocus
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search assessments…"
-              className="flex-1 bg-transparent text-[12px] text-text-primary placeholder:text-text-muted focus:outline-none"
-            />
-          </div>
-          <div className="max-h-[320px] overflow-y-auto p-1">
-            {filtered.length === 0 ? (
-              <p className="text-[11px] text-text-muted text-center py-4">No assessments</p>
-            ) : (
-              filtered.map(a => (
-                <button
-                  key={a.id}
-                  onClick={() => { onSelect(a.id); setOpen(false); setQ(''); }}
-                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-left transition-colors ${
-                    a.id === selectedId ? 'bg-brand-tint text-brand' : 'text-text-secondary hover:bg-surface hover:text-text-primary'
-                  }`}
-                >
-                  <span className="text-[12px] font-semibold truncate flex-1">{a.name}</span>
-                  <span className="text-[10px] font-bold tabular-nums text-text-secondary font-display">{a.total}</span>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Main screen ──────────────────────────────────────────────────────────────
-const VIEWS = [
-  { key: 'needs',  label: 'Needs Action', icon: Inbox },
-  { key: 'board',  label: 'Board',        icon: LayoutGrid },
-  { key: 'trays',  label: 'In Flight',    icon: Archive },
-];
 
 export default function PipelineScreen() {
-  const [view, setView] = useState('needs');
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('all');
   const [pipeline, setPipeline] = useState(null);
   const [needs, setNeeds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [needsLoading, setNeedsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedAssessment, setSelectedAssessment] = useState(null);
-  const [selectedCard, setSelectedCard] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
   const pollRef = useRef(null);
 
   const loadPipeline = useCallback(async (assessmentId) => {
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
     try {
       const res = await getPipeline(assessmentId);
       const data = res.data || res;
       setPipeline(data);
-      if (!selectedAssessment && data.selected_assessment_id) {
-        setSelectedAssessment(data.selected_assessment_id);
+      if (data.selected_assessment_id) {
+        setSelectedAssessment(prev => prev || data.selected_assessment_id);
       }
     } catch (err) {
       setError(err.message || 'Failed to load pipeline');
     } finally {
       setLoading(false);
     }
-  }, [selectedAssessment]);
+  }, []);
 
   const loadNeeds = useCallback(async (assessmentId) => {
     setNeedsLoading(true);
@@ -779,247 +341,277 @@ export default function PipelineScreen() {
     }
   }, []);
 
-  useEffect(() => { loadPipeline(selectedAssessment); }, [selectedAssessment]);
-  useEffect(() => { loadNeeds(selectedAssessment); }, [selectedAssessment]);
+  useEffect(() => {
+    loadPipeline(selectedAssessment);
+  }, [loadPipeline, selectedAssessment]);
 
-  // Poll while any card has in-progress report or non-final status
+  useEffect(() => {
+    loadNeeds(selectedAssessment);
+  }, [loadNeeds, selectedAssessment]);
+
+  const assessments = pipeline?.assessments || [];
+  const selectedAssessmentData = assessments.find(assessment => assessment.id === selectedAssessment) || assessments[0] || null;
+
+  const allCards = useMemo(() => {
+    const byId = new Map();
+    const addCard = (card, fallbackStage) => {
+      const id = getCardId(card);
+      if (!id || byId.has(id)) return;
+      byId.set(id, {
+        ...card,
+        stage: card.stage || fallbackStage,
+      });
+    };
+
+    Object.entries(pipeline?.columns || {}).forEach(([stage, cards]) => {
+      (cards || []).forEach(card => addCard(card, stage));
+    });
+    (pipeline?.trays?.in_flight || []).forEach(card => addCard(card, 'submitted'));
+    (pipeline?.trays?.expired || []).forEach(card => addCard(card, card.stage || 'submitted'));
+    (needs || []).forEach(card => addCard(card, card.stage || 'submitted'));
+
+    return Array.from(byId.values());
+  }, [needs, pipeline]);
+
+  useEffect(() => {
+    setSelectedIds(prev => {
+      const validIds = new Set(allCards.map(card => getCardId(card)));
+      const next = new Set([...prev].filter(id => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [allCards]);
+
   useEffect(() => {
     if (pollRef.current) clearInterval(pollRef.current);
-    const allCards = [
-      ...Object.values(pipeline?.columns || {}).flat(),
-      ...(pipeline?.trays?.in_flight || []),
-    ];
+
     const needsPoll = allCards.some(
-      c => c.report_status === 'pending' || c.report_status === 'processing' ||
-           c.status === 'Invited' || c.status === 'In Progress'
+      card => card.report_status === 'pending' ||
+        card.report_status === 'processing' ||
+        card.status === 'Invited' ||
+        card.status === 'In Progress',
     );
+
     if (needsPoll && selectedAssessment) {
       pollRef.current = setInterval(async () => {
         const res = await getPipeline(selectedAssessment).catch(() => null);
-        if (res) {
-          const data = res.data || res;
-          setPipeline(data);
-          if (selectedCard) {
-            const allUpdated = [...Object.values(data.columns || {}).flat(), ...(data.trays?.in_flight || [])];
-            const updated = allUpdated.find(c => c.id === selectedCard.id);
-            if (updated) setSelectedCard(updated);
-          }
-        }
+        if (res) setPipeline(res.data || res);
       }, PIPELINE_POLL_MS);
     }
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [pipeline, selectedAssessment, selectedCard]);
 
-  const handleAssessmentSelect = (id) => setSelectedAssessment(id);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [allCards, selectedAssessment]);
 
-  const handleCardUpdate = useCallback(async (cardId, payload) => {
-    const res = await updatePipelineCandidate(cardId, payload);
-    return res;
-  }, []);
+  const stageCounts = useMemo(() => {
+    const counts = Object.fromEntries(TAB_CONFIG.map(tab => [tab.key, 0]));
+    counts.all = allCards.length;
+    allCards.forEach(card => {
+      const stage = normalizeStage(card);
+      counts[stage] = (counts[stage] || 0) + 1;
+    });
+    return counts;
+  }, [allCards]);
 
-  // After save, merge updated card into local pipeline + needs
+  const visibleCards = useMemo(() => {
+    if (activeTab === 'all') return allCards;
+    return allCards.filter(card => normalizeStage(card) === activeTab);
+  }, [activeTab, allCards]);
+
   const mergeUpdatedCard = useCallback((updated) => {
-    setSelectedCard(updated);
-
     setPipeline(prev => {
       if (!prev) return prev;
-      const columns = { ...prev.columns };
-      const trays = { ...prev.trays };
-      // Remove from any column / tray
-      for (const k of Object.keys(columns)) columns[k] = columns[k].filter(c => c.id !== updated.id);
-      trays.in_flight = (trays.in_flight || []).filter(c => c.id !== updated.id);
-      trays.expired = (trays.expired || []).filter(c => c.id !== updated.id);
-      // Insert into correct bucket
-      if (updated.stage && columns[updated.stage]) {
-        columns[updated.stage] = [updated, ...columns[updated.stage]];
-        columns[updated.stage].sort((a, b) => (a.fit_score == null) - (b.fit_score == null) || (b.fit_score || 0) - (a.fit_score || 0));
-      } else if (updated.status === 'Expired') {
-        trays.expired = [updated, ...trays.expired];
-      } else {
-        trays.in_flight = [updated, ...trays.in_flight];
+      const columns = { ...(prev.columns || {}) };
+      const trays = { ...(prev.trays || {}) };
+
+      for (const key of Object.keys(columns)) {
+        columns[key] = (columns[key] || []).filter(card => getCardId(card) !== getCardId(updated));
       }
-      const totals = Object.fromEntries(Object.entries(columns).map(([k, v]) => [k, v.length]));
-      totals.in_flight = trays.in_flight.length;
-      totals.expired = trays.expired.length;
+      trays.in_flight = (trays.in_flight || []).filter(card => getCardId(card) !== getCardId(updated));
+      trays.expired = (trays.expired || []).filter(card => getCardId(card) !== getCardId(updated));
+
+      const targetStage = updated.stage || 'new';
+      if (columns[targetStage]) {
+        columns[targetStage] = [updated, ...columns[targetStage]];
+      } else if (targetStage === 'rejected' || targetStage === 'hired' || targetStage === 'shortlisted' || targetStage === 'reviewing') {
+        columns[targetStage] = [updated, ...(columns[targetStage] || [])];
+      } else {
+        columns.new = [updated, ...(columns.new || [])];
+      }
+
+      const totals = Object.fromEntries(Object.entries(columns).map(([key, cards]) => [key, cards.length]));
+      totals.in_flight = (trays.in_flight || []).length;
+      totals.expired = (trays.expired || []).length;
       return { ...prev, columns, trays, totals };
     });
 
-    setNeeds(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
+    setNeeds(prev => prev.map(card => (getCardId(card) === getCardId(updated) ? { ...card, ...updated } : card)));
   }, []);
 
-  // Drop handler from kanban board: optimistically move the card then PATCH
-  const handleDrop = useCallback(async (cardId, toStage) => {
-    // Find the card across all columns
-    let card = null;
-    setPipeline(prev => {
-      if (!prev) return prev;
-      for (const stage of Object.keys(prev.columns)) {
-        const found = prev.columns[stage].find(c => c.id === cardId);
-        if (found) { card = found; break; }
-      }
-      return prev;
-    });
-    if (!card) return;
+  const handleStageChange = useCallback(async (card, nextStageKey) => {
+    const option = STAGE_OPTIONS.find(item => item.key === nextStageKey);
+    if (!option) return;
 
-    // Optimistic UI merge immediately
-    const optimistic = { ...card, stage: toStage };
+    const previous = card;
+    const optimistic = { ...card, stage: option.apiStage };
     mergeUpdatedCard(optimistic);
 
-    // Persist in background
     try {
-      const res = await updatePipelineCandidate(cardId, { stage: toStage });
-      const updated = res?.data || optimistic;
-      if (updated.id) mergeUpdatedCard(updated);
-    } catch {
-      // Roll back on failure: restore original stage
-      mergeUpdatedCard(card);
+      const res = await updatePipelineCandidate(getCardId(card), { stage: option.apiStage });
+      const updated = res?.data || res || optimistic;
+      mergeUpdatedCard({ ...optimistic, ...updated });
+    } catch (err) {
+      mergeUpdatedCard(previous);
+      setError(err.message || 'Failed to update candidate stage');
     }
   }, [mergeUpdatedCard]);
 
-  const totals = pipeline?.totals || {};
-  const assessments = pipeline?.assessments || [];
+  const handleAssessmentSelect = useCallback((id) => {
+    setSelectedAssessment(id);
+    setSelectedIds(new Set());
+  }, []);
 
-  const viewBadges = useMemo(() => ({
-    needs: needs.length,
-    board: STAGES.reduce((sum, s) => sum + (totals[s.key] || 0), 0),
-    trays: (totals.in_flight || 0) + (totals.expired || 0),
-  }), [needs.length, totals]);
+  const handleToggleAll = useCallback(() => {
+    setSelectedIds(prev => {
+      const visibleIds = visibleCards.map(card => getCardId(card)).filter(Boolean);
+      const allSelected = visibleIds.length > 0 && visibleIds.every(id => prev.has(id));
+      if (allSelected) {
+        const next = new Set(prev);
+        visibleIds.forEach(id => next.delete(id));
+        return next;
+      }
+      return new Set([...prev, ...visibleIds]);
+    });
+  }, [visibleCards]);
+
+  const handleToggleRow = useCallback((id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleViewReport = useCallback((card) => {
+    if (card.assessment_id && card.session_id) {
+      navigate(`/recruiter/reports/${card.assessment_id}/${card.session_id}`);
+    }
+  }, [navigate]);
+
+  const selectedCount = selectedIds.size;
+  const candidateCount = selectedAssessmentData?.total ?? allCards.length;
 
   return (
-    <div className="min-h-full bg-page font-sans antialiased">
-      {/* ── Header ── */}
-      <div className="sticky top-0 z-20 bg-page/95 backdrop-blur-md border-b border-border-default">
-        <div className="px-6 py-4">
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-text-secondary font-semibold mb-1">Recruiter Pipeline</p>
-              <h1 className="text-[20px] font-bold text-text-primary font-display leading-tight">
-                Decide who moves forward.
-              </h1>
+    <div className="min-h-full bg-[var(--color-pipeline-canvas)] font-sans antialiased">
+      <AskAnythingBar className="bg-[var(--color-pipeline-canvas)]" />
+
+      <div className="px-3 pb-[18px] pt-[7px]">
+        <section className="min-h-[calc(100vh-76px)] rounded-[10px] bg-[var(--color-pipeline-panel)] px-[38px] pb-[31px] pt-[43px]">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-[20px] font-bold leading-[24px] text-text-primary">Pipelines</h1>
+              <p className="mt-[4px] text-[14px] leading-[18px] text-text-secondary">
+                {selectedAssessmentData?.name || 'Assessment'} · {candidateCount} candidates
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <AssessmentSwitcher
-                assessments={assessments}
-                selectedId={selectedAssessment}
-                onSelect={handleAssessmentSelect}
-              />
-            </div>
-          </div>
-
-          {/* View tabs */}
-          <div className="flex items-center gap-1">
-            {VIEWS.map(({ key, label, icon: Icon }) => {
-              const active = view === key;
-              const count = viewBadges[key];
-              return (
-                <button
-                  key={key}
-                  onClick={() => setView(key)}
-                  className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-all duration-150 ${
-                    active
-                      ? 'bg-brand-tint text-brand border border-brand-border/60'
-                      : 'text-text-secondary hover:text-text-secondary border border-transparent'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {label}
-                  {count > 0 && (
-                    <span
-                      className={`text-[10px] font-bold tabular-nums px-1.5 py-px rounded font-display ${
-                        active ? 'bg-brand-border/30 text-brand' : 'bg-surface-muted text-text-secondary'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  )}
-                  {key === 'needs' && count > 0 && !active && (
-                    <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Body ── */}
-      <div className="px-6 py-5">
-        {error && (
-          <div className="flex items-center gap-2 px-4 py-3 mb-4 bg-error-bg border border-[#9F1239]/40 text-error text-[12px] rounded-lg">
-            <AlertCircle className="w-3.5 h-3.5" />
-            {error}
-          </div>
-        )}
-
-        {loading && view !== 'needs' && (
-          <div className="flex items-center justify-center py-24">
-            <Loader className="w-5 h-5 text-brand animate-spin" />
-          </div>
-        )}
-
-        {/* Needs Action */}
-        {view === 'needs' && (
-          <div className="max-w-3xl">
-            <NeedsActionQueue items={needs} loading={needsLoading} onSelect={setSelectedCard} />
-          </div>
-        )}
-
-        {/* Board */}
-        {view === 'board' && !loading && pipeline && (
-          <div className="overflow-x-auto pb-3 -mx-6 px-6">
-            <div className="flex gap-3" style={{ minWidth: 'min-content' }}>
-              {STAGES.map(s => (
-                <PipelineColumn
-                  key={s.key}
-                  stage={s.key}
-                  cards={pipeline.columns[s.key] || []}
-                  onSelect={setSelectedCard}
-                  onDrop={handleDrop}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Trays */}
-        {view === 'trays' && !loading && pipeline && (
-          <div className="max-w-3xl space-y-3">
-            <Tray
-              title="In Flight — Invited & Active"
-              icon={Clock}
-              color="#F59E0B"
-              cards={pipeline.trays.in_flight || []}
-              onSelect={setSelectedCard}
-              defaultOpen
-            />
-            <Tray
-              title="Expired"
-              icon={Archive}
-              color="#64748B"
-              cards={pipeline.trays.expired || []}
-              onSelect={setSelectedCard}
+            <AssessmentSelect
+              assessments={assessments}
+              selectedId={selectedAssessment || selectedAssessmentData?.id}
+              onSelect={handleAssessmentSelect}
             />
           </div>
-        )}
 
-        {/* Empty: no assessments at all */}
-        {!loading && pipeline && assessments.length === 0 && (
-          <div className="flex flex-col items-center justify-center text-center py-24">
-            <h3 className="text-[15px] font-bold text-text-primary font-display mb-1.5">No assessments yet</h3>
-            <p className="text-[12.5px] text-text-secondary mb-4">Create one to start filling your pipeline.</p>
+          <div className="mt-[26px] flex flex-col gap-[12px] xl:flex-row xl:items-center xl:justify-between">
+            <div className="inline-flex h-[44px] w-fit items-center rounded-[22px] border border-border-subtle bg-[var(--color-pipeline-toolbar)] p-[3px]">
+              {TAB_CONFIG.map(tab => {
+                const active = activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    className={cn(
+                      'h-[36px] rounded-[18px] px-[13px] text-[14px] leading-none transition-colors',
+                      active
+                        ? 'border border-border-default bg-surface text-text-primary shadow-[0_1px_2px_rgba(15,23,42,0.08)]'
+                        : 'text-text-secondary hover:text-text-primary',
+                    )}
+                  >
+                    {tab.label} <span className="text-text-muted">({stageCounts[tab.key] || 0})</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-[7px]">
+              <button type="button" className="flex h-[43px] w-[43px] items-center justify-center rounded-[8px] border border-border-subtle bg-surface text-text-primary shadow-[0_4px_10px_var(--color-pipeline-shadow)]">
+                <Share2 className="h-[17px] w-[17px]" strokeWidth={1.8} />
+              </button>
+              <button type="button" className="flex h-[43px] w-[43px] items-center justify-center rounded-[8px] border border-border-subtle bg-surface text-text-primary shadow-[0_4px_10px_var(--color-pipeline-shadow)]">
+                <Download className="h-[17px] w-[17px]" strokeWidth={1.8} />
+              </button>
+              <button type="button" className="flex h-[43px] items-center gap-[8px] rounded-[8px] border border-border-subtle bg-surface px-[23px] text-[14px] font-medium text-text-primary shadow-[0_4px_10px_var(--color-pipeline-shadow)]">
+                Filter
+                <Filter className="h-[16px] w-[16px]" strokeWidth={1.8} />
+              </button>
+              <button type="button" className="flex h-[43px] items-center gap-[8px] rounded-[8px] border border-border-subtle bg-surface px-[23px] text-[14px] font-medium text-text-primary shadow-[0_4px_10px_var(--color-pipeline-shadow)]">
+                Threshold
+                <ListFilter className="h-[16px] w-[16px]" strokeWidth={1.8} />
+              </button>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Detail rail */}
-      {selectedCard && (
-        <DetailRail
-          card={selectedCard}
-          onClose={() => setSelectedCard(null)}
-          onUpdate={handleCardUpdate}
-          onSaving={mergeUpdatedCard}
-        />
-      )}
+          <div className="mt-[13px] flex min-h-[49px] items-center justify-between rounded-[7px] bg-[var(--color-pipeline-notice)] px-[12px] py-[10px] text-white">
+            <p className="text-[15px] leading-[20px] text-white">
+              No ATS connected at this moment. Managing pipeline manually ro connect with ATS now.
+            </p>
+            <button type="button" className="ml-4 h-[30px] flex-shrink-0 rounded-[7px] bg-surface px-[12px] text-[14px] font-medium text-text-primary">
+              Connect ATS
+            </button>
+          </div>
+
+          {error && (
+            <div className="mt-[12px] flex items-center gap-2 rounded-[8px] border border-error-border bg-error-bg px-4 py-3 text-[12px] text-error">
+              <AlertCircle className="h-[15px] w-[15px]" />
+              {error}
+            </div>
+          )}
+
+          <div className="mt-[12px]">
+            <PipelineTable
+              cards={visibleCards}
+              loading={loading || needsLoading}
+              selectedAssessment={selectedAssessmentData}
+              selectedIds={selectedIds}
+              onToggleAll={handleToggleAll}
+              onToggleRow={handleToggleRow}
+              onStageChange={handleStageChange}
+              onViewReport={handleViewReport}
+            />
+          </div>
+
+          <div className="mt-[68px] flex min-h-[42px] items-center justify-between">
+            <p className="text-[15px] font-medium text-[var(--color-pipeline-selected-text)]">
+              {selectedCount > 0 ? `${selectedCount} selected` : ''}
+            </p>
+            <div className="flex items-center gap-[9px]">
+              <button
+                type="button"
+                className="h-[42px] rounded-[8px] border border-error-border bg-error-bg px-[25px] text-[14px] font-semibold text-error"
+              >
+                Reject all
+              </button>
+              <button
+                type="button"
+                className="h-[42px] rounded-[8px] bg-[var(--color-pipeline-selected)] px-[27px] text-[14px] font-semibold text-white"
+              >
+                Send email
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
