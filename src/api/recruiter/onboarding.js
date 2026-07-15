@@ -1,29 +1,11 @@
-import { authFetch } from '../../utils/authFetch';
+import { authAxios } from '../../lib/axios';
 
 export async function saveOrgDetails(data) {
-  const res = await authFetch('/api/orgs/v1/onboarding', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || 'Failed to save org details');
-  }
-  return res.json();
+  return authAxios.patch('/api/orgs/v1/onboarding', data);
 }
 
 export async function sendInvites(invites) {
-  const res = await authFetch('/api/orgs/v1/invites', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ invites }),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || 'Failed to send invites');
-  }
-  return res.json();
+  return authAxios.post('/api/orgs/v1/invites', { invites });
 }
 
 export async function launchWorkspace({ logo, brand_color, candidate_name, tagline }) {
@@ -33,13 +15,5 @@ export async function launchWorkspace({ logo, brand_color, candidate_name, tagli
   formData.append('candidate_name', candidate_name || '');
   formData.append('tagline', tagline || '');
 
-  const res = await authFetch('/api/orgs/v1/onboarding/launch', {
-    method: 'POST',
-    body: formData,
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || 'Failed to launch workspace');
-  }
-  return res.json();
+  return authAxios.post('/api/orgs/v1/onboarding/launch', formData);
 }

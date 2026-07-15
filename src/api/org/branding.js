@@ -6,27 +6,16 @@
 // If the endpoint isn't implemented yet, this resolves with `null` so the UI
 // silently falls back to localStorage / palette default.
 
-import { authFetch } from '../../utils/authFetch';
+import { authAxios } from '../../lib/axios';
 
 export async function fetchOrgBranding() {
   try {
-    const res = await authFetch('/api/v1/recruiter/org/branding');
-    if (!res.ok) return null;
-    return await res.json();
+    return await authAxios.get('/api/v1/recruiter/org/branding');
   } catch {
     return null;
   }
 }
 
 export async function updateOrgBranding(payload) {
-  const res = await authFetch('/api/v1/recruiter/org/branding', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || `Failed to update branding (${res.status})`);
-  }
-  return res.json();
+  return authAxios.patch('/api/v1/recruiter/org/branding', payload);
 }

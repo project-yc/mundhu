@@ -1,7 +1,7 @@
 /**
  * Assessment Builder API layer.
  *
- * Wraps authFetch for all builder-related API calls.
+ * Wraps authAxios for all builder-related API calls.
  *
  * Endpoints:
  *   POST   /api/v1/create/assessment
@@ -20,20 +20,10 @@
  *   POST   /api/v1/recruiter/sections/<section_id>/items
  *   PATCH  /api/v1/recruiter/sections/<section_id>/items/<item_id>
  *   DELETE /api/v1/recruiter/sections/<section_id>/items/<item_id>
- *   GET    /api/v1/recruiter/library/tasks
+ *   GET    /api/v1/library/trudev
  */
 
-import { authFetch } from '../../../../../utils/authFetch';
-
-const JSON_HEADERS = { 'Content-Type': 'application/json' };
-
-async function handleResponse(res) {
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || body.message || body.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+import { authAxios } from '../../../../../lib/axios';
 
 // ─── Assessment ───────────────────────────────────────────────────────────────
 
@@ -42,12 +32,7 @@ async function handleResponse(res) {
  * @returns {{ id: string, message: string }}
  */
 export async function createAssessment({ name, description, duration_minutes, config_json }) {
-  const res = await authFetch('/api/v1/create/assessment', {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({ name, description, duration_minutes, config_json }),
-  });
-  return handleResponse(res);
+  return authAxios.post('/api/v1/create/assessment', { name, description, duration_minutes, config_json });
 }
 
 /**
@@ -55,8 +40,7 @@ export async function createAssessment({ name, description, duration_minutes, co
  * Fetches full nested builder state to resume an existing draft.
  */
 export async function getBuilderState(assessmentId) {
-  const res = await authFetch(`/api/v1/assessments/${assessmentId}/builder-state`);
-  return handleResponse(res);
+  return authAxios.get(`/api/v1/assessments/${assessmentId}/builder-state`);
 }
 
 // ─── Sections ─────────────────────────────────────────────────────────────────
@@ -65,37 +49,24 @@ export async function getBuilderState(assessmentId) {
  * POST /api/v1/assessments/<assessment_id>/sections
  */
 export async function createSection(assessmentId, { name, timer_minutes }) {
-  const res = await authFetch(`/api/v1/assessments/${assessmentId}/sections`, {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({ name, timer_minutes: timer_minutes ?? null }),
+  return authAxios.post(`/api/v1/assessments/${assessmentId}/sections`, {
+    name,
+    timer_minutes: timer_minutes ?? null,
   });
-  return handleResponse(res);
 }
 
 /**
  * PATCH /api/v1/assessments/sections/<section_id>
  */
 export async function updateSection(sectionId, updates) {
-  const res = await authFetch(`/api/v1/assessments/sections/${sectionId}`, {
-    method: 'PATCH',
-    headers: JSON_HEADERS,
-    body: JSON.stringify(updates),
-  });
-  return handleResponse(res);
+  return authAxios.patch(`/api/v1/assessments/sections/${sectionId}`, updates);
 }
 
 /**
  * DELETE /api/v1/assessments/sections/<section_id>
  */
 export async function deleteSection(sectionId) {
-  const res = await authFetch(`/api/v1/assessments/sections/${sectionId}`, {
-    method: 'DELETE',
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || body.message || `HTTP ${res.status}`);
-  }
+  return authAxios.delete(`/api/v1/assessments/sections/${sectionId}`);
 }
 
 // ─── Section Items ────────────────────────────────────────────────────────────
@@ -105,77 +76,40 @@ export async function deleteSection(sectionId) {
  * POST /api/v1/recruiter/sections/<section_id>/items
  */
 export async function attachItemToSection(sectionId, { assessment_item_id, library_task_id, order, points }) {
-  const res = await authFetch(`/api/v1/recruiter/sections/${sectionId}/items`, {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({ assessment_item_id, library_task_id, order, points }),
+  return authAxios.post(`/api/v1/recruiter/sections/${sectionId}/items`, {
+    assessment_item_id,
+    library_task_id,
+    order,
+    points,
   });
-  return handleResponse(res);
 }
 
 /**
  * PATCH /api/v1/recruiter/sections/<section_id>/items/<item_id>
  */
 export async function updateSectionItem(sectionId, itemId, updates) {
-  const res = await authFetch(`/api/v1/recruiter/sections/${sectionId}/items/${itemId}`, {
-    method: 'PATCH',
-    headers: JSON_HEADERS,
-    body: JSON.stringify(updates),
-  });
-  return handleResponse(res);
+  return authAxios.patch(`/api/v1/recruiter/sections/${sectionId}/items/${itemId}`, updates);
 }
 
 /**
  * DELETE /api/v1/recruiter/sections/<section_id>/items/<item_id>
  */
 export async function deleteSectionItem(sectionId, itemId) {
-  const res = await authFetch(`/api/v1/recruiter/sections/${sectionId}/items/${itemId}`, {
-    method: 'DELETE',
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || body.message || `HTTP ${res.status}`);
-  }
+  return authAxios.delete(`/api/v1/recruiter/sections/${sectionId}/items/${itemId}`);
 }
 
 // ─── MCQ Questions ────────────────────────────────────────────────────────────
 
-/**
- * Create MCQ question + AssessmentItem.
- * POST /api/v1/recruiter/mcq/questions
- */
 export async function createMcqQuestion(payload) {
-  // payload: { title, prompt, selection_mode, shuffle_options, show_explanation_after, options?, ... }
-  const res = await authFetch('/api/v1/recruiter/mcq/questions', {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify(payload),
-  });
-  return handleResponse(res);
+  return authAxios.post('/api/v1/recruiter/mcq/questions', payload);
 }
 
-/**
- * PATCH /api/v1/recruiter/mcq/questions/<id>
- */
 export async function updateMcqQuestion(mcqId, payload) {
-  const res = await authFetch(`/api/v1/recruiter/mcq/questions/${mcqId}`, {
-    method: 'PATCH',
-    headers: JSON_HEADERS,
-    body: JSON.stringify(payload),
-  });
-  return handleResponse(res);
+  return authAxios.patch(`/api/v1/recruiter/mcq/questions/${mcqId}`, payload);
 }
 
-/**
- * POST /api/v1/recruiter/mcq/questions/<id>/publish
- */
 export async function publishMcqQuestion(mcqId) {
-  const res = await authFetch(`/api/v1/recruiter/mcq/questions/${mcqId}/publish`, {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({}),
-  });
-  return handleResponse(res);
+  return authAxios.post(`/api/v1/recruiter/mcq/questions/${mcqId}/publish`, {});
 }
 
 /**
@@ -192,123 +126,59 @@ export async function unlockMcqQuestion(mcqId) {
 // ─── MCQ Options ──────────────────────────────────────────────────────────────
 
 export async function addMcqOption(mcqId, { text, is_correct, order_index }) {
-  const res = await authFetch(`/api/v1/recruiter/mcq/questions/${mcqId}/options`, {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({ text, is_correct, order_index }),
-  });
-  return handleResponse(res);
+  return authAxios.post(`/api/v1/recruiter/mcq/questions/${mcqId}/options`, { text, is_correct, order_index });
 }
 
 export async function updateMcqOption(mcqId, optionId, updates) {
-  const res = await authFetch(`/api/v1/recruiter/mcq/questions/${mcqId}/options/${optionId}`, {
-    method: 'PATCH',
-    headers: JSON_HEADERS,
-    body: JSON.stringify(updates),
-  });
-  return handleResponse(res);
+  return authAxios.patch(`/api/v1/recruiter/mcq/questions/${mcqId}/options/${optionId}`, updates);
 }
 
 export async function deleteMcqOption(mcqId, optionId) {
-  const res = await authFetch(`/api/v1/recruiter/mcq/questions/${mcqId}/options/${optionId}`, {
-    method: 'DELETE',
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || body.message || `HTTP ${res.status}`);
-  }
+  return authAxios.delete(`/api/v1/recruiter/mcq/questions/${mcqId}/options/${optionId}`);
 }
 
 export async function reorderMcqOptions(mcqId, orderedOptionIds) {
-  const res = await authFetch(`/api/v1/recruiter/mcq/questions/${mcqId}/options/reorder`, {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({ order: orderedOptionIds }),
-  });
-  return handleResponse(res);
+  return authAxios.post(`/api/v1/recruiter/mcq/questions/${mcqId}/options/reorder`, { order: orderedOptionIds });
 }
 
 // ─── Free Text Questions ──────────────────────────────────────────────────────
 
 export async function createFreeTextQuestion(payload) {
-  const res = await authFetch('/api/v1/recruiter/freetext/questions', {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify(payload),
-  });
-  return handleResponse(res);
+  return authAxios.post('/api/v1/recruiter/freetext/questions', payload);
 }
 
 export async function updateFreeTextQuestion(id, payload) {
-  const res = await authFetch(`/api/v1/recruiter/freetext/questions/${id}`, {
-    method: 'PATCH',
-    headers: JSON_HEADERS,
-    body: JSON.stringify(payload),
-  });
-  return handleResponse(res);
+  return authAxios.patch(`/api/v1/recruiter/freetext/questions/${id}`, payload);
 }
 
 export async function publishFreeTextQuestion(id) {
-  const res = await authFetch(`/api/v1/recruiter/freetext/questions/${id}/publish`, {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({}),
-  });
-  return handleResponse(res);
+  return authAxios.post(`/api/v1/recruiter/freetext/questions/${id}/publish`, {});
 }
 
 export async function unlockFreeTextQuestion(id) {
-  const res = await authFetch(`/api/v1/recruiter/freetext/questions/${id}/unlock`, {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({}),
-  });
-  return handleResponse(res);
+  return authAxios.post(`/api/v1/recruiter/freetext/questions/${id}/unlock`, {});
 }
 
 // ─── Ranking Questions ────────────────────────────────────────────────────────
 
 export async function createRankingQuestion(payload) {
-  const res = await authFetch('/api/v1/recruiter/ranking/questions', {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify(payload),
-  });
-  return handleResponse(res);
+  return authAxios.post('/api/v1/recruiter/ranking/questions', payload);
 }
 
 export async function updateRankingQuestion(id, payload) {
-  const res = await authFetch(`/api/v1/recruiter/ranking/questions/${id}`, {
-    method: 'PATCH',
-    headers: JSON_HEADERS,
-    body: JSON.stringify(payload),
-  });
-  return handleResponse(res);
+  return authAxios.patch(`/api/v1/recruiter/ranking/questions/${id}`, payload);
 }
 
 export async function publishRankingQuestion(id) {
-  const res = await authFetch(`/api/v1/recruiter/ranking/questions/${id}/publish`, {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({}),
-  });
-  return handleResponse(res);
+  return authAxios.post(`/api/v1/recruiter/ranking/questions/${id}/publish`, {});
 }
 
 export async function unlockRankingQuestion(id) {
-  const res = await authFetch(`/api/v1/recruiter/ranking/questions/${id}/unlock`, {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({}),
-  });
-  return handleResponse(res);
+  return authAxios.post(`/api/v1/recruiter/ranking/questions/${id}/unlock`, {});
 }
 
 // ─── Library Tasks ────────────────────────────────────────────────────────────
 
-/**
- * GET /api/v1/recruiter/library/tasks
- */
 export async function getLibraryTasks(filters = {}) {
   const params = new URLSearchParams();
   if (filters.difficulty) params.set('difficulty', filters.difficulty);
@@ -319,8 +189,7 @@ export async function getLibraryTasks(filters = {}) {
   if (filters.tag) params.set('tag', filters.tag);
   if (filters.assessment_id) params.set('assessment_id', filters.assessment_id);
   const qs = params.toString();
-  const res = await authFetch(`/api/v1/recruiter/library/tasks${qs ? `?${qs}` : ''}`);
-  return handleResponse(res);
+  return authAxios.get(`/api/v1/library/trudev${qs ? `?${qs}` : ''}`);
 }
 
 // ─── Full publish flow ────────────────────────────────────────────────────────
@@ -345,7 +214,6 @@ export async function publishAssessmentFlow(state) {
   for (let sIdx = 0; sIdx < sections.length; sIdx++) {
     const section = sections[sIdx];
 
-    // Use backendId if already persisted during builder, otherwise create now
     let sectionId = section.backendId;
     if (!sectionId) {
       const sectionResult = await createSection(assessmentId, {
@@ -359,7 +227,6 @@ export async function publishAssessmentFlow(state) {
       const item = section.items[qIdx];
 
       if (item.type === 'mcq') {
-        // Use backendMcqId if already persisted
         let mcqId = item.backendMcqId;
         let itemId = item.backendItemId;
 
@@ -374,17 +241,11 @@ export async function publishAssessmentFlow(state) {
           mcqId = mcqResult.data.id;
           itemId = mcqResult.data.assessment_item_id;
 
-          // Add options
           for (let oIdx = 0; oIdx < item.options.length; oIdx++) {
             const opt = item.options[oIdx];
             await addMcqOption(mcqId, { text: opt.text, is_correct: opt.is_correct, order_index: oIdx });
           }
         }
-
-        // NOTE: Do NOT call publishMcqQuestion here.
-        // AssessmentPublishView bulk-publishes all linked items at the end of the flow.
-        // Calling publishMcqQuestion individually would fail if the question has <2 options
-        // or no correct answer marked, blocking the entire publish flow unnecessarily.
 
         await attachItemToSection(sectionId, {
           assessment_item_id: itemId,
@@ -414,12 +275,6 @@ export async function publishAssessmentFlow(state) {
     }
   }
 
-  // Lock the assessment
-  const res = await authFetch(`/api/v1/assessments/${assessmentId}/publish`, {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({}),
-  });
-  const result = await handleResponse(res);
+  const result = await authAxios.post(`/api/v1/assessments/${assessmentId}/publish`, {});
   return { id: assessmentId, ...result };
 }

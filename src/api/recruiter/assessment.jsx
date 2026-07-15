@@ -1,4 +1,4 @@
-import { authFetch, forceLogout } from '../../utils/authFetch';
+import { authAxios, forceLogout } from '../../lib/axios';
 
 /**
  * Upload a pre-built zip file to S3 via the upload API.
@@ -42,73 +42,25 @@ export const uploadTaskZip = async (zipFile, onProgress) => {
   });
 };
 
-const handleApiError = async (response) => {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const errorMessage = errorData.message || errorData.error || `HTTP Error: ${response.status}`;
-    throw new Error(errorMessage);
-  }
-  return response.json();
-};
-
-const JSON_HEADERS = { 'Content-Type': 'application/json' };
-
 export const createAssessment = async (name, description, duration_minutes, config_json = {}) => {
-  try {
-    const response = await authFetch('/api/v1/create/assessment', {
-      method: 'POST',
-      headers: JSON_HEADERS,
-      body: JSON.stringify({
-        name,
-        description,
-        duration_minutes,
-        config_json,
-      }),
-    });
-
-    return handleApiError(response);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error('Unable to connect to the server. Please check your connection.');
-    }
-    throw error;
-  }
+  return authAxios.post('/api/v1/create/assessment', {
+    name,
+    description,
+    duration_minutes,
+    config_json,
+  });
 };
 
 export const getAllAssessments = async () => {
-  try {
-    const response = await authFetch('/api/assessments/all');
-    return handleApiError(response);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error('Unable to connect to the server. Please check your connection.');
-    }
-    throw error;
-  }
+  return authAxios.get('/api/assessments/all');
 };
 
 export const getAssessmentById = async (id) => {
-  try {
-    const response = await authFetch(`/api/v1/assessment/${id}`);
-    return handleApiError(response);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error('Unable to connect to the server. Please check your connection.');
-    }
-    throw error;
-  }
+  return authAxios.get(`/api/v1/assessment/${id}`);
 };
 
 export const getTasksByAssessmentId = async (assessmentId) => {
-  try {
-    const response = await authFetch(`/api/v1/assessment/${assessmentId}`);
-    return handleApiError(response);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error('Unable to connect to the server. Please check your connection.');
-    }
-    throw error;
-  }
+  return authAxios.get(`/api/v1/assessment/${assessmentId}`);
 };
 
 export const createTask = async (
@@ -126,195 +78,87 @@ export const createTask = async (
   graderBundleS3Key = null,
   taskManifestJson = null,
 ) => {
-  try {
-    let response;
-
-    if (files.length > 0) {
-      const formData = new FormData();
-      formData.append('assessment_id', assessmentId);
-      formData.append('title', title);
-      formData.append('description', description);
-      formData.append('tags', JSON.stringify(tags));
-      formData.append('additional_info', JSON.stringify(additionalInfo || {}));
-      formData.append('source_type', sourceType);
-      if (sourceType === 'git') {
-        formData.append('git_repo_url', gitRepoUrl || '');
-        formData.append('git_branch', gitBranch || '');
-      }
-
-      files.forEach((file) => {
-        const relativeName = file.webkitRelativePath || file.name;
-        formData.append('files', file, relativeName);
-        formData.append('relative_paths', relativeName);
-      });
-
-      // No Content-Type header — browser sets it with the correct FormData boundary
-      response = await authFetch('/api/v1/create/task', {
-        method: 'POST',
-        body: formData,
-      });
-    } else {
-      response = await authFetch('/api/v1/create/task', {
-        method: 'POST',
-        headers: JSON_HEADERS,
-        body: JSON.stringify({
-          assessment_id: assessmentId,
-          title,
-          description,
-          tags,
-          additional_info: additionalInfo || {},
-          source_type: sourceType,
-          git_repo_url: sourceType === 'git' ? gitRepoUrl : null,
-          git_branch: sourceType === 'git' ? gitBranch : null,
-          ...(taskZipS3Key ? { task_zip_s3_key: taskZipS3Key } : {}),
-          ...(starterBundleS3Key ? { starter_bundle_s3_key: starterBundleS3Key } : {}),
-          ...(graderBundleS3Key ? { grader_bundle_s3_key: graderBundleS3Key } : {}),
-          ...(taskManifestJson ? { task_manifest_json: taskManifestJson } : {}),
-        }),
-      });
+  if (files.length > 0) {
+    const formData = new FormData();
+    formData.append('assessment_id', assessmentId);
+    formData.append('title', title);
+    formData.append('description', description);
+    formData.append('tags', JSON.stringify(tags));
+    formData.append('additional_info', JSON.stringify(additionalInfo || {}));
+    formData.append('source_type', sourceType);
+    if (sourceType === 'git') {
+      formData.append('git_repo_url', gitRepoUrl || '');
+      formData.append('git_branch', gitBranch || '');
     }
 
-    return handleApiError(response);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error('Unable to connect to the server. Please check your connection.');
-    }
-    throw error;
+    files.forEach((file) => {
+      const relativeName = file.webkitRelativePath || file.name;
+      formData.append('files', file, relativeName);
+      formData.append('relative_paths', relativeName);
+    });
+
+    return authAxios.post('/api/v1/create/task', formData);
   }
+
+  return authAxios.post('/api/v1/create/task', {
+    assessment_id: assessmentId,
+    title,
+    description,
+    tags,
+    additional_info: additionalInfo || {},
+    source_type: sourceType,
+    git_repo_url: sourceType === 'git' ? gitRepoUrl : null,
+    git_branch: sourceType === 'git' ? gitBranch : null,
+    ...(taskZipS3Key ? { task_zip_s3_key: taskZipS3Key } : {}),
+    ...(starterBundleS3Key ? { starter_bundle_s3_key: starterBundleS3Key } : {}),
+    ...(graderBundleS3Key ? { grader_bundle_s3_key: graderBundleS3Key } : {}),
+    ...(taskManifestJson ? { task_manifest_json: taskManifestJson } : {}),
+  });
 };
 
 export const getTaskById = async (taskId) => {
-  try {
-    const response = await authFetch(`/api/v1/tasks/${taskId}`);
-    return handleApiError(response);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error('Unable to connect to the server. Please check your connection.');
-    }
-    throw error;
-  }
+  return authAxios.get(`/api/v1/tasks/${taskId}`);
 };
 
 export const updateTask = async (taskId, payload) => {
-  try {
-    const response = await authFetch(`/api/v1/tasks/${taskId}`, {
-      method: 'PATCH',
-      headers: JSON_HEADERS,
-      body: JSON.stringify(payload),
-    });
-    return handleApiError(response);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error('Unable to connect to the server. Please check your connection.');
-    }
-    throw error;
-  }
+  return authAxios.patch(`/api/v1/tasks/${taskId}`, payload);
 };
 
 export const verifyGitSource = async ({ taskId = null, gitRepoUrl, gitBranch }) => {
-  try {
-    const endpoint = taskId
-      ? `/api/admin/tasks/${taskId}/verify-git-source`
-      : '/api/v1/tasks/verify-git-source';
-    const response = await authFetch(endpoint, {
-      method: 'POST',
-      headers: JSON_HEADERS,
-      body: JSON.stringify({
-        git_repo_url: gitRepoUrl,
-        git_branch: gitBranch,
-      }),
-    });
-    return handleApiError(response);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error('Unable to connect to the server. Please check your connection.');
-    }
-    throw error;
-  }
+  const endpoint = taskId
+    ? `/api/admin/tasks/${taskId}/verify-git-source`
+    : '/api/v1/tasks/verify-git-source';
+  return authAxios.post(endpoint, {
+    git_repo_url: gitRepoUrl,
+    git_branch: gitBranch,
+  });
 };
 
 export const sendCandidateInvites = async (assessmentId, candidates) => {
-  try {
-    const response = await authFetch(`/api/v1/assessment/${assessmentId}/invite`, {
-      method: 'POST',
-      headers: JSON_HEADERS,
-      body: JSON.stringify({
-        candidates: candidates.map(c => ({
-          name: c.name,
-          email: c.email,
-        })),
-      }),
-    });
-
-    return handleApiError(response);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error('Unable to connect to the server. Please check your connection.');
-    }
-    throw error;
-  }
+  return authAxios.post(`/api/v1/assessment/${assessmentId}/invite`, {
+    candidates: candidates.map(c => ({
+      name: c.name,
+      email: c.email,
+    })),
+  });
 };
 
 export const getRecruiterStats = async () => {
-  const response = await authFetch('/api/v1/recruiter/stats');
-  return handleApiError(response);
+  return authAxios.get('/api/v1/recruiter/stats');
 };
 
 export const getAssessmentCandidates = async (assessmentId) => {
-  const response = await authFetch(`/api/v1/recruiter/assessment/${assessmentId}/candidates`);
-  return handleApiError(response);
+  return authAxios.get(`/api/v1/recruiter/assessment/${assessmentId}/candidates`);
 };
 
 export const getCandidatesWithReports = async (assessmentId, { pageSize = 1000 } = {}) => {
   const params = new URLSearchParams();
   params.set('page_size', String(pageSize));
-  const response = await authFetch(`/api/v1/recruiter/assessment/${assessmentId}/candidates/reports?${params.toString()}`);
-  return handleApiError(response);
+  return authAxios.get(`/api/v1/recruiter/assessment/${assessmentId}/candidates/reports?${params.toString()}`);
 };
 
 export const getRecruiterReportDetail = async (assessmentId, sessionId) => {
-  const response = await authFetch(`/api/v1/analytics/assessments/${assessmentId}/reports/${sessionId}`);
-  return handleApiError(response);
+  return authAxios.get(`/api/v1/analytics/assessments/${assessmentId}/reports/${sessionId}`);
 };
 
 export const getSessionReport = getRecruiterReportDetail;
-
-// ── Task Library (B2B) ───────────────────────────────────────────────────────
-
-export const getLibraryTasks = async (filters = {}) => {
-  const params = new URLSearchParams();
-  if (filters.difficulty)   params.set('difficulty',   filters.difficulty);
-  if (filters.seniority)    params.set('seniority',    filters.seniority);
-  if (filters.domain)       params.set('domain',       filters.domain);
-  if (filters.language)     params.set('language',     filters.language);
-  if (filters.search)       params.set('search',       filters.search);
-  if (filters.tag)          params.set('tag',          filters.tag);
-  if (filters.assessment_id) params.set('assessment_id', filters.assessment_id);
-  const qs = params.toString();
-  const response = await authFetch(`/api/v1/recruiter/library/tasks${qs ? `?${qs}` : ''}`);
-  return handleApiError(response);
-};
-
-export const getAssessmentLibraryTasks = async (assessmentId) => {
-  const response = await authFetch(`/api/v1/recruiter/assessments/${assessmentId}/library-tasks`);
-  return handleApiError(response);
-};
-
-export const attachLibraryTask = async (assessmentId, libraryTaskId, order = 0) => {
-  const response = await authFetch(`/api/v1/recruiter/assessments/${assessmentId}/library-tasks`, {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({ library_task_id: libraryTaskId, order }),
-  });
-  return handleApiError(response);
-};
-
-export const detachLibraryTask = async (assessmentId, libraryTaskId) => {
-  const response = await authFetch(
-    `/api/v1/recruiter/assessments/${assessmentId}/library-tasks/${libraryTaskId}`,
-    { method: 'DELETE' },
-  );
-  // 204 — no body
-  if (response.status === 204) return {};
-  return handleApiError(response);
-};
