@@ -265,8 +265,10 @@ export const getAssessmentCandidates = async (assessmentId) => {
   return handleApiError(response);
 };
 
-export const getCandidatesWithReports = async (assessmentId) => {
-  const response = await authFetch(`/api/v1/recruiter/assessment/${assessmentId}/candidates/reports`);
+export const getCandidatesWithReports = async (assessmentId, { pageSize = 1000 } = {}) => {
+  const params = new URLSearchParams();
+  params.set('page_size', String(pageSize));
+  const response = await authFetch(`/api/v1/recruiter/assessment/${assessmentId}/candidates/reports?${params.toString()}`);
   return handleApiError(response);
 };
 

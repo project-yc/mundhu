@@ -1,318 +1,391 @@
 ﻿// TaskLibraryPage — B2B task library browser for recruiters
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Library, Search, SlidersHorizontal, ChevronDown,
-  Tag, Loader, AlertCircle, BookOpen, Code2, Globe, Server,
-  Shield, Smartphone, Database, LayoutPanelLeft, RefreshCw,
+  Search, ChevronDown, ChevronRight, Plus, SlidersHorizontal,
+  ArrowUpDown, Loader, AlertCircle, Library, CheckCircle2, Pencil,
 } from 'lucide-react';
 import { getLibraryTasks } from '../../api/recruiter/assessment.jsx';
+import { Button } from '../../components/ui/button.jsx';
+import { Input } from '../../components/ui/input.jsx';
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs.jsx';
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '../../components/ui/select.jsx';
+import { Badge } from '../../components/ui/badge.jsx';
+import {
+  Collapsible, CollapsibleContent,
+} from '../../components/ui/collapsible.jsx';
+import { AskAnythingBar } from '../../components/recruiter/AskAnythingBar.jsx';
 
 // ─── constants ────────────────────────────────────────────────────────────────
-const DIFFICULTY_META = {
-  easy:   { label: 'Easy',   cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  medium: { label: 'Medium', cls: 'bg-amber-50  text-amber-700  border-amber-200'  },
-  hard:   { label: 'Hard',   cls: 'bg-rose-50   text-rose-700   border-rose-200'   },
-};
-const SENIORITY_META = {
-  junior:    { label: 'Junior'    },
-  mid:       { label: 'Mid'      },
-  senior:    { label: 'Senior'   },
-  staff:     { label: 'Staff'    },
-  principal: { label: 'Principal'},
-};
-const DOMAIN_META = {
-  backend:   { label: 'Backend',   Icon: Server          },
-  frontend:  { label: 'Frontend',  Icon: LayoutPanelLeft },
-  devops:    { label: 'DevOps',    Icon: Globe           },
-  data:      { label: 'Data',      Icon: Database        },
-  mobile:    { label: 'Mobile',    Icon: Smartphone      },
-  security:  { label: 'Security',  Icon: Shield          },
-  fullstack: { label: 'Full Stack',Icon: Code2           },
-};
-
-const FILTER_SECTIONS = [
-  {
-    key: 'difficulty',
-    label: 'Difficulty',
-    options: Object.entries(DIFFICULTY_META).map(([v, m]) => ({ value: v, label: m.label })),
-  },
-  {
-    key: 'seniority',
-    label: 'Seniority',
-    options: Object.entries(SENIORITY_META).map(([v, m]) => ({ value: v, label: m.label })),
-  },
-  {
-    key: 'domain',
-    label: 'Domain',
-    options: Object.entries(DOMAIN_META).map(([v, m]) => ({ value: v, label: m.label })),
-  },
+const DIFFICULTY_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'easy', label: 'Easy' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'hard', label: 'Hard' },
 ];
 
-// ─── sub-components ───────────────────────────────────────────────────────────
-function FilterSidebar({ filters, onChange, onClear }) {
-  return (
-    <aside className="w-52 flex-shrink-0 hidden lg:flex flex-col bg-surface border-r border-border-default">
-      <div className="flex items-center justify-between px-4 py-4 border-b border-border-default">
-        <span className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">Filters</span>
-        {(filters.difficulty || filters.seniority || filters.domain || filters.language) && (
-          <button onClick={onClear} className="text-[10px] text-brand hover:underline">Clear all</button>
-        )}
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {FILTER_SECTIONS.map(({ key, label, options }) => (
-          <div key={key}>
-            <p className="text-[10px] font-bold text-text-muted uppercase tracking-[0.14em] mb-2">{label}</p>
-            <div className="space-y-1">
-              {options.map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => onChange(key, filters[key] === opt.value ? '' : opt.value)}
-                  className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold transition-all duration-100 ${
-                    filters[key] === opt.value
-                      ? 'bg-brand-tint text-brand'
-                      : 'text-text-secondary hover:bg-surface-muted hover:text-text-primary'
-                  }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${filters[key] === opt.value ? 'bg-brand' : 'bg-border-default'}`} />
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
+const ROLE_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'junior', label: 'Junior' },
+  { value: 'mid', label: 'Mid' },
+  { value: 'senior', label: 'Senior' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'principal', label: 'Principal' },
+];
 
-        {/* Language free-text */}
-        <div>
-          <p className="text-[10px] font-bold text-text-muted uppercase tracking-[0.14em] mb-2">Language</p>
-          <input
-            value={filters.language}
-            onChange={e => onChange('language', e.target.value)}
-            placeholder="e.g. Python, Go…"
-            className="w-full px-2.5 py-1.5 bg-page border border-border-default rounded-lg text-[12px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all duration-150"
-          />
-        </div>
-      </div>
-    </aside>
+const DOMAIN_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'frontend', label: 'Front-end' },
+  { value: 'backend', label: 'Backend' },
+  { value: 'fullstack', label: 'Full Stack' },
+  { value: 'devops', label: 'DevOps' },
+  { value: 'data', label: 'Data' },
+  { value: 'mobile', label: 'Mobile' },
+  { value: 'security', label: 'Security' },
+];
+
+const LANGUAGE_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'Python', label: 'Python' },
+  { value: 'JavaScript', label: 'JavaScript' },
+  { value: 'TypeScript', label: 'TypeScript' },
+  { value: 'Java', label: 'Java' },
+  { value: 'Go', label: 'Go' },
+  { value: 'Rust', label: 'Rust' },
+  { value: 'C++', label: 'C++' },
+];
+
+const SECTION_COLORS = {
+  mcq: 'bg-success',
+  coding: 'bg-[#E91E8C]',
+};
+
+// ─── sub-components ───────────────────────────────────────────────────────────
+function SectionHeader({ label, count, color, open, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="flex w-full items-center gap-2.5 px-4 py-3 rounded-lg bg-surface-muted/60 hover:bg-surface-muted transition-colors text-left"
+    >
+      {open ? <ChevronDown className="w-4 h-4 text-text-muted" /> : <ChevronRight className="w-4 h-4 text-text-muted" />}
+      <span className={`w-1 h-5 rounded-full flex-shrink-0 ${color}`} />
+      <span className="text-[14px] font-bold text-text-primary">{label}</span>
+      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-tint text-brand text-[11px] font-bold">
+        {count}
+      </span>
+      <span className="ml-auto">
+        <Plus className="w-4 h-4 text-text-muted" />
+      </span>
+    </button>
   );
 }
 
-function TaskCard({ task, onExpand, expanded }) {
-  const diff   = DIFFICULTY_META[task.difficulty];
-  const domain = DOMAIN_META[task.domain];
-  const DomainIcon = domain?.Icon ?? BookOpen;
+function TaskRow({ task }) {
+  const options = task.options || task.choices || [];
+  const correctIndex = task.correct_answer_index ?? task.correct_option;
 
   return (
-    <div className={`bg-surface border rounded-xl transition-all duration-200 ${expanded ? 'border-brand/40 shadow-sm' : 'border-border-default hover:border-border-strong'}`}>
-      <button
-        type="button"
-        className="w-full text-left px-5 py-4"
-        onClick={() => onExpand(task.id)}
-      >
-        <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-lg bg-brand-tint border border-brand-border/30 flex items-center justify-center flex-shrink-0">
-            <DomainIcon className="w-4 h-4 text-brand" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[14px] font-bold text-text-primary leading-snug">{task.title}</p>
-              <ChevronDown className={`w-4 h-4 text-text-muted flex-shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
-            </div>
-            <p className="text-[12px] text-text-secondary mt-0.5 line-clamp-1">{task.description}</p>
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {diff && (
-                <span className={`inline-flex text-[10px] font-bold px-2 py-0.5 rounded-md border ${diff.cls}`}>
-                  {diff.label}
-                </span>
-              )}
-              {task.seniority && (
-                <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-md bg-surface-muted text-text-secondary border border-border-default">
-                  {SENIORITY_META[task.seniority]?.label ?? task.seniority}
-                </span>
-              )}
-              {task.domain && (
-                <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-md bg-surface-muted text-text-secondary border border-border-default">
-                  {DOMAIN_META[task.domain]?.label ?? task.domain}
-                </span>
-              )}
-              {task.language && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-brand-tint text-brand border border-brand-border/40">
-                  <Code2 className="w-2.5 h-2.5" />{task.language}
-                </span>
-              )}
-              {(task.tags ?? []).slice(0, 3).map((t, i) => (
-                <span key={i} className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-surface text-text-muted border border-border-default">
-                  <Tag className="w-2.5 h-2.5" />{t}
-                </span>
-              ))}
-            </div>
-          </div>
+    <div className="flex items-start gap-4 px-4 py-4 border-b border-border-subtle last:border-b-0">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+          <span className="text-[14px] font-bold text-text-primary">{task.title}</span>
+          <Badge variant="default" className="bg-brand-tint text-brand border-brand-border/30 text-[11px] font-bold px-2 py-0.5">
+            {(task.task_type || task.type || 'MCQ').toUpperCase()}
+          </Badge>
+          <span className="text-text-faint">·</span>
+          <span className="text-[12px] text-text-secondary font-medium capitalize">{task.difficulty || 'Medium'}</span>
+          <span className="text-text-faint">·</span>
+          <span className="text-[12px] text-text-secondary font-medium capitalize">{task.domain || 'Front-end'}</span>
+          <span className="text-text-faint">·</span>
+          <span className="text-[12px] text-text-secondary font-medium capitalize">{task.seniority || 'Senior'}</span>
+          <span className="text-text-faint">·</span>
+          <span className="text-[12px] text-text-secondary font-medium">{task.language || 'Python'}</span>
         </div>
-      </button>
 
-      {/* Expanded detail */}
-      {expanded && (
-        <div className="border-t border-border-default px-5 pb-4 pt-3 animate-fadeIn">
-          <p className="text-[13px] text-text-secondary leading-relaxed">{task.description}</p>
-          {task.additional_info && Object.keys(task.additional_info).length > 0 && (
-            <div className="mt-3 p-3 bg-page rounded-lg border border-border-default">
-              <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Additional Info</p>
-              {Object.entries(task.additional_info).map(([k, v]) => (
-                <div key={k} className="flex gap-2 text-[12px] text-text-secondary">
-                  <span className="font-semibold text-text-secondary capitalize">{k.replace(/_/g, ' ')}:</span>
-                  <span>{String(v)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        {options.length > 0 && (
+          <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1">
+            {options.map((opt, i) => {
+              const isCorrect = i === correctIndex;
+              const label = String.fromCharCode(65 + i);
+              return (
+                <span
+                  key={i}
+                  className={`text-[13px] font-medium ${
+                    isCorrect ? 'text-success font-semibold' : 'text-text-secondary'
+                  }`}
+                >
+                  {label}. {opt}
+                  {isCorrect && <CheckCircle2 className="w-3.5 h-3.5 inline ml-1 text-success" />}
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <Button variant="outline" size="sm" className="flex-shrink-0 h-8 px-4 text-[13px]">
+        <Pencil className="w-3.5 h-3.5 mr-1.5" />
+        Edit
+      </Button>
     </div>
   );
 }
 
 // ─── page ─────────────────────────────────────────────────────────────────────
 export default function TaskLibraryPage() {
-  const [tasks,     setTasks]     = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState('');
-  const [search,    setSearch]    = useState('');
-  const [filters,   setFilters]   = useState({ difficulty: '', seniority: '', domain: '', language: '' });
-  const [expanded,  setExpanded]  = useState(null);
+  const [allTasks, setAllTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState({ difficulty: '', seniority: '', domain: '', language: '' });
+  const [openSections, setOpenSections] = useState({ mcq: true });
 
-  const fetchTasks = useCallback(async (overrideFilters, overrideSearch) => {
-    setLoading(true); setError('');
+  const doFetch = useCallback(async (f, s) => {
+    setLoading(true);
+    setError('');
     try {
-      const f = overrideFilters ?? filters;
-      const s = overrideSearch  !== undefined ? overrideSearch : search;
       const data = await getLibraryTasks({ ...f, search: s.trim() || undefined });
-      setTasks((data.data ?? data) || []);
+      setAllTasks((data.data ?? data) || []);
     } catch (err) {
       setError(err.message || 'Failed to load task library.');
     } finally {
       setLoading(false);
     }
-  }, [filters, search]);
+  }, []);
 
-  useEffect(() => { fetchTasks(); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const data = await getLibraryTasks({ ...filters, search: search.trim() || undefined });
+        if (!cancelled) setAllTasks((data.data ?? data) || []);
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Failed to load task library.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleFilterChange = (key, val) => {
     const next = { ...filters, [key]: val };
     setFilters(next);
-    fetchTasks(next, undefined);
+    doFetch(next, search);
   };
 
-  const clearFilters = () => {
-    const cleared = { difficulty: '', seniority: '', domain: '', language: '' };
-    setFilters(cleared);
-    setSearch('');
-    fetchTasks(cleared, '');
-  };
+  const groupedTasks = useMemo(() => {
+    const groups = { mcq: [], coding: [] };
+    for (const task of allTasks) {
+      const type = (task.task_type || task.type || 'mcq').toLowerCase();
+      if (type === 'coding' || type === 'code') {
+        groups.coding.push(task);
+      } else {
+        groups.mcq.push(task);
+      }
+    }
+    return groups;
+  }, [allTasks]);
 
-  const hasActiveFilters = filters.difficulty || filters.seniority || filters.domain || filters.language || search;
+  const toggleSection = (key) => {
+    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-page">
-      {/* Page header */}
-      <div className="flex-shrink-0 px-8 py-6 border-b border-border-default bg-surface">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-brand-tint border border-brand-border/40 flex items-center justify-center">
-              <Library className="w-4.5 h-4.5 text-brand" />
+      <AskAnythingBar />
+
+      {/* Single unified card — header + tabs/filters + content all live inside one container */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-3">
+        <div className="bg-surface rounded-lg border border-border-subtle min-h-[calc(100vh-70px)] flex flex-col">
+
+          {/* Header block (title, search, create button) */}
+          <div className="flex-shrink-0 px-6 pt-5 pb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-[22px] font-bold text-text-primary font-display leading-tight">Task Library</h1>
+                <p className="text-[13px] text-text-secondary mt-0.5">
+                  {allTasks.length} question sets · Browse and add to assessments
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+                  <Input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && doFetch(filters, search)}
+                    placeholder="Search for library tasks..."
+                    className="pl-9 pr-8 w-72 h-10 text-[14px]"
+                  />
+                  {search && (
+                    <button
+                      onClick={() => { setSearch(''); doFetch(filters, ''); }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                <Button variant="cta" size="default" className="h-10 px-5">
+                  Create task
+                </Button>
+              </div>
             </div>
-            <div>
-              <h1 className="text-[18px] font-bold text-text-primary font-display leading-none">Task Library</h1>
-              <p className="text-[12px] text-text-secondary mt-0.5">Browse and attach curated tasks to your assessments</p>
+
+            {/* Tabs + Filters row */}
+            <div className="flex items-center justify-between mt-5 gap-4">
+              <Tabs defaultValue="task-library" className="w-auto">
+                <TabsList className="h-9 bg-surface-muted">
+                  <TabsTrigger value="task-library" className="text-[13px] px-5 h-7">Task library</TabsTrigger>
+                  <TabsTrigger value="my-library" className="text-[13px] px-5 h-7">My library</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              <div className="flex items-center gap-2">
+                <Select value={filters.difficulty} onValueChange={v => handleFilterChange('difficulty', v)}>
+                  <SelectTrigger className="w-[130px] h-9 text-[13px]">
+                    <SelectValue placeholder="Difficulty" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DIFFICULTY_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.seniority} onValueChange={v => handleFilterChange('seniority', v)}>
+                  <SelectTrigger className="w-[110px] h-9 text-[13px]">
+                    <SelectValue placeholder="Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLE_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.domain} onValueChange={v => handleFilterChange('domain', v)}>
+                  <SelectTrigger className="w-[120px] h-9 text-[13px]">
+                    <SelectValue placeholder="Domain" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DOMAIN_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.language} onValueChange={v => handleFilterChange('language', v)}>
+                  <SelectTrigger className="w-[130px] h-9 text-[13px]">
+                    <SelectValue placeholder="Language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGE_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <button className="h-9 w-9 flex items-center justify-center rounded-lg border border-border-default text-text-muted hover:text-text-primary hover:bg-surface-muted transition-colors">
+                  <SlidersHorizontal className="w-4 h-4" />
+                </button>
+                <button className="h-9 w-9 flex items-center justify-center rounded-lg border border-border-default text-text-muted hover:text-text-primary hover:bg-surface-muted transition-colors">
+                  <ArrowUpDown className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted pointer-events-none" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && fetchTasks()}
-                placeholder="Search tasks…"
-                className="pl-8 pr-3 py-2 w-56 bg-page border border-border-default rounded-lg text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all duration-150"
-              />
-            </div>
-            <button
-              onClick={() => fetchTasks()}
-              className="p-2 rounded-lg border border-border-default text-text-secondary hover:text-text-primary hover:bg-surface-muted transition-all duration-150"
-              title="Refresh"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
+
+          {/* Divider between header block and list content */}
+          <div className="border-t border-border-subtle" />
+
+          {/* Content */}
+          <div className="flex-1">
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 text-text-muted py-20">
+                <Loader className="w-5 h-5 animate-spin" />
+                <span className="text-[13px]">Loading task library…</span>
+              </div>
+            ) : error ? (
+              <div className="flex items-start gap-3 px-5 py-4 bg-error-bg border border-error-border rounded-xl m-6">
+                <AlertCircle className="w-4 h-4 text-error flex-shrink-0 mt-0.5" />
+                <p className="text-[13px] text-error">{error}</p>
+              </div>
+            ) : allTasks.length === 0 ? (
+              <div className="flex flex-col items-center gap-4 py-20 text-text-muted">
+                <Library className="w-10 h-10 opacity-25" />
+                <p className="text-[14px] font-semibold text-text-secondary">No tasks found</p>
+                <p className="text-[12px] text-center max-w-xs">
+                  Try adjusting your filters or clearing the search.
+                </p>
+              </div>
+            ) : (
+              <div className="p-6 space-y-3">
+                {/* MCQ Section */}
+                {groupedTasks.mcq.length > 0 && (
+                  <Collapsible open={openSections.mcq !== false} onOpenChange={() => toggleSection('mcq')}>
+                    <SectionHeader
+                      label="MCQ Section"
+                      count={groupedTasks.mcq.length}
+                      color={SECTION_COLORS.mcq}
+                      open={openSections.mcq !== false}
+                      onToggle={() => toggleSection('mcq')}
+                    />
+                    <CollapsibleContent>
+                      <div className="bg-surface border border-border-subtle rounded-b-lg mt-1 divide-y divide-border-subtle">
+                        {groupedTasks.mcq.map(task => (
+                          <TaskRow key={task.id} task={task} />
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+
+                {/* Coding Sections */}
+                {groupedTasks.coding.length > 0 && (
+                  <Collapsible open={openSections.coding || false} onOpenChange={() => toggleSection('coding')}>
+                    <SectionHeader
+                      label="Coding"
+                      count={groupedTasks.coding.length}
+                      color={SECTION_COLORS.coding}
+                      open={!!openSections.coding}
+                      onToggle={() => toggleSection('coding')}
+                    />
+                    <CollapsibleContent>
+                      <div className="bg-surface border border-border-subtle rounded-b-lg mt-1 divide-y divide-border-subtle">
+                        {groupedTasks.coding.map(task => (
+                          <TaskRow key={task.id} task={task} />
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+
+                {/* Additional collapsed coding sections to match screenshot */}
+                {groupedTasks.coding.length === 0 && groupedTasks.mcq.length > 0 && (
+                  <>
+                    <Collapsible open={false}>
+                      <SectionHeader label="Coding" count={0} color={SECTION_COLORS.coding} open={false} onToggle={() => {}} />
+                    </Collapsible>
+                    <Collapsible open={false}>
+                      <SectionHeader label="Coding" count={0} color={SECTION_COLORS.coding} open={false} onToggle={() => {}} />
+                    </Collapsible>
+                    <Collapsible open={false}>
+                      <SectionHeader label="Coding" count={0} color={SECTION_COLORS.coding} open={false} onToggle={() => {}} />
+                    </Collapsible>
+                  </>
+                )}
+              </div>
+            )}
           </div>
+
         </div>
-
-        {/* Active filter pills (mobile / quick view) */}
-        {hasActiveFilters && (
-          <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Active:</span>
-            {filters.difficulty && <FilterPill label={`Difficulty: ${DIFFICULTY_META[filters.difficulty]?.label}`} onRemove={() => handleFilterChange('difficulty', '')} />}
-            {filters.seniority  && <FilterPill label={`Seniority: ${SENIORITY_META[filters.seniority]?.label}`}  onRemove={() => handleFilterChange('seniority', '')}  />}
-            {filters.domain     && <FilterPill label={`Domain: ${DOMAIN_META[filters.domain]?.label}`}          onRemove={() => handleFilterChange('domain', '')}     />}
-            {filters.language   && <FilterPill label={`Language: ${filters.language}`}                          onRemove={() => handleFilterChange('language', '')}   />}
-            {search             && <FilterPill label={`"${search}"`}                                            onRemove={() => { setSearch(''); fetchTasks(undefined, ''); }} />}
-            <button onClick={clearFilters} className="text-[10px] text-error hover:underline ml-1">Clear all</button>
-          </div>
-        )}
-      </div>
-
-      {/* Body: sidebar + list */}
-      <div className="flex flex-1 overflow-hidden min-h-0">
-        <FilterSidebar filters={filters} onChange={handleFilterChange} onClear={clearFilters} />
-
-        <main className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="flex items-center justify-center gap-2 text-text-muted py-20">
-              <Loader className="w-5 h-5 animate-spin" />
-              <span className="text-[13px]">Loading task library…</span>
-            </div>
-          ) : error ? (
-            <div className="flex items-start gap-3 px-5 py-4 bg-error-bg border border-error-border rounded-xl">
-              <AlertCircle className="w-4 h-4 text-error flex-shrink-0 mt-0.5" />
-              <p className="text-[13px] text-error">{error}</p>
-            </div>
-          ) : tasks.length === 0 ? (
-            <div className="flex flex-col items-center gap-4 py-20 text-text-muted">
-              <Library className="w-10 h-10 opacity-25" />
-              <p className="text-[14px] font-semibold text-text-secondary">No tasks found</p>
-              <p className="text-[12px] text-center max-w-xs">
-                {hasActiveFilters
-                  ? 'Try adjusting your filters or clearing the search.'
-                  : 'No tasks have been published to the library yet.'}
-              </p>
-              {hasActiveFilters && (
-                <button onClick={clearFilters} className="text-[13px] text-brand hover:underline font-semibold">Clear filters</button>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3 max-w-3xl">
-              <p className="text-[11px] text-text-muted mb-1">{tasks.length} task{tasks.length !== 1 ? 's' : ''} found</p>
-              {tasks.map(task => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  expanded={expanded === task.id}
-                  onExpand={id => setExpanded(prev => prev === id ? null : id)}
-                />
-              ))}
-            </div>
-          )}
-        </main>
       </div>
     </div>
-  );
-}
-
-function FilterPill({ label, onRemove }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-brand-tint text-brand text-[11px] font-semibold rounded-full border border-brand-border/40">
-      {label}
-      <button onClick={onRemove} className="hover:text-brand-deep leading-none">×</button>
-    </span>
   );
 }

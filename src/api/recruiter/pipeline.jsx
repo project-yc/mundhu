@@ -11,18 +11,18 @@ const handleApiError = async (response) => {
 };
 
 export const getPipeline = async (assessmentId) => {
-  const url = assessmentId
-    ? `/api/v1/recruiter/pipeline?assessment_id=${assessmentId}`
-    : `/api/v1/recruiter/pipeline`;
-  const res = await authFetch(url);
+  const params = new URLSearchParams();
+  params.set('page_size', '1000');
+  if (assessmentId) params.set('assessment_id', assessmentId);
+  const res = await authFetch(`/api/v1/recruiter/pipeline?${params.toString()}`);
   return handleApiError(res);
 };
 
 export const getNeedsAction = async (assessmentId) => {
-  const url = assessmentId
-    ? `/api/v1/recruiter/pipeline/needs-action?assessment_id=${assessmentId}`
-    : `/api/v1/recruiter/pipeline/needs-action`;
-  const res = await authFetch(url);
+  const params = new URLSearchParams();
+  params.set('page_size', '1000');
+  if (assessmentId) params.set('assessment_id', assessmentId);
+  const res = await authFetch(`/api/v1/recruiter/pipeline/needs-action?${params.toString()}`);
   return handleApiError(res);
 };
 

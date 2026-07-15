@@ -16,6 +16,16 @@ import {
   Trash2,
 } from 'lucide-react';
 import { getAllAssessments, getCandidatesWithReports } from '../../api/recruiter/assessment.jsx';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '../../components/ui/pagination.jsx';
+import { getPaginationItems } from '../../utils/pagination.js';
 
 const POLL_INTERVAL_MS = 8000;
 
@@ -140,6 +150,8 @@ export default function ReportsScreen() {
   const [assLoading, setAssLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const pollRef = useRef(null);
 
   useEffect(() => {
@@ -161,6 +173,7 @@ export default function ReportsScreen() {
       setLoading(true);
       setCandidates([]);
       setError('');
+      setCurrentPage(1);
     });
 
     getCandidatesWithReports(selectedId)
@@ -215,6 +228,15 @@ export default function ReportsScreen() {
       candidate.candidate_email?.toLowerCase().includes(query)
     ));
   }, [submitted, search]);
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const effectivePage = Math.min(currentPage, totalPages);
+  const pageOffset = (effectivePage - 1) * pageSize;
+  const paginatedCandidates = filtered.slice(pageOffset, pageOffset + pageSize);
+  const paginationItems = useMemo(
+    () => getPaginationItems(effectivePage, totalPages),
+    [effectivePage, totalPages],
+  );
 
   const avgScore = useMemo(() => {
     const scored = reportsReady.filter(candidate => Number.isFinite(Number(candidate.overall_score)));
@@ -299,7 +321,10 @@ export default function ReportsScreen() {
               <Search className="pointer-events-none absolute left-[11px] top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-text-primary" strokeWidth={1.8} />
               <input
                 value={search}
-                onChange={event => setSearch(event.target.value)}
+                onChange={event => {
+                  setSearch(event.target.value);
+                  setCurrentPage(1);
+                }}
                 placeholder="Ask anything..."
                 className="h-[42px] w-full rounded-[8px] border border-border-default bg-surface pl-[33px] pr-[12px] text-[14px] text-text-primary outline-none placeholder:text-text-muted transition-colors focus:border-border-strong"
               />
@@ -348,14 +373,15 @@ export default function ReportsScreen() {
                       </td>
                     </tr>
                   ) : (
-                    filtered.map((candidate, index) => {
+                    paginatedCandidates.map((candidate, index) => {
                       const score = Number.isFinite(Number(candidate.overall_score))
                         ? `${Math.round(Number(candidate.overall_score))}/100`
                         : '-';
+                      const rowNumber = pageOffset + index + 1;
 
                       return (
-                        <tr key={candidate.id || candidate.session_id || `${candidate.candidate_email}-${index}`} className="h-[46px] border-t border-border-subtle">
-                          <td className="px-[12px] text-[14px] font-medium text-text-secondary">{index + 1}</td>
+                        <tr key={candidate.id || candidate.session_id || `${candidate.candidate_email}-${rowNumber}`} className="h-[46px] border-t border-border-subtle">
+                          <td className="px-[12px] text-[14px] font-medium text-text-secondary">{rowNumber}</td>
                           <td className="px-[12px]">
                             <div className="flex min-w-0 items-center gap-[9px]">
                               <div className="flex h-[31px] w-[31px] flex-shrink-0 items-center justify-center rounded-full border border-border-default bg-surface-muted text-[11px] font-bold text-text-secondary">
@@ -402,6 +428,64 @@ export default function ReportsScreen() {
               </table>
             </div>
           </div>
+
+          {filtered.length > 0 && (
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-[13px] text-text-muted">
+                Showing {pageOffset + 1} to {Math.min(pageOffset + pageSize, filtered.length)} of {filtered.length} reports
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="relative flex items-center gap-2">
+                  <span className="text-[13px] text-text-muted">Rows per page</span>
+                  <select
+                    value={pageSize}
+                    onChange={event => {
+                      setPageSize(Number(event.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="h-8 appearance-none rounded-lg border border-border-default bg-surface px-2 pr-7 text-[13px] text-text-primary outline-none transition-colors focus:border-border-strong"
+                  >
+                    {[5, 10, 25, 50].map(size => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
+                </div>
+                {totalPages > 1 && (
+                  <Pagination className="mx-0 w-auto justify-end">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage(Math.max(1, effectivePage - 1))}
+                          disabled={effectivePage === 1}
+                        />
+                      </PaginationItem>
+                      {paginationItems.map((item, index) => (
+                        <PaginationItem key={`${item}-${index}`}>
+                          {item === 'ellipsis' ? (
+                            <PaginationEllipsis />
+                          ) : (
+                            <PaginationLink
+                              isActive={item === effectivePage}
+                              onClick={() => setCurrentPage(item)}
+                            >
+                              {item}
+                            </PaginationLink>
+                          )}
+                        </PaginationItem>
+                      ))}
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setCurrentPage(Math.min(totalPages, effectivePage + 1))}
+                          disabled={effectivePage === totalPages}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </div>

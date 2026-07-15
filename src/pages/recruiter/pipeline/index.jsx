@@ -16,7 +16,17 @@ import {
   updatePipelineCandidate,
 } from '../../../api/recruiter/pipeline.jsx';
 import { AskAnythingBar } from '../../../components/recruiter/AskAnythingBar';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '../../../components/ui/pagination.jsx';
 import { cn } from '../../../lib/utils';
+import { getPaginationItems } from '../../../utils/pagination.js';
 
 const PIPELINE_POLL_MS = 10000;
 
@@ -309,6 +319,8 @@ export default function PipelineScreen() {
   const [error, setError] = useState('');
   const [selectedAssessment, setSelectedAssessment] = useState(null);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const pollRef = useRef(null);
 
   const loadPipeline = useCallback(async (assessmentId) => {
@@ -418,6 +430,15 @@ export default function PipelineScreen() {
     return allCards.filter(card => normalizeStage(card) === activeTab);
   }, [activeTab, allCards]);
 
+  const totalPages = Math.ceil(visibleCards.length / pageSize) || 1;
+  const effectivePage = Math.min(currentPage, totalPages);
+  const pageOffset = (effectivePage - 1) * pageSize;
+  const paginatedCards = visibleCards.slice(pageOffset, pageOffset + pageSize);
+  const paginationItems = useMemo(
+    () => getPaginationItems(effectivePage, totalPages),
+    [effectivePage, totalPages],
+  );
+
   const mergeUpdatedCard = useCallback((updated) => {
     setPipeline(prev => {
       if (!prev) return prev;
@@ -469,20 +490,26 @@ export default function PipelineScreen() {
   const handleAssessmentSelect = useCallback((id) => {
     setSelectedAssessment(id);
     setSelectedIds(new Set());
+    setCurrentPage(1);
+  }, []);
+
+  const handleTabChange = useCallback((key) => {
+    setActiveTab(key);
+    setCurrentPage(1);
   }, []);
 
   const handleToggleAll = useCallback(() => {
     setSelectedIds(prev => {
-      const visibleIds = visibleCards.map(card => getCardId(card)).filter(Boolean);
-      const allSelected = visibleIds.length > 0 && visibleIds.every(id => prev.has(id));
+      const pageIds = paginatedCards.map(card => getCardId(card)).filter(Boolean);
+      const allSelected = pageIds.length > 0 && pageIds.every(id => prev.has(id));
       if (allSelected) {
         const next = new Set(prev);
-        visibleIds.forEach(id => next.delete(id));
+        pageIds.forEach(id => next.delete(id));
         return next;
       }
-      return new Set([...prev, ...visibleIds]);
+      return new Set([...prev, ...pageIds]);
     });
-  }, [visibleCards]);
+  }, [paginatedCards]);
 
   const handleToggleRow = useCallback((id) => {
     setSelectedIds(prev => {
@@ -530,7 +557,7 @@ export default function PipelineScreen() {
                   <button
                     key={tab.key}
                     type="button"
-                    onClick={() => setActiveTab(tab.key)}
+                    onClick={() => handleTabChange(tab.key)}
                     className={cn(
                       'h-[36px] rounded-[18px] px-[13px] text-[14px] leading-none transition-colors',
                       active
@@ -580,7 +607,7 @@ export default function PipelineScreen() {
 
           <div className="mt-[12px]">
             <PipelineTable
-              cards={visibleCards}
+              cards={paginatedCards}
               loading={loading || needsLoading}
               selectedAssessment={selectedAssessmentData}
               selectedIds={selectedIds}
@@ -590,6 +617,64 @@ export default function PipelineScreen() {
               onViewReport={handleViewReport}
             />
           </div>
+
+          {visibleCards.length > 0 && (
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-[13px] text-text-muted">
+                Showing {pageOffset + 1} to {Math.min(pageOffset + pageSize, visibleCards.length)} of {visibleCards.length} candidates
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="relative flex items-center gap-2">
+                  <span className="text-[13px] text-text-muted">Rows per page</span>
+                  <select
+                    value={pageSize}
+                    onChange={event => {
+                      setPageSize(Number(event.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="h-8 appearance-none rounded-lg border border-border-default bg-surface px-2 pr-7 text-[13px] text-text-primary outline-none transition-colors focus:border-border-strong"
+                  >
+                    {[5, 10, 25, 50].map(size => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
+                </div>
+                {totalPages > 1 && (
+                  <Pagination className="mx-0 w-auto justify-end">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage(Math.max(1, effectivePage - 1))}
+                          disabled={effectivePage === 1}
+                        />
+                      </PaginationItem>
+                      {paginationItems.map((item, index) => (
+                        <PaginationItem key={`${item}-${index}`}>
+                          {item === 'ellipsis' ? (
+                            <PaginationEllipsis />
+                          ) : (
+                            <PaginationLink
+                              isActive={item === effectivePage}
+                              onClick={() => setCurrentPage(item)}
+                            >
+                              {item}
+                            </PaginationLink>
+                          )}
+                        </PaginationItem>
+                      ))}
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setCurrentPage(Math.min(totalPages, effectivePage + 1))}
+                          disabled={effectivePage === totalPages}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="mt-[68px] flex min-h-[42px] items-center justify-between">
             <p className="text-[15px] font-medium text-[var(--color-pipeline-selected-text)]">
