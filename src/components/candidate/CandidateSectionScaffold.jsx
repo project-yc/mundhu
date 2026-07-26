@@ -1,6 +1,5 @@
-import { useEffect } from 'react'
 import {
-  applyCandidateBranding,
+  CandidateThemeScope,
   loadCandidateBranding,
 } from '../../theme/CandidateThemeProvider.jsx'
 
@@ -35,20 +34,18 @@ function OrgBrandHeader({ branding }) {
 export function CandidatePageShell({ children, maxWidth = 'max-w-lg' }) {
   const branding = loadCandidateBranding()
 
-  useEffect(() => {
-    applyCandidateBranding(branding)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
   return (
-    <div className="min-h-screen bg-page flex flex-col items-center justify-center px-4 py-10 gap-6">
-      <OrgBrandHeader branding={branding} />
-      <div className={`w-full ${maxWidth} bg-surface rounded-2xl border border-border-default shadow-card animate-slideInUp`}>
-        <div className="p-8 space-y-6">
-          {children}
+    <CandidateThemeScope branding={branding}>
+      <div className="min-h-screen bg-page flex flex-col items-center justify-center px-4 py-10 gap-6">
+        <OrgBrandHeader branding={branding} />
+        <div className={`w-full ${maxWidth} bg-surface rounded-2xl border border-border-default shadow-lift animate-slideInUp`}>
+          <div className="p-8 space-y-6">
+            {children}
+          </div>
         </div>
+        <CandidateFooter />
       </div>
-      <CandidateFooter />
-    </div>
+    </CandidateThemeScope>
   )
 }
 
@@ -90,26 +87,30 @@ export function CandidateCompletionScreen({
 
 export function CandidateCenteredLoadingState({ label }) {
   return (
-    <div className="min-h-screen bg-page flex items-center justify-center gap-3 text-text-secondary text-sm">
-      <div className="w-4 h-4 border-2 border-border-strong border-t-brand rounded-full animate-spin" />
-      {label}
-    </div>
+    <CandidateThemeScope>
+      <div className="min-h-screen bg-page flex items-center justify-center gap-3 text-text-secondary text-sm">
+        <div className="w-4 h-4 border-2 border-border-strong border-t-brand rounded-full animate-spin" />
+        {label}
+      </div>
+    </CandidateThemeScope>
   )
 }
 
 export function CandidateCenteredErrorState({ title, message }) {
   return (
-    <div className="min-h-screen bg-page flex items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-6 animate-slideInUp text-center">
-        <div className="w-14 h-14 rounded-full bg-error-bg border border-error-border flex items-center justify-center mx-auto">
-          <span className="text-error text-2xl font-bold">!</span>
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-text-primary text-xl font-bold">{title}</h1>
-          <p className="text-text-secondary text-sm">{message}</p>
+    <CandidateThemeScope>
+      <div className="min-h-screen bg-page flex items-center justify-center p-6">
+        <div className="w-full max-w-md space-y-6 animate-slideInUp text-center">
+          <div className="w-14 h-14 rounded-full bg-error-bg border border-error-border flex items-center justify-center mx-auto">
+            <span className="text-error text-2xl font-bold">!</span>
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-text-primary text-xl font-bold">{title}</h1>
+            <p className="text-text-secondary text-sm">{message}</p>
+          </div>
         </div>
       </div>
-    </div>
+    </CandidateThemeScope>
   )
 }
 

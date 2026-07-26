@@ -19,6 +19,7 @@ import CandidateSectionRuntimePage from './pages/candidate/CandidateSectionRunti
 import AssessmentLandingPage from './pages/candidate/AssessmentLandingPage'
 import McqSectionPage from './pages/candidate/McqSectionPage'
 import AssessmentCompletionPage from './pages/candidate/AssessmentCompletionPage'
+import ExamPreview from './pages/candidate/__ExamPreview'
 import OnboardingPage from './pages/recruiter/onboarding/OnboardingPage'
 import AssessmentBuilderPage from './pages/recruiter/assessments/new/AssessmentBuilderPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -273,6 +274,7 @@ function App() {
         <Route path="/assessment/:token" element={<AssessmentLandingPage />} />
         <Route path="/assessment/:token/mcq/:sectionIndex" element={<McqSectionPage />} />
         <Route path="/assessment/:token/complete" element={<AssessmentCompletionPage />} />
+        <Route path="/__exam-preview" element={<ExamPreview />} />
         <Route path="/recruiter/onboarding" element={<OnboardingPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

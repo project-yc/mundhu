@@ -63,7 +63,14 @@ export default function InviteScreen() {
   useEffect(() => {
     getAllAssessments()
       .then(d => {
-        const list = d.data || d;
+        const payload = d?.data ?? d;
+        const list = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.results)
+          ? payload.results
+          : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
         setAssessments(list);
         if (!selectedId && list.length > 0) setSelectedId(String(list[0].id));
       })
@@ -139,7 +146,8 @@ export default function InviteScreen() {
 
   const reset = () => { setSuccess(null); setRows([emptyRow()]); clearCsv(); };
 
-  const selectedName = assessments.find(a => String(a.id) === selectedId)?.name;
+  const safeAssessments = Array.isArray(assessments) ? assessments : [];
+  const selectedName = safeAssessments.find(a => String(a.id) === selectedId)?.name;
 
   return (
     <div className="p-6 md:p-8 max-w-[760px]">
@@ -202,7 +210,7 @@ export default function InviteScreen() {
                 <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
                   className="flex-1 bg-transparent text-[13px] text-text-primary focus:outline-none cursor-pointer">
                   <option value="" className="bg-surface">Select an assessment…</option>
-                  {assessments.map(a => <option key={a.id} value={a.id} className="bg-surface">{a.name}</option>)}
+                  {safeAssessments.map(a => <option key={a.id} value={a.id} className="bg-surface">{a.name}</option>)}
                 </select>
               </div>
             )}

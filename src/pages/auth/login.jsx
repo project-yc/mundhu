@@ -505,7 +505,7 @@ export default function LoginPage() {
                   </p>
                 </div>
                 <Link
-                  to="/waitlist"
+                  to="/recruiter/signup"
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
                     color: REC_ACCENT, border: `1px solid ${REC_ACCENT}40`,

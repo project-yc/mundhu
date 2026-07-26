@@ -15,6 +15,12 @@ export default {
         surface:        'var(--color-surface)',
         'surface-muted':'var(--color-surface-muted)',
         'surface-hover':'var(--color-surface-hover)',
+        'surface-raised':'var(--color-surface-raised)',
+        // NOTE: `chrome` and the `ember-*` scale are NOT declared here. They
+        // are hand-written utilities in src/index.css instead, because config
+        // changes require a dev-server restart to take effect (file watching on
+        // tailwind.config.js is unreliable on this OneDrive-backed path) while
+        // index.css hot-reloads. Add new candidate colors there, not here.
         'border-default': 'var(--color-border)',
         'border-strong':  'var(--color-border-strong)',
         'border-subtle':  'var(--color-border-subtle)',
@@ -32,6 +38,7 @@ export default {
           border:     'var(--color-brand-border)',
         },
         'on-brand': 'var(--color-on-brand)',
+        'assessment-accent':      'var(--color-assessment-accent)',
         'assessment-allocation': 'var(--color-assessment-allocation)',
         success: {
           DEFAULT: 'var(--color-success)',
@@ -108,6 +115,9 @@ export default {
       fontFamily: {
         display: ["'Syne'", 'sans-serif'],
         sans:    ["'DM Sans'", 'sans-serif'],
+        // Utility face — timers, keycaps, question indices, points. Ties the
+        // exam to the coding sections of the product.
+        mono:    ["'JetBrains Mono'", 'ui-monospace', 'monospace'],
       },
       fontSize: {
         'display': ['2rem', { lineHeight: '2.5rem', letterSpacing: '-0.025em', fontWeight: '700' }],
@@ -125,6 +135,11 @@ export default {
         'button': '0 1px 2px 0 rgba(28, 77, 141, 0.12)',
         'button-hover': '0 2px 8px 0 rgba(28, 77, 141, 0.18)',
         'inset': 'inset 0 1px 2px 0 rgba(15, 40, 84, 0.06)',
+        // Candidate/dark elevation — warm-tinted, not blue.
+        'stage':      '0 24px 70px -20px rgba(0, 0, 0, 0.75), 0 2px 10px -4px rgba(0, 0, 0, 0.5)',
+        'lift':       '0 10px 30px -12px rgba(0, 0, 0, 0.7)',
+        // `shadow-ember-tight` lives in src/index.css with the other candidate
+        // utilities — see the note on colors above.
       },
       borderRadius: {
         'card': '10px',

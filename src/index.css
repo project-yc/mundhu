@@ -26,15 +26,15 @@
   --color-text-muted:     #94A3B8;
   --color-text-faint:     #CBD5E1;
 
-  /* Brand accent (overridden per-org at runtime) */
-  --color-brand:           #22D3EE;
-  --color-brand-hover:     #06B6D4;
-  --color-brand-deep:      #0E7490;
-  --color-brand-navy:      #0C4A6E;
-  --color-brand-tint:      #CFFAFE;
-  --color-brand-tint-light:#E0F9FC;
-  --color-brand-border:    #0E7490;
-  --color-on-brand:        #0C4A6E;
+  /* Brand accent — Ember Orange (overridden per-org at runtime) */
+  --color-brand:           #FF8528;
+  --color-brand-hover:     #EB6F0F;
+  --color-brand-deep:      #9A4405;
+  --color-brand-navy:      #5C2803;
+  --color-brand-tint:      #FFE8D5;
+  --color-brand-tint-light:#FFF4EC;
+  --color-brand-border:    #9A4405;
+  --color-on-brand:        #2A1405;
 
   /* Status */
   --color-success:        #16A34A;
@@ -49,27 +49,91 @@
   --color-error-bg:       #FEF2F2;
   --color-error-border:   #FCA5A5;
 
-  --color-info:           #0E7490;
-  --color-info-bg:        #CFFAFE;
-  --color-info-border:    #67E8F9;
+  --color-info:           #9A4405;
+  --color-info-bg:        #FFE8D5;
+  --color-info-border:    #FFC56E;
   --color-assessment-allocation: #FF7A1A;
+  --color-surface-raised: #FFFFFF;
+  --color-chrome:         #FFFFFF;
+
+  /* Ember scale — ambient light + meters. Warm on light surfaces too. */
+  --color-ember:          #FF6B00;
+  --color-ember-bright:   #FF8528;
+  --color-ember-soft:     #FFA94D;
+  --color-ember-faint:    #FFC56E;
+  --color-ember-pale:     #F9CBA7;
+  --color-ember-glow:     rgba(255, 107, 0, 0.45);
+  --color-ember-wash:     rgba(255, 133, 40, 0.08);
+  --color-ember-edge:     rgba(255, 133, 40, 0.22);
   --color-report-metric-start: #6678EF;
   --color-report-metric-end: #32B5C2;
   --color-report-metric-icon-bg: #90A6F8;
   --color-report-metric-icon-text: #6F82F4;
   --color-report-email-text: #9AA9BD;
 
-  /* ── Dark palette reference (not applied — keep for future dark-mode screens) ── */
-  --dark-page:            #0C0C0E;
-  --dark-surface:         #111113;
-  --dark-surface-raised:  #17171A;
-  --dark-surface-muted:   #1C1C20;
-  --dark-border:          #27272A;
-  --dark-border-subtle:   #1C1C20;
-  --dark-text-primary:    #FAFAFA;
-  --dark-text-secondary:  #A1A1AA;
-  --dark-text-muted:      #71717A;
-  --dark-text-faint:      #52525B;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CANDIDATE THEME — warm charcoal + ember
+   Mirrors CANDIDATE_PALETTE in src/theme/palette.js.
+
+   These static values exist so candidate screens paint dark on the very first
+   frame, before CandidateThemeScope runs its effect. The scope then re-writes
+   the same variables inline (plus the org's brand color), which wins.
+   Keep in sync with palette.js.
+   ═══════════════════════════════════════════════════════ */
+.candidate-theme {
+  --color-chrome:         #1B1917;
+  --color-page:           #211E1B;
+  --color-surface:        #282420;
+  --color-surface-muted:  #2F2A26;
+  --color-surface-hover:  #363029;
+  --color-surface-raised: #3A342E;
+
+  --color-border:         #484039;
+  --color-border-strong:  #5B524A;
+  --color-border-subtle:  #39332E;
+
+  --color-text-primary:   #FBF6F3;
+  --color-text-secondary: #B5ABA4;
+  --color-text-muted:     #8A7E77;
+  --color-text-faint:     #6B615B;
+
+  --color-brand:           #FF8528;
+  --color-brand-hover:     #EB6F0F;
+  --color-brand-deep:      #FFB367;
+  --color-brand-navy:      #2A1405;
+  --color-brand-tint:      #3A2313;
+  --color-brand-tint-light:#4A2D17;
+  --color-brand-border:    #8A4614;
+  --color-on-brand:        #1C0E04;
+
+  --color-ember:          #FF6B00;
+  --color-ember-bright:   #FF8528;
+  --color-ember-soft:     #FFA94D;
+  --color-ember-faint:    #FFC56E;
+  --color-ember-pale:     #F9CBA7;
+  --color-ember-glow:     rgba(255, 107, 0, 0.45);
+  --color-ember-wash:     rgba(255, 133, 40, 0.08);
+  --color-ember-edge:     rgba(255, 133, 40, 0.22);
+
+  --color-success:        #5BD98A;
+  --color-success-bg:     #16261C;
+  --color-success-border: #2B4F38;
+
+  --color-warning:        #FACC15;
+  --color-warning-bg:     #2A2410;
+  --color-warning-border: #5E4C12;
+
+  --color-error:          #FF3B63;
+  --color-error-bg:       #2E1319;
+  --color-error-border:   #7A2233;
+
+  --color-info:           #FFB367;
+  --color-info-bg:        #3A2313;
+  --color-info-border:    #8A4614;
+
+  color-scheme: dark;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -77,6 +141,21 @@
    Color palette: Navy (#0F2854) / Blue (#1C4D8D) / 
    Accent (#4988C4) / Surface (#BDE8F5)
    ═══════════════════════════════════════════════════════ */
+
+/* ── Ask-anything animated gradient border ─────────────── */
+.ask-gradient-border {
+  background: linear-gradient(
+    90deg,
+    #FF5F6D, #FFC371, #4ADE80, #38BDF8, #A78BFA, #FF5F6D
+  );
+  background-size: 300% 100%;
+  animation: askGradientShift 6s linear infinite;
+}
+
+@keyframes askGradientShift {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
 
 @layer base {
   html {
@@ -225,15 +304,28 @@
 
 /* ── Focus ring ──────────────────────────────────────── */
 *:focus-visible {
-  outline: 2px solid #4988C4;
+  outline: 2px solid var(--color-brand);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
 /* ── Selection ───────────────────────────────────────── */
 ::selection {
-  background: #BDE8F5;
-  color: #0F2854;
+  background: #FFE8D5;
+  color: #2A1405;
+}
+
+.candidate-theme ::selection {
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+}
+
+.candidate-theme ::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+}
+
+.candidate-theme ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-border);
 }
 
 /* ── Candidate section-list stagger ───────────────────────────────── */
@@ -244,5 +336,79 @@
 
 .cand-section-item {
   animation: candItemIn 0.28s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CANDIDATE UTILITIES
+   Hand-written rather than declared in tailwind.config.js: config changes need
+   a dev-server restart to take effect on this path, while this file hot-reloads.
+   Values come from CANDIDATE_PALETTE via the --color-* variables, so these stay
+   in sync with the palette automatically.
+   ═══════════════════════════════════════════════════════ */
+@layer utilities {
+  .bg-chrome        { background-color: var(--color-chrome); }
+  .bg-ember         { background-color: var(--color-ember); }
+  .bg-ember-pale    { background-color: var(--color-ember-pale); }
+  .bg-ember-soft    { background-color: var(--color-ember-soft); }
+  .text-ember       { color: var(--color-ember); }
+  .text-ember-pale  { color: var(--color-ember-pale); }
+  .text-ember-soft  { color: var(--color-ember-soft); }
+  .border-ember     { border-color: var(--color-ember); }
+  .ring-offset-chrome { --tw-ring-offset-color: var(--color-chrome); }
+  .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .shadow-ember-tight { box-shadow: 0 0 18px -4px var(--color-ember-glow); }
+}
+
+/* ── Autosave acknowledgement ─────────────────────────────────────── */
+@keyframes autosavePulse {
+  0%   { transform: scale(1);   background-color: var(--color-ember); }
+  40%  { transform: scale(2.1); background-color: var(--color-ember-faint); }
+  100% { transform: scale(1);   background-color: var(--color-ember); }
+}
+
+.autosave-pulse {
+  animation: autosavePulse 700ms ease-out;
+}
+
+/* ── Timer urgency — numerals only, never the whole chrome ─────────── */
+@keyframes timerUrgent {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+.timer-urgent {
+  animation: timerUrgent 1.6s ease-in-out infinite;
+}
+
+/* ── Ember sweep for the submit CTA ───────────────────────────────── */
+@keyframes emberSweep {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+.ember-sweep {
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.22) 45%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: emberSweep 2.8s linear infinite;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Reduced motion — hold every animated state at its resting value.
+   ═══════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .timer-urgent,
+  .autosave-pulse,
+  .ember-sweep,
+  .cand-section-item {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 

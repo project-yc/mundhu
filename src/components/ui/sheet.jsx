@@ -39,8 +39,10 @@ const sheetVariants = cva(
   },
 );
 
-const SheetContent = React.forwardRef(({ side = 'right', className, children, ...props }, ref) => (
-  <SheetPortal>
+// `container` portals into a specific element instead of <body> — used by the
+// candidate screens so the sheet inherits their dark theme variables.
+const SheetContent = React.forwardRef(({ side = 'right', className, children, container, ...props }, ref) => (
+  <SheetPortal container={container}>
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}

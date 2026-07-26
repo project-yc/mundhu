@@ -93,7 +93,7 @@ export function readableOn(hex, dark = '#0C4A6E', light = '#FFFFFF') {
 // the brand-related fields in palette.js so callers can spread it in.
 // ─────────────────────────────────────────────────────────────────────────────
 export function deriveBrandFamily(brandHex) {
-  const base = brandHex || '#22D3EE';
+  const base = brandHex || '#FF8528';
   const hsl  = rgbToHsl(hexToRgb(base));
 
   return {
@@ -106,4 +106,40 @@ export function deriveBrandFamily(brandHex) {
     brandBorder:    setLightness(base, 32),
     onBrand:        readableOn(base, setLightness(base, 18), '#FFFFFF'),
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dark-surface variant. `deriveBrandFamily` produces tints at 92–96% lightness,
+// which are unusable on a near-black ground — they read as solid white blocks.
+// This inverts the relationship: tints go DEEP, and `brandDeep` (the "text on
+// tint" role) goes LIGHT so it stays readable.
+// ─────────────────────────────────────────────────────────────────────────────
+export function deriveDarkBrandFamily(brandHex) {
+  const base = brandHex || '#FF8528';
+  const hsl  = rgbToHsl(hexToRgb(base));
+
+  return {
+    brand:          base,
+    brandHover:     setLightness(base, Math.max(hsl.l - 9, 30)),
+    brandDeep:      setLightness(base, 65),                 // light text on deep tint
+    brandNavy:      setLightness(base, 9),                  // icon on solid CTA
+    brandTint:      setLightness(base, 10),                 // selected / badge bg
+    brandTintLight: setLightness(base, 14),                 // hover bg
+    brandBorder:    setLightness(base, 27),
+    onBrand:        readableOn(base, setLightness(base, 7), '#FFFFFF'),
+
+    // Ember scale for ambient light + meters, derived from the same hue so an
+    // org's custom brand color still lights the room correctly.
+    ember:          setLightness(base, 50),
+    emberBright:    base,
+    emberSoft:      setLightness(base, 65),
+    emberFaint:     setLightness(base, 74),
+  };
+}
+
+// rgba() string from a hex + alpha — used for glow/wash tokens that need to
+// composite over the dark ground rather than sit on it opaquely.
+export function rgba(hex, alpha) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }

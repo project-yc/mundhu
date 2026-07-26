@@ -16,7 +16,7 @@
 
 export const RECRUITER_PALETTE = {
   // ── Surfaces ──────────────────────────────────────────────────────────────
-  pageBg:        '#F0EEE6', // Slate 50  — fixed, NOT brand-driven
+  pageBg:        '#FBF9F4', // Slate 50  — fixed, NOT brand-driven
   surface:       '#FFFFFF', // card surfaces
   surfaceMuted:  '#F1F5F9', // Slate 100 — input fills, sub-surfaces
   surfaceHover:  '#F8FAFC',
@@ -67,6 +67,14 @@ export const RECRUITER_PALETTE = {
   pipelineStageReviewingBg:'#FFF5DD',
   pipelineStageReviewingBorder:'#F6D18A',
 
+  // ── Dashboard chart ring colors ───────────────────────────────────────────
+  dashboardRingClosed:       '#FFAA00',
+  dashboardRingActive:       '#FD890D',
+  dashboardRingDraft:        '#F17C0E',
+  dashboardRingExpiredLinks: '#F96915',
+  dashboardOrangeTint:       '#FFF4EC',
+  dashboardOrangeBorder:     '#FFD4A8',
+
   // ── Borders ───────────────────────────────────────────────────────────────
   border:        '#E2E8F0', // Slate 200
   borderStrong:  '#CBD5E1', // Slate 300
@@ -79,17 +87,17 @@ export const RECRUITER_PALETTE = {
   textFaint:     '#CBD5E1', // Slate 300
 
   // ── Brand accent (DEFAULT — overridden per-org) ───────────────────────────
-  // The user's default brand is cyan-400. Derived shades are computed at
+  // The product default brand is Ember Orange. Derived shades are computed at
   // runtime by `derive.js`; the values here mirror those defaults so styles
   // look correct before any branding is loaded.
-  brand:         '#22D3EE', // Cyan 400
-  brandHover:    '#06B6D4', // Cyan 500
-  brandDeep:     '#0E7490', // Cyan 700 — text on brand-tint background
-  brandNavy:     '#0C4A6E', // Cyan 900 — icon/text on solid brand button
-  brandTint:     '#CFFAFE', // Cyan 100 — badge / active background
-  brandTintLight:'#E0F9FC', // Cyan 50  — hover states
-  brandBorder:   '#0E7490',
-  onBrand:       '#0C4A6E', // text/icon color on top of solid `brand`
+  brand:         '#FF8528', // Ember 500 — primary
+  brandHover:    '#EB6F0F', // Ember 600
+  brandDeep:     '#9A4405', // Ember 800 — text on brand-tint background
+  brandNavy:     '#5C2803', // Ember 900 — icon/text on solid brand button
+  brandTint:     '#FFE8D5', // Ember 100 — badge / active background
+  brandTintLight:'#FFF4EC', // Ember 50  — hover states
+  brandBorder:   '#9A4405',
+  onBrand:       '#2A1405', // text/icon color on top of solid `brand`
 
   // ── Status (semantic, not brand-driven) ───────────────────────────────────
   success:       '#16A34A',
@@ -104,60 +112,90 @@ export const RECRUITER_PALETTE = {
   errorBg:       '#FEF2F2',
   errorBorder:   '#FCA5A5',
 
-  info:          '#0E7490',
-  infoBg:        '#CFFAFE',
-  infoBorder:    '#67E8F9',
+  info:          '#9A4405',
+  infoBg:        '#FFE8D5',
+  infoBorder:    '#FFC56E',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CANDIDATE PALETTE — dark theme. Frozen for now per product direction;
-// values centralized so we can iterate quickly.
+// CANDIDATE PALETTE — dark theme, "warm charcoal + ember".
+//
+// Surfaces are near-black with a deliberate warm (red/brown) cast so the orange
+// brand sits in the same family as the ground instead of vibrating against a
+// cold blue-black. Text neutrals are warm for the same reason.
+//
+// Applied at runtime by `applyCandidatePalette()` in CandidateThemeProvider,
+// scoped to the `.candidate-theme` wrapper so recruiter screens are untouched.
 // ─────────────────────────────────────────────────────────────────────────────
 export const CANDIDATE_PALETTE = {
-  pageBg:        '#040914',
-  surface:       '#070F20',
-  surfaceMuted:  '#0A1628',
-  surfaceHover:  '#0D1E38',
+  // ── Surfaces ──────────────────────────────────────────────────────────────
+  // Three readable planes rather than one flat black: chrome sits below the
+  // stage, cards sit above it.
+  chromeBg:      '#1B1917', // top bar, sidebar, action bar
+  pageBg:        '#211E1B', // the stage
+  surface:       '#282420', // option rows, cards
+  surfaceMuted:  '#2F2A26', // navigator cells, inset fills
+  surfaceHover:  '#363029',
+  surfaceRaised: '#3A342E', // modals / lifted surfaces
 
-  border:        '#0E1F38',
-  borderStrong:  '#1A3050',
-  borderSubtle:  '#0A1628',
+  // ── Borders ───────────────────────────────────────────────────────────────
+  border:        '#484039',
+  borderStrong:  '#5B524A',
+  borderSubtle:  '#39332E',
 
-  textPrimary:   '#EDF4FF',
-  textSecondary: '#94A3B8',
-  textMuted:     '#7A8AA8',
-  textFaint:     '#4A5F7A',
+  // ── Text (warm neutrals, never blue-white) ────────────────────────────────
+  textPrimary:   '#FBF6F3',
+  textSecondary: '#B5ABA4',
+  textMuted:     '#8A7E77',
+  textFaint:     '#6B615B',
 
-  brand:         '#18D3FF',
-  brandHover:    '#06B6D4',
-  brandDeep:     '#083344',
-  brandNavy:     '#040914',
-  brandTint:     '#07253A',
-  brandTintLight:'#0D2B45',
-  brandBorder:   '#0E4A6C',
-  onBrand:       '#040914',
+  // ── Brand — Ember Orange ──────────────────────────────────────────────────
+  // Tints sit ABOVE the card surface so a selected row reads as lit, not as a
+  // hole punched in the page.
+  brand:         '#FF8528',
+  brandHover:    '#EB6F0F',
+  brandDeep:     '#FFB367', // readable ember text ON brandTint
+  brandNavy:     '#2A1405', // icon/text on solid brand
+  brandTint:     '#3A2313', // selected / badge background
+  brandTintLight:'#4A2D17', // hover background
+  brandBorder:   '#8A4614',
+  onBrand:       '#1C0E04', // text on solid brand (8.4:1)
 
-  success:       '#4ADE80',
-  successBg:     '#041A10',
-  successBorder: '#1A4A28',
+  // ── Ember scale — meters, progress, filled navigator cells ────────────────
+  ember:         '#FF6B00', // hottest core
+  emberBright:   '#FF8528',
+  emberSoft:     '#FFA94D',
+  emberFaint:    '#FFC56E',
+  emberPale:     '#F9CBA7', // solid fill that carries dark text (answered cells)
+  emberGlow:     'rgba(255, 107, 0, 0.45)',
+  emberWash:     'rgba(255, 133, 40, 0.08)',
+  emberEdge:     'rgba(255, 133, 40, 0.22)',
 
-  warning:       '#F59E0B',
-  warningBg:     '#1C150A',
-  warningBorder: '#78350F',
+  // ── Status ────────────────────────────────────────────────────────────────
+  // Orange is the brand now, so it can no longer mean "caution". Warning moves
+  // to yellow and error to a pink-shifted red — both far enough in hue from
+  // #FF8528 to stay unambiguous at badge size.
+  success:       '#5BD98A',
+  successBg:     '#16261C',
+  successBorder: '#2B4F38',
 
-  error:         '#F43F5E',
-  errorBg:       '#1C0813',
-  errorBorder:   '#881337',
+  warning:       '#FACC15',
+  warningBg:     '#2A2410',
+  warningBorder: '#5E4C12',
 
-  info:          '#18D3FF',
-  infoBg:        '#07253A',
-  infoBorder:    '#0E4A6C',
+  error:         '#FF3B63',
+  errorBg:       '#2E1319',
+  errorBorder:   '#7A2233',
+
+  info:          '#FFB367',
+  infoBg:        '#3A2313',
+  infoBorder:    '#8A4614',
 
   // ── Recruiter accent (used on the split login screen) ─────────────────────
-  recruiterAccent:       '#A78BFA',
-  recruiterAccentDim:    'rgba(167,139,250,0.12)',
-  recruiterAccentGlow:   'rgba(167,139,250,0.25)',
-  recruiterAccentBorder: 'rgba(167,139,250,0.35)',
+  recruiterAccent:       '#FFC56E',
+  recruiterAccentDim:    'rgba(255, 197, 110, 0.12)',
+  recruiterAccentGlow:   'rgba(255, 197, 110, 0.25)',
+  recruiterAccentBorder: 'rgba(255, 197, 110, 0.35)',
 };
 
 // CSS variable name table — keep in sync with tailwind.config.js semantic tokens
@@ -166,6 +204,16 @@ export const CSS_VAR_KEYS = {
   surface:        '--color-surface',
   surfaceMuted:   '--color-surface-muted',
   surfaceHover:   '--color-surface-hover',
+  surfaceRaised:  '--color-surface-raised',
+  chromeBg:       '--color-chrome',
+  ember:          '--color-ember',
+  emberBright:    '--color-ember-bright',
+  emberSoft:      '--color-ember-soft',
+  emberFaint:     '--color-ember-faint',
+  emberPale:      '--color-ember-pale',
+  emberGlow:      '--color-ember-glow',
+  emberWash:      '--color-ember-wash',
+  emberEdge:      '--color-ember-edge',
   sidebarBgTop:   '--color-sidebar-bg-top',
   sidebarBgMid:   '--color-sidebar-bg-mid',
   sidebarBgBottom:'--color-sidebar-bg-bottom',
@@ -212,6 +260,12 @@ export const CSS_VAR_KEYS = {
   pipelineStageReviewingText:'--color-pipeline-stage-reviewing-text',
   pipelineStageReviewingBg:'--color-pipeline-stage-reviewing-bg',
   pipelineStageReviewingBorder:'--color-pipeline-stage-reviewing-border',
+  dashboardRingClosed:       '--color-dashboard-ring-closed',
+  dashboardRingActive:       '--color-dashboard-ring-active',
+  dashboardRingDraft:        '--color-dashboard-ring-draft',
+  dashboardRingExpiredLinks: '--color-dashboard-ring-expired-links',
+  dashboardOrangeTint:       '--color-dashboard-orange-tint',
+  dashboardOrangeBorder:     '--color-dashboard-orange-border',
   border:         '--color-border',
   borderStrong:   '--color-border-strong',
   borderSubtle:   '--color-border-subtle',

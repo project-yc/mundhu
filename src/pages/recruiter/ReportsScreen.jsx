@@ -55,8 +55,17 @@ function getSubmissionDate(candidate) {
   );
 }
 
+function normalizeAssessments(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.results)) return payload.results;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+}
+
 function getAssessmentName(assessments, selectedId) {
-  return assessments.find(assessment => String(assessment.id) === selectedId)?.name || 'Assessment';
+  const list = normalizeAssessments(assessments);
+  return list.find(assessment => String(assessment.id) === selectedId)?.name || 'Assessment';
 }
 
 function reportIsReady(candidate) {
@@ -157,7 +166,7 @@ export default function ReportsScreen() {
   useEffect(() => {
     getAllAssessments()
       .then(data => {
-        const list = data.data || data;
+        const list = normalizeAssessments(data?.data ?? data);
         setAssessments(list);
         if (list.length > 0) setSelectedId(String(list[0].id));
       })

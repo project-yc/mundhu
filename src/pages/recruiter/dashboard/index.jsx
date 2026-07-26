@@ -1,123 +1,59 @@
-// RecruiterDashboard — slim orchestrator, delegates to sub-components
-import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CheckCircle, AlertCircle, Search, Zap } from 'lucide-react';
-import { getAllAssessments, getRecruiterStats } from '../../../api/recruiter/assessment.jsx';
-import MetricsStrip      from './MetricsStrip.jsx';
-import AssessmentTable   from './AssessmentTable.jsx';
-import ActivitySidebar   from './ActivitySidebar.jsx';
+import { AskAnythingBar } from '../../../components/recruiter/AskAnythingBar';
+import DashboardHeader from './components/DashboardHeader';
+import ActiveAssessmentsPanel from './components/ActiveAssessmentsPanel';
+import CandidateMetricsPanel from './components/CandidateMetricsPanel';
+import ScoreDistributionPanel from './components/ScoreDistributionPanel';
+import WorkspaceSnapshotPanel from './components/WorkspaceSnapshotPanel';
+import RecentActivityPanel from './components/RecentActivityPanel';
 
-
+function getUser() {
+  try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
+}
 
 export default function RecruiterDashboard() {
   const navigate = useNavigate();
-
-  const [assessments,   setAssessments]   = useState([]);
-  const [stats,         setStats]         = useState(null);
-  const [loading,       setLoading]       = useState(false);
-  const [statsLoading,  setStatsLoading]  = useState(false);
-  const [error,         setError]         = useState('');
-
-
-
-  const totalAssessments = assessments.length;
-  const readyAssessments = assessments.filter(a => (a.tasks?.length ?? 0) > 0 || (a.library_task_attachments?.length ?? 0) > 0).length;
-
-  const metricsData = useMemo(() => {
-    if (stats) {
-      return {
-        assessments: stats.assessments ?? totalAssessments,
-        total:       stats.candidates?.total       ?? 0,
-        invited:     stats.candidates?.invited      ?? 0,
-        in_progress: stats.candidates?.in_progress  ?? 0,
-        submitted:   stats.candidates?.submitted    ?? 0,
-        expired:     stats.candidates?.expired      ?? 0,
-      };
-    }
-    return assessments.reduce((acc, a) => {
-      const c = a.candidate_counts || {};
-      acc.total       += c.total       || 0;
-      acc.invited     += c.invited     || 0;
-      acc.in_progress += c.in_progress || 0;
-      acc.submitted   += c.submitted   || 0;
-      acc.expired     += c.expired     || 0;
-      return acc;
-    }, { assessments: totalAssessments, total: 0, invited: 0, in_progress: 0, submitted: 0, expired: 0 });
-  }, [stats, assessments, totalAssessments]);
-
-  useEffect(() => { fetchAssessments(); fetchStats(); }, []);
-
-  const fetchAssessments = async () => {
-    setLoading(true); setError('');
-    try {
-      const data = await getAllAssessments();
-      setAssessments(data.data || data);
-    } catch (err) {
-      setError(err.message || 'Failed to fetch assessments.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStats = async () => {
-    setStatsLoading(true);
-    try {
-      const data = await getRecruiterStats();
-      setStats(data.data || data);
-    } catch { /* non-critical */ }
-    finally { setStatsLoading(false); }
-  };
-
-
+  const user = getUser();
+  const userName = user?.full_name || user?.name || user?.email || 'Recruiter';
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
+    <div className="flex flex-col min-h-full bg-[#FBF9F4]">
+      <AskAnythingBar className="px-[18px]" />
 
-      {error && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-error-bg border border-error-border rounded-xl animate-fadeIn">
-          <AlertCircle className="w-4 h-4 text-error flex-shrink-0" />
-          <p className="text-[13px] font-medium text-error">{error}</p>
-        </div>
-      )}
+      {/* Columns stretch so all bottom edges align */}
+      <div className="flex-1 px-[18px] pb-4 pt-4 lg:pb-5 lg:pt-5 flex gap-5 lg:gap-3 xl:gap-4 2xl:gap-6 items-stretch">
 
-      {/* Page header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-text-primary tracking-tight font-display">Assessments</h1>
-          <p className="text-[13px] text-text-secondary mt-0.5">Configure and track technical assessments across all candidates.</p>
+        {/* Left area: greeting + two-column card grid */}
+        <div className="flex-1 min-w-0 flex flex-col gap-5 lg:gap-3 xl:gap-4">
+          <DashboardHeader userName={userName} />
+
+          <div className="flex-1 flex gap-5 lg:gap-3 xl:gap-4 2xl:gap-6 items-stretch">
+            {/* Active Assessments */}
+            <div className="flex-[3] min-w-0 flex">
+              <ActiveAssessmentsPanel
+                onCreateNew={() => navigate('/recruiter/assessments/new')}
+              />
+            </div>
+
+            {/* Metrics + Score Distribution stacked */}
+            <div className="flex-[4] min-w-0 flex flex-col gap-4 lg:gap-2.5 xl:gap-3">
+              <CandidateMetricsPanel />
+              <div className="flex-1 min-h-0">
+                <ScoreDistributionPanel />
+              </div>
+            </div>
+          </div>
         </div>
-        <button
-          onClick={() => navigate('/recruiter/assessments/new')}
-          className="flex items-center gap-2 px-3.5 py-2 bg-brand hover:bg-brand-hover text-on-brand text-[12px] font-bold rounded-lg transition-colors duration-150 active:scale-[0.97] flex-shrink-0"
-        >
-          <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-          New Assessment
-        </button>
+
+        {/* Right sidebar: Snapshot + Activity — starts at the top, beside the greeting */}
+        <div className="w-[300px] lg:w-[280px] xl:w-[302px] 2xl:w-[320px] flex-shrink-0 flex flex-col gap-5 lg:gap-2.5 xl:gap-3">
+          <WorkspaceSnapshotPanel />
+          <div className="flex-1 min-h-0">
+            <RecentActivityPanel />
+          </div>
+        </div>
+
       </div>
-
-      {/* Metrics */}
-      <MetricsStrip metricsData={metricsData} loading={loading || statsLoading} />
-
-      {/* Two-column layout */}
-      <div className="flex gap-6 items-start">
-        <div className="flex-1 min-w-0">
-          <AssessmentTable
-            assessments={assessments}
-            loading={loading}
-            onOpenWizard={() => navigate('/recruiter/assessments/new')}
-          />
-        </div>
-        {assessments.length > 0 && (
-          <ActivitySidebar
-            assessments={assessments}
-            metricsData={metricsData}
-            totalAssessments={totalAssessments}
-            readyAssessments={readyAssessments}
-          />
-        )}
-      </div>
-
-
     </div>
   );
 }

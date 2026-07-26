@@ -18,10 +18,7 @@ import {
   clearCandidateRuntimeState,
   saveCandidateRuntimeState,
 } from '../../api/candidate/runtime'
-import {
-  applyCandidateBranding,
-  saveCandidateBranding,
-} from '../../theme/CandidateThemeProvider.jsx'
+import { saveCandidateBranding } from '../../theme/CandidateThemeProvider.jsx'
 import {
   CandidateCenteredErrorState,
   CandidateCenteredLoadingState,
@@ -40,12 +37,12 @@ const SECTION_CONFIG = {
   mcq: {
     label: 'MCQ',
     Icon: IconListCheck,
-    badgeClass: 'bg-amber-400/10 text-amber-400',
+    badgeClass: 'bg-brand-tint text-brand-deep border border-brand-border',
   },
   technical_task: {
     label: 'Coding',
     Icon: IconCode,
-    badgeClass: 'bg-sky-400/10 text-sky-400',
+    badgeClass: 'bg-warning-bg text-warning border border-warning-border',
   },
 }
 
@@ -61,10 +58,8 @@ export default function AssessmentLandingPage() {
   useEffect(() => {
     getAssessmentOverview(token)
       .then((data) => {
-        if (data?.org_branding) {
-          saveCandidateBranding(data.org_branding)
-          applyCandidateBranding(data.org_branding)
-        }
+        // CandidatePageShell applies this through CandidateThemeScope on render.
+        if (data?.org_branding) saveCandidateBranding(data.org_branding)
         setOverview(data)
       })
       .catch((e) => setError(e.message || 'Failed to load assessment'))

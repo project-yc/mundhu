@@ -1,98 +1,110 @@
-import { CheckCircle2, Mail, Server, Users } from 'lucide-react';
-
-function ReviewTile({ label, value, accent }) {
-  return (
-    <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-[10px] px-5 py-4">
-      <p className="text-[10px] font-semibold tracking-[1.3px] uppercase text-[#94A3B8] mb-1.5">{label}</p>
-      {accent ? (
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-full border border-[#E2E8F0]" style={{ backgroundColor: value }} />
-          <span className="text-[14px] font-semibold text-[#0F172A] font-mono">{value}</span>
-        </div>
-      ) : (
-        <p className="text-[15px] font-semibold text-[#0F172A] leading-snug">{value || '—'}</p>
-      )}
-    </div>
-  );
-}
+import { useMemo } from 'react';
+import { Mail, Server, Users, ShieldCheck } from 'lucide-react';
+import { Separator } from '../../../../components/ui/separator';
 
 const NEXT_STEPS = [
-  {
-    Icon: Mail,
-    title: 'Verification Email',
-    desc: "We'll send a confirmation link to your registered email.",
-  },
-  {
-    Icon: Server,
-    title: 'Provisioning',
-    desc: 'Your dedicated workspace will be set up within 5 minutes.',
-  },
-  {
-    Icon: Users,
-    title: 'Invite Team',
-    desc: 'You can start inviting team members immediately after launch.',
-  },
+  { Icon: Mail,   title: 'Verification email', desc: "We'll send a confirmation link to your registered email." },
+  { Icon: Server, title: 'Provisioning',        desc: 'Your dedicated workspace will be set up within 5 minutes.' },
+  { Icon: Users,  title: 'Invite your team',    desc: 'You can start inviting team members immediately after launch.' },
 ];
 
 export default function Step4Review({ data, loading, error }) {
-  const org    = (() => { try { return JSON.parse(localStorage.getItem('org') || '{}'); } catch { return {}; } })();
-  const user   = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
-
+  const org = (() => { try { return JSON.parse(localStorage.getItem('org') || '{}'); } catch { return {}; } })();
   const orgSlug = (data.step1.company_name || org.name || 'your-workspace')
     .toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
+  const summary = useMemo(() => ([
+    { label: 'Company name',  value: data.step1.company_name || org.name || '—' },
+    { label: 'Brand color',   value: data.step2.brand_color, accent: true },
+    { label: 'Team size',     value: data.step1.company_size || '—' },
+    { label: 'Workspace URL', value: `${orgSlug}.trudev.io`, brand: true },
+  ]), [data, org, orgSlug]);
+
   return (
-    <div className="w-full max-w-lg">
-      <div className="bg-white border border-[#E2E8F0] rounded-[14px] shadow-[0_1px_3px_0_rgba(15,40,84,0.04),0_1px_2px_-1px_rgba(15,40,84,0.06)] overflow-hidden">
+    <div className="w-full">
+      <style>{`
+        @keyframes wr-glow-pulse { 0%, 100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.08); } }
+        @keyframes wr-ring-draw  { to { stroke-dashoffset: 0; } }
+        @keyframes wr-check-draw { to { stroke-dashoffset: 0; } }
+      `}</style>
 
-        {/* Header */}
-        <div className="px-8 pt-8 pb-6 border-b border-[#E2E8F0] text-center">
-          <div className="w-14 h-14 rounded-full bg-[#CFFAFE] flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="w-7 h-7 text-[#0E7490]" strokeWidth={2} />
+      {/* Hero motif */}
+      <div className="relative w-[96px] h-[96px] mx-auto mb-8">
+        <div
+          className="absolute inset-0 rounded-full blur-2xl"
+          style={{ backgroundColor: '#FB7414', animation: 'wr-glow-pulse 3s ease-in-out infinite' }}
+        />
+        <svg viewBox="0 0 100 100" className="relative w-full h-full">
+          <circle cx="50" cy="50" r="45" fill="white" stroke="#FFEDE0" strokeWidth="4" />
+          <circle
+            cx="50" cy="50" r="45" fill="none" stroke="#FB7414" strokeWidth="4" strokeLinecap="round"
+            strokeDasharray="283" strokeDashoffset="283" transform="rotate(-90 50 50)"
+            style={{ animation: 'wr-ring-draw 1s cubic-bezier(0.65,0,0.35,1) forwards' }}
+          />
+          <path
+            d="M32 51 L45 64 L70 34" fill="none" stroke="#FB7414" strokeWidth="5"
+            strokeLinecap="round" strokeLinejoin="round"
+            strokeDasharray="58" strokeDashoffset="58"
+            style={{ animation: 'wr-check-draw 0.45s ease-out 0.85s forwards' }}
+          />
+        </svg>
+      </div>
+
+      <h1 className="text-[28px] font-bold text-[#0F172A] tracking-[-0.02em] leading-tight text-center">
+        Welcome to Trudev
+      </h1>
+      <p className="text-[15px] text-[#475569] mt-2.5 mb-10 leading-relaxed text-center">
+        Your workspace is fully configured and ready to go live.
+      </p>
+
+      {/* Summary */}
+      <div className="space-y-4">
+        {summary.map((row, idx) => (
+          <div key={row.label}>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-[#64748B]">{row.label}</span>
+              {row.accent ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 rounded-full border border-[#E2E8F0]" style={{ backgroundColor: row.value }} />
+                  <span className="text-[13px] font-semibold text-[#0F172A] font-mono">{row.value}</span>
+                </span>
+              ) : (
+                <span className={`text-[13px] font-semibold ${row.brand ? 'text-[#FB7414]' : 'text-[#0F172A]'}`}>
+                  {row.value}
+                </span>
+              )}
+            </div>
+            {idx < summary.length - 1 && <Separator className="mt-4" />}
           </div>
-          <h1 className="text-[22px] font-bold text-[#0F172A] tracking-tight">You're ready</h1>
-          <p className="text-[14px] text-[#64748B] mt-1.5">
-            Review your configuration before launching your workspace.
-          </p>
-        </div>
+        ))}
+      </div>
 
-        {/* Config grid */}
-        <div className="px-8 pt-6 pb-4 grid grid-cols-2 gap-3">
-          <ReviewTile label="Company Name"  value={data.step1.company_name || org.name} />
-          <ReviewTile label="Brand Color"   value={data.step2.brand_color}  accent />
-          <ReviewTile label="Team Size"     value={data.step1.company_size} />
-          <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-[10px] px-5 py-4">
-            <p className="text-[10px] font-semibold tracking-[1.3px] uppercase text-[#94A3B8] mb-1.5">
-              Workspace URL
-            </p>
-            <p className="text-[13px] font-semibold text-[#22D3EE] truncate">
-              {orgSlug}.trudev.io
-            </p>
+      <Separator className="my-8" />
+
+      {/* Timeline */}
+      <p className="text-[11px] font-bold text-[#94A3B8] uppercase tracking-[0.1em] mb-5">What happens next</p>
+      <div className="relative">
+        {NEXT_STEPS.map(({ Icon, title, desc }, idx) => (
+          <div key={title} className="relative flex gap-4 pb-7 last:pb-0">
+            {idx < NEXT_STEPS.length - 1 && (
+              <span className="absolute left-[15px] top-8 w-px h-[calc(100%-14px)] bg-[#E2E8F0]" />
+            )}
+            <div className="relative z-10 w-8 h-8 rounded-full bg-[#FFEDE0] border border-[#FDE3CC] flex items-center justify-center flex-shrink-0">
+              <Icon className="w-3.5 h-3.5 text-[#FB7414]" />
+            </div>
+            <div className="pt-1">
+              <p className="text-[13.5px] font-semibold text-[#0F172A]">{title}</p>
+              <p className="text-[13px] text-[#64748B] mt-0.5 leading-relaxed">{desc}</p>
+            </div>
           </div>
-        </div>
+        ))}
+      </div>
 
-        {/* What happens next */}
-        <div className="px-8 pb-6">
-          <p className="text-[13px] font-semibold text-[#0F172A] mb-3">What happens next</p>
-          <div className="space-y-2.5">
-            {NEXT_STEPS.map(({ Icon, title, desc }) => (
-              <div key={title} className="flex items-start gap-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[10px] px-4 py-3">
-                <div className="w-7 h-7 rounded-lg bg-white border border-[#E2E8F0] flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Icon className="w-3.5 h-3.5 text-[#64748B]" />
-                </div>
-                <div>
-                  <p className="text-[13px] font-semibold text-[#0F172A]">{title}</p>
-                  <p className="text-[12px] text-[#64748B] mt-0.5 leading-relaxed">{desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Invites summary */}
-        {data.step3.invites.length > 0 && (
-          <div className="px-8 pb-6">
-            <p className="text-[13px] font-semibold text-[#0F172A] mb-2">
+      {data.step3.invites.length > 0 && (
+        <>
+          <Separator className="my-2" />
+          <div className="pt-5">
+            <p className="text-[13px] font-semibold text-[#0F172A] mb-2.5">
               Pending invites ({data.step3.invites.length})
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -103,25 +115,19 @@ export default function Step4Review({ data, loading, error }) {
               ))}
             </div>
           </div>
-        )}
+        </>
+      )}
 
-        {/* Error */}
-        {error && (
-          <div className="mx-8 mb-4 px-4 py-3 bg-[#FEF2F2] border border-[#FCA5A5] rounded-[8px] text-[13px] text-[#DC2626]">
-            {error}
-          </div>
-        )}
-
-        {/* Divider + footer note */}
-        <div className="px-8 pb-6 border-t border-[#E2E8F0] pt-4 text-center">
-          <p className="text-[11px] text-[#94A3B8]">
-            By launching, you agree to our{' '}
-            <a href="#" className="text-[#64748B] underline">Terms of Service</a> and{' '}
-            <a href="#" className="text-[#64748B] underline">Privacy Policy</a>
-          </p>
+      {error && (
+        <div className="mt-6 px-4 py-3 bg-[#FEF2F2] border border-[#FCA5A5] rounded-[10px] text-[13px] text-[#DC2626]">
+          {error}
         </div>
+      )}
 
-      </div>
+      <p className="flex items-center justify-center gap-1.5 text-[12.5px] text-[#94A3B8] mt-9 text-center">
+        <ShieldCheck className="w-3.5 h-3.5" />
+        Your data is encrypted and your workspace is private by default.
+      </p>
     </div>
   );
 }

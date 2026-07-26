@@ -63,6 +63,7 @@ export default function McqSectionPage() {
       sectionTimerMinutes={section.timer_minutes}
       sectionOrder={sectionIndex + 1}
       sectionCount={session.sections?.length ?? 1}
+      contentType={section.content_type || 'mcq'}
       onSubmitResult={handleSubmitResult}
     />
   )
