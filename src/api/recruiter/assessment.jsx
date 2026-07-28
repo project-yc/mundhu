@@ -1,4 +1,5 @@
 import { authAxios, forceLogout } from '../../lib/axios';
+import { listAssessments, listCandidateReports } from './reports';
 
 /**
  * Upload a pre-built zip file to S3 via the upload API.
@@ -51,9 +52,9 @@ export const createAssessment = async (name, description, duration_minutes, conf
   });
 };
 
-export const getAllAssessments = async () => {
-  return authAxios.get('/api/assessments/all');
-};
+// Canonical definition lives in ./reports.js — kept here so existing callers
+// (admin screens, CandidatesScreen, InviteScreen) keep working.
+export const getAllAssessments = listAssessments;
 
 export const getAssessmentById = async (id) => {
   return authAxios.get(`/api/v1/assessment/${id}`);
@@ -151,11 +152,8 @@ export const getAssessmentCandidates = async (assessmentId) => {
   return authAxios.get(`/api/v1/recruiter/assessment/${assessmentId}/candidates`);
 };
 
-export const getCandidatesWithReports = async (assessmentId, { pageSize = 1000 } = {}) => {
-  const params = new URLSearchParams();
-  params.set('page_size', String(pageSize));
-  return authAxios.get(`/api/v1/recruiter/assessment/${assessmentId}/candidates/reports?${params.toString()}`);
-};
+// Canonical definition lives in ./reports.js — re-exported for CandidatesScreen.
+export const getCandidatesWithReports = listCandidateReports;
 
 export const getRecruiterReportDetail = async (assessmentId, sessionId) => {
   return authAxios.get(`/api/v1/analytics/assessments/${assessmentId}/reports/${sessionId}`);

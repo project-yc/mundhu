@@ -27,3 +27,6 @@ dist-ssr
 *.sln
 *.sw?
 package-lock.json
+
+# Graphify knowledge graph
+graphify-out/

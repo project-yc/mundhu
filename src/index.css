@@ -71,6 +71,16 @@
   --color-report-metric-icon-text: #6F82F4;
   --color-report-email-text: #9AA9BD;
 
+  /* Section identity ramp — the five score bars in the report hero.
+     A warm ramp, darkest to lightest, one stop per section type. These were
+     previously mapped onto brand/brand-deep/info/cta, which collapsed to only
+     three distinct colours (coding == ranking, mcq == free text). */
+  --color-section-mcq:       #9A4405;
+  --color-section-coding:    #FF8528;
+  --color-section-free-text: #F59E0B;
+  --color-section-ranking:   #FACC15;
+  --color-section-adaptive:  #E2E8F0;
+
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -132,6 +142,14 @@
   --color-info:           #FFB367;
   --color-info-bg:        #3A2313;
   --color-info-border:    #8A4614;
+
+  /* Section identity ramp — lifted for dark surfaces so the darkest stop
+     stays legible against a dark background. */
+  --color-section-mcq:       #C96A1A;
+  --color-section-coding:    #FF9A4D;
+  --color-section-free-text: #FBBF24;
+  --color-section-ranking:   #FDE047;
+  --color-section-adaptive:  #3A3A3E;
 
   color-scheme: dark;
 }

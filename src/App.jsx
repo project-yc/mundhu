@@ -9,7 +9,7 @@ import RecruiterLayout from './pages/recruiter/RecruiterLayout'
 import AssessmentsScreen from './pages/recruiter/AssessmentsScreen'
 import PipelineScreen from './pages/recruiter/pipeline'
 import CandidatesScreen from './pages/recruiter/CandidatesScreen'
-import ReportsScreen from './pages/recruiter/ReportsScreen'
+import ReportsScreen from './pages/recruiter/reports'
 import ReportDetailScreen from './pages/recruiter/ReportDetailScreen'
 import InviteScreen from './pages/recruiter/InviteScreen'
 import InviteCandidate from './pages/recruiter/InviteCandidate'
@@ -242,13 +242,24 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        <Route 
-          path="/recruiter/reports/:assessmentId/:sessionId" 
+        {/* Instance-keyed detail (current). Works for assessments with no
+            coding section, which have no CandidateSession to key on. */}
+        <Route
+          path="/recruiter/reports/:assessmentInstanceId"
           element={
             <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><ReportDetailScreen /></RecruiterLayout>
             </ProtectedRoute>
-          } 
+          }
+        />
+        {/* Session-keyed detail (legacy, kept for existing links). */}
+        <Route
+          path="/recruiter/reports/:assessmentId/:sessionId"
+          element={
+            <ProtectedRoute requiredRole="RECRUITER">
+              <RecruiterLayout><ReportDetailScreen /></RecruiterLayout>
+            </ProtectedRoute>
+          }
         />
         <Route 
           path="/recruiter/invite" 
