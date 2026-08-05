@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CANDIDATE_PALETTE as CP, RECRUITER_PALETTE as RP } from '../../theme/palette';
-import Particles from '../../components/particles/Particles';
-
-// ─── Accent shortcuts ────────────────────────────────────────────────────────
-const REC_ACCENT        = CP.recruiterAccent;         // #A78BFA
-const REC_ACCENT_DIM    = CP.recruiterAccentDim;
-const REC_ACCENT_GLOW   = CP.recruiterAccentGlow;
-const REC_ACCENT_BORDER = CP.recruiterAccentBorder;
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import GoogleAuthButton from '../../components/auth/GoogleAuthButton';
+import loginBg from '../../assets/images/login_bg.svg';
+import truDevLogo from '../../assets/icons/trudev_logo.svg';
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
 async function doLogin(email, password) {
@@ -48,151 +46,33 @@ function resolveRedirect(userRole) {
 }
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
-function RecruiterIcon({ color = 'currentColor' }) {
+function EyeIcon({ className }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="8" cy="5" r="3" />
-      <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+    <svg className={className} width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1.5 10c1.9-4 5-6 8.5-6s6.6 2 8.5 6c-1.9 4-5 6-8.5 6s-6.6-2-8.5-6z" />
+      <circle cx="10" cy="10" r="2.5" />
     </svg>
   );
 }
 
-function EnvelopeIcon({ color }) {
+function EyeSlashIcon({ className }) {
   return (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <rect x="1" y="3" width="14" height="10" rx="2" />
-      <polyline points="1,3 8,9 15,3" />
+    <svg className={className} width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <line x1="2" y1="2" x2="18" y2="18" />
+      <path d="M8 4.4A9 9 0 0 1 10 4.2c3.5 0 6.6 2 8.5 6a14.6 14.6 0 0 1-2 3M4.3 5.7C2.7 6.9 1.5 8.3 1.5 10.2c1.9 4 5 6 8.5 6a9 9 0 0 0 4.9-1.6" />
+      <path d="M7 8.5a2.5 2.5 0 0 0 4 3" />
     </svg>
   );
 }
 
-function LockIcon({ color }) {
+function GoogleIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="7" width="10" height="8" rx="1.5" />
-      <path d="M5 7V5a3 3 0 0 1 6 0v2" />
+    <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+      <path fill="#4285F4" d="M19.6 10.23c0-.68-.06-1.36-.18-2H10v3.79h5.38a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.9-1.75 2.99-4.32 2.99-7.31z" />
+      <path fill="#34A853" d="M10 20c2.7 0 4.96-.89 6.62-2.41l-3.23-2.5c-.9.6-2.05.96-3.39.96-2.6 0-4.8-1.76-5.59-4.12H1.06v2.59A10 10 0 0 0 10 20z" />
+      <path fill="#FBBC05" d="M4.41 11.93A6.02 6.02 0 0 1 4.09 10c0-.67.11-1.32.32-1.93V5.48H1.06A10 10 0 0 0 0 10c0 1.61.39 3.14 1.06 4.52l3.35-2.59z" />
+      <path fill="#EA4335" d="M10 3.96c1.47 0 2.79.5 3.83 1.5l2.87-2.87C14.95.99 12.7 0 10 0 6.09 0 2.7 2.24 1.06 5.48l3.35 2.59C5.2 5.72 7.4 3.96 10 3.96z" />
     </svg>
-  );
-}
-
-function EyeIcon({ color }) {
-  return (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 8c1.7-3.3 4-5 7-5s5.3 1.7 7 5c-1.7 3.3-4 5-7 5s-5.3-1.7-7-5z" />
-      <circle cx="8" cy="8" r="2" />
-    </svg>
-  );
-}
-
-function EyeSlashIcon({ color }) {
-  return (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <line x1="1" y1="1" x2="15" y2="15" />
-      <path d="M6.4 3.2A7 7 0 0 1 8 3c3 0 5.3 1.7 7 5a11.7 11.7 0 0 1-1.6 2.4M3.5 4.5C2.2 5.5 1.3 6.7 1 8c1.7 3.3 4 5 7 5a7 7 0 0 0 3.9-1.3" />
-      <path d="M5.6 5.6a3 3 0 0 0 4.8 3.8" />
-    </svg>
-  );
-}
-
-function ArrowRightIcon({ color, size = 14 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <line x1="2" y1="8" x2="14" y2="8" />
-      <polyline points="9,3 14,8 9,13" />
-    </svg>
-  );
-}
-
-// ─── Left panel (always dark) ─────────────────────────────────────────────────
-function LeftPanel() {
-  return (
-    <div className="auth-left" style={{
-      position: 'relative', overflow: 'hidden',
-      width: '46%', flexShrink: 0,
-      background: 'linear-gradient(135deg, #070F20 0%, #0A1628 100%)',
-      borderRight: `1px solid ${CP.border}`,
-      padding: '56px 52px',
-      display: 'flex', flexDirection: 'column',
-    }}>
-      {/* Decorative glows */}
-      <div style={{ position: 'absolute', top: -120, right: -120, width: 340, height: 340, borderRadius: '50%', background: 'radial-gradient(circle, rgba(24,211,255,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: -100, left: -80, width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
-
-      {/* Wordmark */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 500, fontSize: 20, color: CP.textPrimary, letterSpacing: '-0.03em', display: 'flex', alignItems: 'center' }}>
-          <span>tru</span>
-          <span style={{ color: CP.brand }}>dev</span>
-          <span style={{
-            display: 'inline-block', width: 2, height: 18, background: CP.brand,
-            marginLeft: 3, verticalAlign: 'middle',
-            animation: 'blink 1.1s step-end infinite',
-          }} />
-        </span>
-        <span style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 10, color: CP.brand,
-          border: `1px solid ${CP.brandBorder}`,
-          background: CP.brandTint,
-          padding: '3px 8px', borderRadius: 4,
-          letterSpacing: '0.04em',
-        }}>beta</span>
-      </div>
-
-      {/* Hero */}
-      <div style={{ marginTop: 48, position: 'relative', zIndex: 1 }}>
-        <p style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 11, color: CP.brand,
-          letterSpacing: '0.14em', textTransform: 'uppercase',
-          margin: '0 0 14px',
-        }}>
-          Real Engineering. Verified Talent.
-        </p>
-        <h1 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 36, color: CP.textPrimary, lineHeight: 1.2, margin: 0 }}>
-          <span style={{ fontWeight: 300 }}>Assessments that</span>
-          <br />
-          <span style={{ fontWeight: 600 }}>reflect actual work</span>
-        </h1>
-        <p style={{
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: 14, color: CP.textSecondary,
-          marginTop: 16, maxWidth: 340, lineHeight: 1.65,
-        }}>
-          Create work-sample assessments, review candidate evidence, and move
-          hiring decisions forward with a clearer signal.
-        </p>
-      </div>
-
-      {/* Role chips */}
-      <div style={{ marginTop: 36, display: 'flex', gap: 10, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
-        {[
-          { label: 'Role-ready reports', dot: CP.brand, border: 'rgba(24,211,255,0.2)', bg: 'rgba(24,211,255,0.06)' },
-          { label: 'Recruiter workspace', dot: REC_ACCENT,  border: REC_ACCENT_BORDER, bg: REC_ACCENT_DIM },
-        ].map(({ label, dot, border, bg }) => (
-          <div key={label} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 7,
-            border: `1px solid ${border}`, background: bg,
-            borderRadius: 999, padding: '7px 14px',
-            fontSize: 12, fontWeight: 500, color: CP.textSecondary,
-            fontFamily: "'DM Sans', sans-serif",
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: dot, flexShrink: 0 }} />
-            {label}
-          </div>
-        ))}
-      </div>
-
-      {/* Stats */}
-      <div style={{ marginTop: 'auto', paddingTop: 48, display: 'flex', gap: 36, position: 'relative', zIndex: 1 }}>
-        {[['2.4k+', 'Assessments run'], ['98%', 'Signal accuracy'], ['0 DSA', 'No puzzle grind']].map(([num, label]) => (
-          <div key={label}>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, color: CP.textPrimary, fontWeight: 500 }}>{num}</div>
-            <div style={{ fontSize: 11, color: CP.textFaint, marginTop: 3 }}>{label}</div>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -205,31 +85,6 @@ export default function LoginPage() {
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState('');
   const [success,    setSuccess]    = useState('');
-  const [emailFocus, setEmailFocus] = useState(false);
-  const [passFocus,  setPassFocus]  = useState(false);
-
-  const palette     = RP;
-  const accentColor = REC_ACCENT;
-  const accentDim   = REC_ACCENT_DIM;
-  const accentGlow  = REC_ACCENT_GLOW;
-
-  const baseInput = {
-    width: '100%', height: 46,
-    background: palette.surfaceMuted,
-    border: `1px solid ${palette.border}`,
-    borderRadius: 10,
-    padding: '0 14px 0 42px',
-    fontSize: 13.5,
-    fontFamily: "'DM Sans', sans-serif",
-    color: palette.textPrimary,
-    outline: 'none',
-    transition: 'border-color 0.2s, box-shadow 0.2s, background 0.2s',
-    boxSizing: 'border-box',
-  };
-
-  const inputStyle = (focused) => focused
-    ? { ...baseInput, borderColor: accentColor, background: palette.surfaceHover, boxShadow: `0 0 0 3px ${accentGlow}` }
-    : baseInput;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -247,282 +102,161 @@ export default function LoginPage() {
     }
   };
 
+  const handleGoogleSuccess = (data) => {
+    const userRole = storeAuthData(data);
+    setError('');
+    setSuccess('Login successful! Redirecting…');
+    setTimeout(() => { window.location.href = resolveRedirect(userRole); }, 900);
+  };
+
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap');
-        @keyframes blink    { 0%,100%{opacity:1} 50%{opacity:0} }
-        @keyframes spin     { to { transform: rotate(360deg); } }
-        @keyframes pulse-dot{ 0%,100%{opacity:1} 50%{opacity:0.3} }
-        *, *::before, *::after { box-sizing: border-box; }
-        @media (max-width: 768px) {
-          .auth-shell { align-items: flex-start !important; padding: 0 !important; overflow-y: auto !important; }
-          .auth-card  { flex-direction: column !important; border-radius: 0 !important; max-width: 100% !important; min-height: 100vh !important; overflow: visible !important; }
-          .auth-left  { display: none !important; }
-          .auth-right-panel { padding: 36px 20px 40px !important; }
-          .auth-mobile-wordmark { display: flex !important; }
-        }
-      `}</style>
+    <div
+      className="h-[100dvh] w-full flex overflow-hidden bg-white p-0 md:p-4 lg:p-3 xl:p-4"
+      style={{ fontFamily: "'Inter', sans-serif" }}
+    >
+      {/* Left panel — image background */}
+      <div
+        className="hidden md:block md:w-[42%] lg:w-[40%] xl:w-[44%] shrink-0 rounded-2xl bg-cover bg-center"
+        style={{ backgroundImage: `url(${loginBg})` }}
+      />
 
-      {/* Full-viewport dark canvas */}
-      <div className="auth-bg" style={{ position: 'fixed', inset: 0, background: CP.pageBg, zIndex: 0 }}>
-        <Particles
-          particleColors={['#ffffff', '#ffffff', '#ffffff']}
-          particleCount={180} particleSpread={9} speed={0.04}
-          particleBaseSize={110} sizeRandomness={1.2}
-          alphaParticles={false} moveParticlesOnHover={true}
-          particleHoverFactor={0.6} disableRotation={false}
-          cameraDistance={20}
-          pixelRatio={typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2) : 1}
-        />
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 70% at 50% 50%, transparent 20%, rgba(4,9,20,0.75) 100%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)', width: 600, height: 300, background: 'radial-gradient(ellipse, rgba(24,211,255,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      </div>
+      {/* Right panel */}
+      <div className="flex-1 min-h-0 flex items-center justify-center overflow-y-auto px-6 py-[clamp(12px,3vh,64px)] sm:px-10 xl:px-16">
+        <div className="w-full max-w-[371px] flex flex-col items-center">
 
-      {/* Centered shell */}
-      <div className="auth-shell" style={{
-        position: 'fixed', inset: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '1.25rem', zIndex: 1,
-        fontFamily: "'DM Sans', sans-serif",
-      }}>
-        <div className="auth-card" style={{
-          width: '100%', maxWidth: 1060,
-          borderRadius: 20, overflow: 'hidden',
-          display: 'flex',
-          border: `1px solid ${CP.border}`,
-          boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.35)',
-        }}>
+          {/* Logo */}
+          <div className="flex items-center mb-20 ">
+            <img src={truDevLogo} alt="" className="h-6 w-6" />
+            <span className="text-[clamp(16px,2.6vh,22px)] font-medium leading-6 text-[#121212]">TruDev</span>
+          </div>
 
-          {/* Left panel */}
-          <LeftPanel />
-
-          {/* Right panel */}
-          <div className="auth-right-panel" style={{
-            flex: 1, padding: '48px 44px',
-            background: palette.surface,
-            display: 'flex', flexDirection: 'column',
-            transition: 'background 0.25s',
-          }}>
-
-            {/* Mobile-only wordmark */}
-            <div className="auth-mobile-wordmark" style={{ display: 'none', marginBottom: 24, alignItems: 'center', gap: 8 }}>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 500, fontSize: 20, color: palette.textPrimary, letterSpacing: '-0.03em', display: 'flex', alignItems: 'center' }}>
-                <span>tru</span>
-                <span style={{ color: accentColor }}>dev</span>
-                <span style={{ display: 'inline-block', width: 2, height: 18, background: accentColor, marginLeft: 3, verticalAlign: 'middle', animation: 'blink 1.1s step-end infinite' }} />
-              </span>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: accentColor, border: `1px solid ${accentColor}40`, background: accentDim, padding: '3px 8px', borderRadius: 4, letterSpacing: '0.04em' }}>beta</span>
-            </div>
-
-            {/* Recruiter badge */}
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              alignSelf: 'flex-start',
-              color: REC_ACCENT,
-              background: REC_ACCENT_DIM,
-              border: `1px solid ${REC_ACCENT_BORDER}`,
-              borderRadius: 999,
-              padding: '8px 12px',
-              marginBottom: 30,
-              fontSize: 12,
-              fontWeight: 600,
-            }}>
-              <RecruiterIcon color={REC_ACCENT} />
-              Recruiter portal
-            </div>
-
-            {/* Heading */}
-            <div style={{ marginBottom: 28 }}>
-              <h2 style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 22, fontWeight: 500,
-                color: palette.textPrimary, letterSpacing: '-0.3px',
-                margin: 0,
-              }}>
-                Sign in to your recruiter workspace
-              </h2>
-              <p style={{ fontSize: 13, color: palette.textSecondary, marginTop: 8, lineHeight: 1.6 }}>
-                Manage assessments, review reports, and keep hiring decisions moving.
-              </p>
-            </div>
+          {/* Heading */}
+          <div className="flex flex-col items-center gap-[clamp(4px,1vh,12px)] text-center mb-[clamp(12px,4vh,40px)] w-full">
+            <h1
+              className="text-[clamp(24px,6vh,48px)] leading-[1.05] tracking-[-0.05em] xl:tracking-[-0.07em] text-[#121212] font-medium"
+              style={{ fontFamily: "'Noto Serif Display', serif" }}
+            >
+              Welcome Back
+            </h1>
+            <p className="text-[clamp(12px,1.8vh,16px)] leading-6 text-[#3d3d3d]">
+              Enter your email and password to access your account
+            </p>
+          </div>
 
             {/* Status banners */}
             {error && (
-              <div style={{
-                display: 'flex', alignItems: 'flex-start', gap: 8,
-                padding: '9px 12px', borderRadius: 8, marginBottom: 18,
-                background: palette.errorBg, border: `1px solid ${palette.errorBorder}`,
-                fontSize: 13, color: palette.error, lineHeight: 1.5,
-              }}>
-                <span style={{ flexShrink: 0, marginTop: 1 }}>⚠</span>
+              <div className="w-full mb-4 rounded-lg border border-error-border bg-error-bg px-3 py-2 text-[13px] leading-relaxed text-error">
                 {error}
               </div>
             )}
             {success && (
-              <div style={{
-                display: 'flex', alignItems: 'flex-start', gap: 8,
-                padding: '9px 12px', borderRadius: 8, marginBottom: 18,
-                background: palette.successBg, border: `1px solid ${palette.successBorder}`,
-                fontSize: 13, color: palette.success, lineHeight: 1.5,
-              }}>
-                <span style={{ flexShrink: 0, marginTop: 1 }}>✓</span>
+              <div className="w-full mb-4 rounded-lg border border-success-border bg-success-bg px-3 py-2 text-[13px] leading-relaxed text-success">
                 {success}
               </div>
             )}
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="w-full flex flex-col gap-[clamp(12px,3.5vh,40px)]">
+            <div className="flex flex-col gap-[clamp(10px,2.2vh,24px)]">
 
               {/* Email */}
-              <div>
-                <label style={{
-                  display: 'block', fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase',
-                  color: palette.textMuted, marginBottom: 7,
-                }}>Email</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}>
-                    <EnvelopeIcon color={emailFocus ? accentColor : palette.textFaint} />
-                  </span>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    onFocus={() => setEmailFocus(true)}
-                    onBlur={() => setEmailFocus(false)}
-                    placeholder="you@company.com"
-                    autoComplete="email"
-                    required
-                    style={inputStyle(emailFocus)}
-                  />
-                </div>
+              <div className="flex flex-col gap-[clamp(4px,0.8vh,8px)]">
+                <Label htmlFor="email" className="text-[clamp(12px,1.8vh,16px)] font-normal leading-6 text-[#121212]">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  autoComplete="email"
+                  required
+                  className="h-[clamp(36px,6vh,50px)] rounded-xl border-none bg-[#f5f7fa] px-4 py-3.5 text-[14px] text-[#121212] placeholder:text-[#6b6b6b] focus-visible:ring-2 focus-visible:ring-[#121212]/15"
+                />
               </div>
 
               {/* Password */}
-              <div>
-                <label style={{
-                  display: 'block', fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase',
-                  color: palette.textMuted, marginBottom: 7,
-                }}>Password</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}>
-                    <LockIcon color={passFocus ? accentColor : palette.textFaint} />
-                  </span>
-                  <input
-                    type={showPw ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    onFocus={() => setPassFocus(true)}
-                    onBlur={() => setPassFocus(false)}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    required
-                    style={{ ...inputStyle(passFocus), paddingRight: 42 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw(v => !v)}
-                    tabIndex={-1}
-                    aria-label={showPw ? 'Hide password' : 'Show password'}
-                    style={{
-                      position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
-                      background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex',
-                    }}
-                  >
-                    {showPw ? <EyeSlashIcon color={palette.textMuted} /> : <EyeIcon color={palette.textMuted} />}
-                  </button>
+              <div className="flex flex-col gap-[clamp(6px,1.2vh,12px)]">
+                <div className="flex flex-col gap-[clamp(4px,0.8vh,8px)]">
+                  <Label htmlFor="password" className="text-[clamp(12px,1.8vh,16px)] font-normal leading-6 text-[#121212]">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPw ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      autoComplete="current-password"
+                      required
+                      className="h-[clamp(36px,6vh,50px)] rounded-xl border-none bg-[#f5f7fa] px-4 py-3.5 pr-11 text-[14px] text-[#121212] placeholder:text-[#6b6b6b] focus-visible:ring-2 focus-visible:ring-[#121212]/15"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw(v => !v)}
+                      tabIndex={-1}
+                      aria-label={showPw ? 'Hide password' : 'Show password'}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6b6b6b] hover:text-[#121212]"
+                    >
+                      {showPw ? <EyeSlashIcon /> : <EyeIcon />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Remember + Forgot */}
+                <div className="flex items-center justify-between w-full">
+                  <label className="flex items-center gap-1.5 text-[clamp(11px,1.6vh,14px)] leading-5 text-[#3d3d3d] font-medium cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={e => setRememberMe(e.target.checked)}
+                      className="size-[15.75px] rounded-[4.5px] border border-[#ccc] accent-[#121212]"
+                    />
+                    Remember me
+                  </label>
+                  <a href="/forgot-password" className="text-[clamp(11px,1.6vh,14px)] leading-5 text-[#3d3d3d] font-medium hover:text-[#121212]">
+                    Forgot Password
+                  </a>
                 </div>
               </div>
+            </div>
 
-              {/* Remember + Forgot */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: palette.textSecondary, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} style={{ accentColor }} />
-                  Remember me
-                </label>
-                <a href="/forgot-password" style={{ fontSize: 12, color: palette.textMuted, textDecoration: 'none' }}>
-                  Forgot password?
-                </a>
-              </div>
+            {/* Submit */}
+            <Button
+              type="submit"
+              disabled={loading}
+              className="h-auto w-full rounded-xl bg-[#121212] px-4 py-[clamp(8px,1.4vh,12px)] text-[clamp(13px,1.8vh,16px)] font-bold text-white hover:bg-[#2b2b2b] disabled:opacity-60"
+            >
+              {loading ? 'Signing in…' : 'Sign In'}
+            </Button>
+          </form>
 
-              {/* Submit */}
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  width: '100%', height: 48,
-                  background: accentColor,
-                  color: '#1A0050',
-                  borderRadius: 10, border: 'none',
-                  fontSize: 14, fontWeight: 600,
-                  fontFamily: "'DM Sans', sans-serif",
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  opacity: loading ? 0.65 : 1,
-                  transition: 'opacity 0.2s, transform 0.15s',
-                  marginTop: 4,
-                }}
-                onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = '0.88'; }}
-                onMouseLeave={e => { if (!loading) e.currentTarget.style.opacity = '1'; }}
-                onMouseDown={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.99)'; }}
-                onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
-              >
-                {loading ? (
-                  <>
-                    <div style={{
-                      width: 15, height: 15, borderRadius: '50%', flexShrink: 0,
-                      border: '2px solid rgba(26,0,80,0.2)',
-                      borderTopColor: '#1A0050',
-                      animation: 'spin 0.7s linear infinite',
-                    }} />
-                    Signing in…
-                  </>
-                ) : (
-                  <>
-                    Sign in
-                    <ArrowRightIcon color="#1A0050" />
-                  </>
-                )}
-              </button>
-            </form>
-
-            {/* Signup CTA */}
-              <div style={{
-                background: RP.surfaceMuted,
-                border: `1px solid ${RP.border}`,
-                borderRadius: 10, padding: '14px 16px',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                marginTop: 22,
-              }}>
-                <div>
-                  <strong style={{ display: 'block', fontSize: 13, color: RP.textPrimary, marginBottom: 3 }}>
-                    Need recruiter access?
-                  </strong>
-                  <p style={{ fontSize: 12, color: RP.textSecondary, margin: 0, lineHeight: 1.5 }}>
-                    Request an account for your hiring team.
-                  </p>
-                </div>
-                <Link
-                  to="/recruiter/signup"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    color: REC_ACCENT, border: `1px solid ${REC_ACCENT}40`,
-                    background: REC_ACCENT_DIM,
-                    borderRadius: 7, padding: '8px 14px',
-                    fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
-                    textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
-                  }}
-                >
-                  Request access
-                  <ArrowRightIcon color={REC_ACCENT} size={11} />
-                </Link>
-              </div>
-
+          {/* Divider */}
+          <div className="flex items-center w-full py-[clamp(8px,2vh,24px)]">
+            <div className="flex-1 h-px bg-[#f3f4f6]" />
+            <span className="px-4 text-[12px] leading-4 text-[#9ca3af]">or continue with</span>
+            <div className="flex-1 h-px bg-[#f3f4f6]" />
           </div>
+
+          {/* Google */}
+          <GoogleAuthButton className="w-full" onSuccess={handleGoogleSuccess} onError={setError}>
+            <button
+              type="button"
+              tabIndex={-1}
+              className="h-[clamp(36px,5.6vh,48px)] w-full rounded-xl border border-[#ededed] bg-white px-4 py-3 text-[clamp(13px,1.8vh,16px)] font-medium text-[#121212] group-hover:bg-[#f9f9f9] flex items-center justify-center gap-2.5"
+            >
+              <GoogleIcon />
+              Sign In with Google
+            </button>
+          </GoogleAuthButton>
+
+          {/* Signup CTA */}
+          <p className="mt-[clamp(12px,3vh,32px)] text-[clamp(12px,1.8vh,16px)] leading-6 text-[#3e3e3e]">
+            Don&rsquo;t have an account?{' '}
+            <Link to="/recruiter/signup" className="font-medium text-[#121212] hover:underline">
+              Sign Up
+            </Link>
+          </p>
         </div>
       </div>
-    </>
+    </div>
   );
 }
