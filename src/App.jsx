@@ -7,6 +7,7 @@ import RecruiterDashboard from './pages/recruiter/RecruiterDashboard'
 import AssessmentDetailScreen from './pages/recruiter/AssessmentDetailScreen'
 import RecruiterLayout from './pages/recruiter/RecruiterLayout'
 import AssessmentsScreen from './pages/recruiter/AssessmentsScreen'
+import AssessmentsListPage from './pages/recruiter/assessments-list'
 import PipelineScreen from './pages/recruiter/pipeline'
 import CandidatesScreen from './pages/recruiter/CandidatesScreen'
 import ReportsScreen from './pages/recruiter/reports'
@@ -206,9 +207,13 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        <Route 
-          path="/recruiter/assessments" 
-          element={<Navigate to="/recruiter/pipeline" replace />} 
+        <Route
+          path="/recruiter/assessments"
+          element={
+            <ProtectedRoute requiredRole="RECRUITER">
+              <RecruiterLayout><AssessmentsListPage /></RecruiterLayout>
+            </ProtectedRoute>
+          }
         />
         <Route 
           path="/recruiter/task-library" 
