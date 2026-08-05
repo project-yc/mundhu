@@ -14,7 +14,15 @@ import { Skeleton } from '../../../../components/ui/skeleton';
  *
  * Generic on purpose: the detailed report screen reuses this.
  */
-export function MetricCard({ label, description, value, featured = false, loading = false }) {
+export function MetricCard({
+  label,
+  description,
+  value,
+  featured = false,
+  loading = false,
+  icon,
+}) {
+  const Icon = icon || BarChart3;
   return (
     <Card
       className={cn(
@@ -33,7 +41,7 @@ export function MetricCard({ label, description, value, featured = false, loadin
                 : 'bg-[var(--color-report-metric-icon-bg)] text-surface',
             )}
           >
-            <BarChart3 className="h-[18px] w-[18px]" strokeWidth={2.2} />
+            <Icon className="h-[18px] w-[18px]" strokeWidth={2.2} />
           </span>
 
           <div className="min-w-0 flex-1">
