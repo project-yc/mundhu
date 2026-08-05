@@ -1,18 +1,228 @@
 // InviteScreen — select assessment, add candidates via individual entry, bulk paste, or CSV upload
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Children, isValidElement } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Upload, Trash2 } from 'lucide-react';
 import { getAllAssessments, sendCandidateInvites } from '../../../api/recruiter/assessment.jsx';
 import { normalizeList } from '../reports/utils/reportRows.js';
 import { AskAnythingBar } from '../../../components/recruiter/AskAnythingBar.jsx';
-import { AssessmentSelect } from './components/AssessmentSelect.jsx';
-import { InviteModeTabs, TabsContent } from './components/InviteModeTabs.jsx';
-import { InviteBanner } from './components/InviteBanner.jsx';
-import { InviteActionRow } from './components/InviteActionRow.jsx';
-import { IndividualTab } from './components/IndividualTab.jsx';
-import { BulkPasteTab } from './components/BulkPasteTab.jsx';
-import { UploadFileTab } from './components/UploadFileTab.jsx';
-import { SuccessState } from './components/SuccessState.jsx';
+
+function AssessmentSelect({ assessments, selectedId, onSelect, loading }) {
+  return (
+    <div className="mb-5">
+      <label htmlFor="assessment-select" className="mb-2 block text-[13px] font-medium text-text-primary">
+        Assessment
+      </label>
+      <select
+        id="assessment-select"
+        value={selectedId}
+        onChange={e => onSelect(e.target.value)}
+        disabled={loading}
+        className="h-10 w-full rounded-[8px] border border-border-subtle bg-white px-3 text-[14px] text-text-primary outline-none ring-0 focus:border-border-strong"
+      >
+        <option value="">{loading ? 'Loading assessments...' : 'Select assessment'}</option>
+        {assessments.map(a => (
+          <option key={a.id} value={String(a.id)}>{a.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function TabsContent({ children }) {
+  return <>{children}</>;
+}
+
+function InviteModeTabs({ mode, onModeChange, children }) {
+  const tabs = [
+    { key: 'individual', label: 'Individual' },
+    { key: 'bulk', label: 'Bulk paste' },
+    { key: 'csv', label: 'CSV upload' },
+  ];
+  const visibleContent = Children.toArray(children).filter(child => isValidElement(child) && child.props?.value === mode);
+  const otherContent = Children.toArray(children).filter(child => !(isValidElement(child) && child.props?.value));
+
+  return (
+    <div className="rounded-[10px] border border-border-subtle bg-white">
+      <div className="flex gap-2 border-b border-border-subtle p-2">
+        {tabs.map(tab => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => onModeChange(tab.key)}
+            className={`rounded-[8px] px-3 py-2 text-[13px] font-medium transition ${
+              mode === tab.key ? 'bg-neutral-900 text-white' : 'text-text-secondary hover:bg-neutral-100'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="p-4">
+        {otherContent}
+        {visibleContent}
+      </div>
+    </div>
+  );
+}
+
+function InviteBanner({ children }) {
+  if (!children) return null;
+  return (
+    <div className="mb-4 rounded-[8px] border border-border-subtle bg-slate-50 px-3 py-2 text-[13px] text-text-secondary">
+      {children}
+    </div>
+  );
+}
+
+function IndividualTab({ rows, onAdd, onRemove }) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+
+  const add = () => {
+    if (!email.trim()) return;
+    onAdd(name.trim(), email.trim());
+    setName('');
+    setEmail('');
+  };
+
+  return (
+    <div>
+      <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+        <input
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="Candidate name (optional)"
+          className="h-10 rounded-[8px] border border-border-subtle px-3 text-[14px]"
+        />
+        <input
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="Candidate email"
+          className="h-10 rounded-[8px] border border-border-subtle px-3 text-[14px]"
+        />
+        <button type="button" onClick={add} className="h-10 rounded-[8px] bg-neutral-900 px-4 text-[13px] font-medium text-white">
+          Add
+        </button>
+      </div>
+
+      {rows.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {rows.map(row => (
+            <div key={row.id} className="flex items-center justify-between rounded-[8px] border border-border-subtle px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-medium text-text-primary">{row.name || 'Unnamed candidate'}</p>
+                <p className="truncate text-[12px] text-text-secondary">{row.email}</p>
+              </div>
+              <button type="button" onClick={() => onRemove(row.id)} className="text-text-secondary hover:text-red-600" aria-label="Remove candidate">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BulkPasteTab({ bulkText, onChange, onApply }) {
+  return (
+    <div>
+      <textarea
+        value={bulkText}
+        onChange={e => onChange(e.target.value)}
+        rows={8}
+        placeholder={'John Doe <john@example.com>\nJane Doe, jane@example.com\nfoo@example.com'}
+        className="w-full rounded-[8px] border border-border-subtle px-3 py-2 text-[14px]"
+      />
+      <div className="mt-3 flex justify-end">
+        <button type="button" onClick={onApply} className="h-10 rounded-[8px] bg-neutral-900 px-4 text-[13px] font-medium text-white">
+          Apply to list
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function UploadFileTab({ csvRows, csvFileName, csvFileSize, csvInputRef, onFile, onDrop, onClear }) {
+  return (
+    <div>
+      <div
+        onDrop={onDrop}
+        onDragOver={e => e.preventDefault()}
+        className="rounded-[10px] border border-dashed border-border-subtle bg-slate-50 p-5 text-center"
+      >
+        <Upload className="mx-auto mb-2 h-5 w-5 text-text-secondary" />
+        <p className="text-[13px] text-text-secondary">Drag and drop a CSV file here, or choose one manually.</p>
+        <input
+          ref={csvInputRef}
+          type="file"
+          accept=".csv"
+          onChange={onFile}
+          aria-label="Upload candidates CSV"
+          className="mt-3 block w-full text-[13px]"
+        />
+      </div>
+
+      {csvFileName && (
+        <div className="mt-3 flex items-center justify-between rounded-[8px] border border-border-subtle px-3 py-2">
+          <div>
+            <p className="text-[13px] font-medium text-text-primary">{csvFileName}</p>
+            <p className="text-[12px] text-text-secondary">{csvRows.length} rows parsed • {Math.round(csvFileSize / 1024)} KB</p>
+          </div>
+          <button type="button" onClick={onClear} className="text-[12px] text-text-secondary hover:text-red-600">Clear</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InviteActionRow({ onSend, onClear, sending, disabled, validCount, showClear }) {
+  return (
+    <div className="mt-5 flex items-center justify-between gap-3">
+      <p className="text-[12px] text-text-secondary">{validCount} valid candidate{validCount === 1 ? '' : 's'} ready</p>
+      <div className="flex gap-2">
+        {showClear && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="h-10 rounded-[8px] border border-border-subtle px-4 text-[13px] font-medium text-text-secondary"
+          >
+            Clear
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onSend}
+          disabled={disabled || sending}
+          className="h-10 rounded-[8px] bg-neutral-900 px-4 text-[13px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {sending ? 'Sending...' : 'Send invites'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SuccessState({ success, selectedName, onReset }) {
+  return (
+    <div className="rounded-[10px] border border-emerald-200 bg-emerald-50 p-5">
+      <div className="mb-3 flex items-start gap-2">
+        <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" />
+        <div>
+          <h2 className="text-[16px] font-semibold text-emerald-900">Invites sent</h2>
+          <p className="text-[13px] text-emerald-800">
+            {success.invited} candidate{success.invited === 1 ? '' : 's'} invited{selectedName ? ` for ${selectedName}` : ''}.
+          </p>
+        </div>
+      </div>
+
+      <button type="button" onClick={onReset} className="h-10 rounded-[8px] bg-emerald-700 px-4 text-[13px] font-medium text-white">
+        Invite more candidates
+      </button>
+    </div>
+  );
+}
 
 function makeRow(name, email) {
   return { id: Date.now() + Math.random(), name, email };
