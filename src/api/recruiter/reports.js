@@ -17,8 +17,11 @@ import { authAxios } from '../../lib/axios';
  * assessment picker; the response shape varies (bare array vs paginated
  * envelope), so callers normalize via `normalizeList`.
  */
-export async function listAssessments({ signal } = {}) {
-  return authAxios.get('/api/assessments/all', { signal });
+export async function listAssessments({ pageSize, signal } = {}) {
+  if (!pageSize) return authAxios.get('/api/assessments/all', { signal });
+  const params = new URLSearchParams();
+  params.set('page_size', String(pageSize));
+  return authAxios.get(`/api/assessments/all?${params.toString()}`, { signal });
 }
 
 /**
