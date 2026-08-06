@@ -1,12 +1,14 @@
 ﻿// TaskLibraryPage — B2B task library browser for recruiters
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Search, ChevronRight, Plus, SlidersHorizontal,
   ArrowUpDown, Loader, AlertCircle, Library, CheckCircle2, Pencil,
-  History, Heart, Undo2, Redo2,
+  History, Heart, Undo2, Redo2, Code2, Trash2, Check,
 } from 'lucide-react';
 import {
   getTrudevLibrary, getMyLibrary, getFilterOptions,
+  cloneToMyLibrary, createMyLibraryItem, updateMyLibraryItem, deleteMyLibraryItem,
 } from '../../api/recruiter/taskLibrary.js';
 import { Button } from '../../components/ui/button.jsx';
 import { Input } from '../../components/ui/input.jsx';
@@ -20,6 +22,11 @@ import {
 } from '../../components/ui/collapsible.jsx';
 import { AskAnythingBar } from '../../components/recruiter/AskAnythingBar.jsx';
 import CreateTaskOverlay from '../../components/recruiter/CreateTaskOverlay.jsx';
+import EditTaskDialog from '../../components/recruiter/EditTaskDialog.jsx';
+import {
+  Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink,
+  BreadcrumbPage, BreadcrumbSeparator,
+} from '../../components/ui/breadcrumb.jsx';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const LANGUAGE_OPTIONS = [
@@ -84,6 +91,36 @@ const CREATE_TASK_TYPES = [
   { key: 'coding_scenario', label: 'Coding- Scenario based', icon: Redo2 },
 ];
 
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+// Maps a question from CreateTaskOverlay onto the nested type_data the library
+// create endpoint expects (see API_CONTRACTS_TASK_LIBRARY.md §2.2).
+function buildTypeData(contentType, q) {
+  if (contentType === 'mcq') {
+    return {
+      prompt: q.question || '',
+      selection_mode: 'single',
+      options: (q.options || []).map(o => ({
+        text: o.text,
+        is_correct: !!o.is_correct,
+        points: o.is_correct ? 1 : 0,
+      })),
+    };
+  }
+  if (contentType === 'ranking') {
+    return {
+      prompt: q.question || '',
+      scoring_mode: 'weighted_partial',
+      // Overlay items are plain strings, already in correct order.
+      items: (q.items || []).map(text => ({ text: typeof text === 'string' ? text : text?.text || '' })),
+    };
+  }
+  return {
+    prompt: q.question || '',
+    ...(q.guideline ? { grading_hints: q.guideline } : {}),
+  };
+}
+
 // ─── sub-components ───────────────────────────────────────────────────────────
 function SectionHeader({ label, count, color, open, onToggle }) {
   return (
@@ -109,11 +146,12 @@ function SectionHeader({ label, count, color, open, onToggle }) {
   );
 }
 
-function TaskRow({ task }) {
+function TaskRow({ task, isMine, busy, onEdit, onAddToLibrary, onDelete }) {
   const typeData = task.type_data || {};
   const options = typeData.options || [];
   const contentType = task.content_type || 'mcq';
   const typeLabel = CONTENT_TYPE_LABELS[contentType] || contentType.toUpperCase();
+  const isTechnical = contentType === 'technical_task';
 
   return (
     <div className="flex items-start gap-4 px-4 py-4 border-b border-border-subtle last:border-b-0 transition-colors duration-150 hover:bg-surface-muted/40">
@@ -171,24 +209,57 @@ function TaskRow({ task }) {
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
+        {isTechnical && (
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="h-8 px-4 text-[13px] transition-all duration-150 hover:scale-[1.03] active:scale-95"
+          >
+            {/* Opens the read-only code view in a new tab so the library list keeps its place. */}
+            <a href={`/recruiter/library/tasks/${task.id}/view`} target="_blank" rel="noopener noreferrer">
+              <Code2 className="w-3.5 h-3.5 mr-1.5" />
+              View code
+            </a>
+          </Button>
+        )}
+
         <Button
           variant="outline"
           size="sm"
+          disabled={busy}
+          onClick={() => onEdit?.(task)}
           className="h-8 px-4 text-[13px] transition-all duration-150 hover:scale-[1.03] active:scale-95"
         >
           <Pencil className="w-3.5 h-3.5 mr-1.5" />
           Edit
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          // TODO: wire this up to your "add to library" API call
-          onClick={() => {}}
-          className="h-8 px-4 text-[13px] transition-all duration-150 hover:scale-[1.03] active:scale-95"
-        >
-          <Plus className="w-3.5 h-3.5 mr-1.5" />
-          Add to library
-        </Button>
+
+        {isMine ? (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => onDelete?.(task)}
+            aria-label={`Remove ${task.title} from My Library`}
+            className="h-8 px-3 text-[13px] text-text-muted hover:text-error hover:border-error-border transition-all duration-150 hover:scale-[1.03] active:scale-95"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => onAddToLibrary?.(task)}
+            className="h-8 px-4 text-[13px] transition-all duration-150 hover:scale-[1.03] active:scale-95"
+          >
+            {busy
+              ? <Loader className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              : <Plus className="w-3.5 h-3.5 mr-1.5" />}
+            Add to library
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -269,6 +340,16 @@ export default function TaskLibraryPage() {
   const [activeTab, setActiveTab] = useState('trudev');
   const [filterOptions, setFilterOptions] = useState(null);
   const [createOverlay, setCreateOverlay] = useState({ open: false, type: 'mcq' });
+  const [editTarget, setEditTarget] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const [notice, setNotice] = useState('');
+
+  const isMyLibrary = activeTab === 'my';
+
+  const flash = useCallback((message) => {
+    setNotice(message);
+    setTimeout(() => setNotice(''), 4000);
+  }, []);
 
   // Fetch filter options on mount
   useEffect(() => {
@@ -353,11 +434,82 @@ export default function TaskLibraryPage() {
     setCreateOverlay({ open: true, type: typeKey });
   };
 
-  const handleOverlaySave = (selectedQuestions, meta) => {
-    // TODO: wire this up to your real "save to task library" API call.
-    console.log('Saving to task library:', { selectedQuestions, meta });
-    // Optionally refresh the list once your API call succeeds:
-    // doFetch(filters, search);
+  const handleOverlaySave = async (selectedQuestions, meta) => {
+    const questions = selectedQuestions || [];
+    if (!questions.length) return;
+
+    const contentType = meta?.taskType || 'mcq';
+    const base = {
+      difficulty: meta?.difficulty || 'medium',
+      seniority: meta?.role || 'mid',
+      domain: meta?.domain || '',
+    };
+
+    setBusyId('overlay');
+    try {
+      // Each generated question becomes its own library item.
+      await Promise.all(questions.map(q => createMyLibraryItem({
+        ...base,
+        content_type: contentType,
+        title: (meta?.title?.trim() || q.question || 'Untitled task').slice(0, 255),
+        [contentType]: buildTypeData(contentType, q),
+      })));
+      flash(`Saved ${questions.length} task${questions.length === 1 ? '' : 's'} to My Library.`);
+      setActiveTab('my');
+    } catch (err) {
+      setError(err?.message || 'Could not save to My Library.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // "Add to library" — forks a shared Trudev task into the org's own library.
+  const handleAddToLibrary = async (task) => {
+    setBusyId(task.id);
+    try {
+      await cloneToMyLibrary(task.id);
+      flash(`"${task.title}" added to My Library.`);
+    } catch (err) {
+      setError(err?.message || 'Could not add this task to My Library.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Editing a Trudev task can't mutate the shared original, so it forks first and
+  // the edits land on the org's copy. Editing a My Library task patches in place.
+  const handleEditSave = async (payload) => {
+    const task = editTarget;
+    if (!task) return;
+
+    let targetId = task.id;
+    const forks = !isMyLibrary;
+
+    if (forks) {
+      const cloned = await cloneToMyLibrary(task.id);
+      targetId = cloned?.data?.id;
+      if (!targetId) throw new Error('Clone succeeded but returned no item id.');
+    }
+
+    await updateMyLibraryItem(targetId, payload);
+    flash(forks ? `Edited copy of "${task.title}" saved to My Library.` : 'Task updated.');
+    if (isMyLibrary) doFetch(filters, search);
+  };
+
+  const handleDelete = async (task) => {
+    if (!window.confirm(`Remove "${task.title}" from My Library? This won't affect any assessment it's already attached to.`)) {
+      return;
+    }
+    setBusyId(task.id);
+    try {
+      await deleteMyLibraryItem(task.id);
+      setAllTasks(prev => prev.filter(t => t.id !== task.id));
+      flash('Task removed from My Library.');
+    } catch (err) {
+      setError(err?.message || 'Could not remove this task.');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const groupedTasks = useMemo(() => {
@@ -390,6 +542,22 @@ export default function TaskLibraryPage() {
 
           {/* Header block */}
           <div className="flex-shrink-0 px-6 pt-5 pb-4">
+            <Breadcrumb className="mb-3">
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild><Link to="/recruiter/dashboard">Dashboard</Link></BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild><Link to="/recruiter/task-library">Task Library</Link></BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{isMyLibrary ? 'My library' : 'Trudev library'}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h1 className="text-[22px] font-bold text-text-primary font-display leading-tight">Task Library</h1>
@@ -487,6 +655,16 @@ export default function TaskLibraryPage() {
           {/* Divider */}
           <div className="border-t border-border-subtle" />
 
+          {notice && (
+            <div
+              role="status"
+              className="mx-6 mt-4 flex items-start gap-2.5 px-4 py-3 bg-success-bg border border-success-border rounded-lg animate-in fade-in-0 slide-in-from-top-1 duration-200"
+            >
+              <Check className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
+              <p className="text-[13px] text-success">{notice}</p>
+            </div>
+          )}
+
           {/* Content */}
           <div className="flex-1">
             {loading ? (
@@ -527,7 +705,15 @@ export default function TaskLibraryPage() {
                       <div className="pl-14 pr-4">
                         <div className="bg-surface border border-border-subtle rounded-lg mt-1 divide-y divide-border-subtle overflow-hidden">
                           {groupedTasks[key].map(task => (
-                            <TaskRow key={task.id} task={task} />
+                            <TaskRow
+                              key={task.id}
+                              task={task}
+                              isMine={isMyLibrary}
+                              busy={busyId === task.id}
+                              onEdit={setEditTarget}
+                              onAddToLibrary={handleAddToLibrary}
+                              onDelete={handleDelete}
+                            />
                           ))}
                         </div>
                       </div>
@@ -563,6 +749,17 @@ export default function TaskLibraryPage() {
         domainOptions={domainOptions}
         roleOptions={seniorityOptions}
         onSave={handleOverlaySave}
+      />
+
+      <EditTaskDialog
+        open={!!editTarget}
+        onOpenChange={open => !open && setEditTarget(null)}
+        item={editTarget}
+        forksOnSave={!isMyLibrary}
+        domainOptions={domainOptions}
+        difficultyOptions={difficultyOptions}
+        seniorityOptions={seniorityOptions}
+        onSave={handleEditSave}
       />
     </div>
   );
