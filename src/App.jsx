@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
 import LoginPage from './pages/auth/login'
@@ -29,6 +30,9 @@ import AdminAssessmentsPage from './pages/admin/AdminAssessmentsPage'
 import AdminLibraryPage from './pages/admin/AdminLibraryPage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import TaskLibraryPage from './pages/recruiter/TaskLibraryPage'
+// Code-split: pulls CodeMirror + the markdown renderer out of the main bundle.
+// This route always opens in its own tab, so the extra fetch costs nothing elsewhere.
+const TaskCodeViewPage = lazy(() => import('./pages/recruiter/TaskCodeViewPage'))
 import UserDashboardPage from './users/pages/UserDashboardPage'
 import UserSimulationsPage from './users/pages/UserSimulationsPage'
 import UserSimulationDetailPage from './users/pages/UserSimulationDetailPage'
@@ -223,8 +227,19 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        <Route 
-          path="/recruiter/pipeline" 
+        {/* Full-bleed code view — opened in its own tab, so no RecruiterLayout chrome. */}
+        <Route
+          path="/recruiter/library/tasks/:itemId/view"
+          element={
+            <ProtectedRoute requiredRole="RECRUITER">
+              <Suspense fallback={<div className="h-screen bg-page" />}>
+                <TaskCodeViewPage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/recruiter/pipeline"
           element={
             <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><PipelineScreen /></RecruiterLayout>
