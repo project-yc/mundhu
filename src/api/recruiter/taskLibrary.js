@@ -61,6 +61,14 @@ export const deleteMyLibraryItem = async (itemId) => {
   return authAxios.delete(`/api/v1/library/my/${itemId}`);
 };
 
+// ─── Technical task files (read-only code viewer) ─────────────────────────────
+
+// Returns { item, files[], entry_file, truncated, source } for a technical task.
+// Only candidate-visible starter files are served — never hidden tests or solutions.
+export const getTaskFiles = async (itemId) => {
+  return authAxios.get(`/api/v1/library/items/${itemId}/files`);
+};
+
 // ─── Attach / Detach ──────────────────────────────────────────────────────────
 
 export const attachToAssessment = async (assessmentId, { assessment_item_id, section_id, order, points }) => {
