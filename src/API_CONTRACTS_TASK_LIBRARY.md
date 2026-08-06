@@ -537,6 +537,66 @@ Returns available values for building filter dropdowns.
 
 ---
 
+## 4b. Technical Task Files (Code Viewer)
+
+```
+GET /api/v1/library/items/<item_id>/files
+```
+
+Returns the **candidate-visible starter files** of a `technical_task`, so the UI can
+show the repo read-only without provisioning a sandbox. Resolves items that are either
+system-published (Trudev) or owned by the caller's org.
+
+> Hidden tests, the reference solution and the internal `TASK_SPEC.md` live in the
+> grader bundle and are **never** returned by this endpoint.
+
+**Response** `200`:
+
+```json
+{
+  "success": true,
+  "message": "Task files",
+  "data": {
+    "entry_file": "TICKET.md",
+    "truncated": false,
+    "source": { "type": "local", "bundle_key": "tasks/<uuid>/<task>-starter.zip" },
+    "files": [
+      {
+        "path": "app/api.py",
+        "size": 1042,
+        "language": "python",
+        "content": "def get_at_risk_page(...):\n    ...",
+        "skipped": null
+      },
+      {
+        "path": "assets/logo.png",
+        "size": 20481,
+        "language": "text",
+        "content": null,
+        "skipped": "binary"
+      }
+    ],
+    "item": { /* full LibraryItemReadSerializer output */ }
+  }
+}
+```
+
+| Field | Notes |
+|---|---|
+| `entry_file` | Best file to open first — prefers `TICKET.md`, then `README.md`, `WORLD_BRIEF.md`, `DECISIONS.md` |
+| `truncated` | `true` when the repo exceeded the file-count or total-size budget |
+| `files[].content` | `null` when `skipped` is set |
+| `files[].skipped` | `binary` \| `too_large` (>256 KB) \| `budget_exceeded` (>12 MB total) \| `null` |
+| `source.type` | `local` (zip bundle) or `git` — for `git`, `files` is empty and `source` carries the repo ref |
+
+**Errors**: `400` if the item isn't a technical task; `404` if not found, not in the
+caller's org, or no starter bundle is attached.
+
+**When to use**: The "View code" action on a technical task row, which opens
+`/recruiter/library/tasks/<item_id>/view` in a new tab.
+
+---
+
 ## 5. Admin Endpoints (IsAdminOnly)
 
 Used by platform admins to manage the Trudev library.
