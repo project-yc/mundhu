@@ -54,16 +54,9 @@ function BubbleChart({ buckets, loading }) {
     <svg viewBox="0 0 200 182" className="w-full h-full" style={{ overflow: 'visible' }}>
       <defs>
         {BUBBLES.map((b, i) => (
-          <radialGradient key={`grad-${i}`} id={`bubble3d-${i}`} cx="35%" cy="30%" r="65%">
+          <radialGradient key={`grad-${i}`} id={`bubble3d-${i}`} cx="40%" cy="35%" r="75%">
             <stop offset="0%" stopColor={b.highlight} />
-            <stop offset="55%" stopColor={b.color} />
-            <stop offset="100%" stopColor={b.shadow} />
-          </radialGradient>
-        ))}
-        {BUBBLES.map((b, i) => (
-          <radialGradient key={`igrad-${i}`} id={`bubble-inner-${i}`} cx="55%" cy="60%" r="50%">
-            <stop offset="75%" stopColor="transparent" />
-            <stop offset="100%" stopColor="rgba(0,0,0,0.07)" />
+            <stop offset="100%" stopColor={b.color} />
           </radialGradient>
         ))}
       </defs>
@@ -74,7 +67,6 @@ function BubbleChart({ buckets, loading }) {
         return (
           <g key={buckets[i]?.range ?? i}>
             <circle cx={bubble.cx} cy={bubble.cy} r={bubble.r} fill={`url(#bubble3d-${i})`} stroke="#fff" strokeWidth="1.5" />
-            <circle cx={bubble.cx} cy={bubble.cy} r={bubble.r} fill={`url(#bubble-inner-${i})`} />
             <text
               x={bubble.cx}
               y={bubble.cy}
@@ -84,7 +76,6 @@ function BubbleChart({ buckets, loading }) {
               fontSize={fontSize}
               fontWeight="600"
               fontFamily="'Google Sans Flex', inherit"
-              style={{ textShadow: '0 1px 3px rgba(0,0,0,0.25)' }}
             >
               {count}
             </text>
