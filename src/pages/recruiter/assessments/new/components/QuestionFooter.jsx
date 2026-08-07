@@ -11,11 +11,11 @@ export function QuestionFooter({
   children,
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3 bg-surface-muted border-t border-border-default rounded-b-xl">
+    <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-surface-muted border-t border-border-default rounded-b-lg">
       {/* Left: pts + extra slots */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <label className="flex items-center gap-1.5 text-[12px] text-text-secondary">
-          <IconCoin size={13} className="text-text-muted" />
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="flex items-center gap-1.5 text-[11.5px] text-text-secondary">
+          <IconCoin size={12} className="text-text-muted" />
           <span>Pts</span>
           <input
             type="number"
@@ -24,7 +24,7 @@ export function QuestionFooter({
             value={points ?? ''}
             onChange={e => onPointsChange(e.target.value !== '' ? Number(e.target.value) : null)}
             disabled={disabled}
-            className="w-14 px-2 py-1 bg-surface border border-border-default rounded text-[12px] text-text-primary focus:outline-none focus:border-brand disabled:opacity-50"
+            className="w-12 px-1.5 py-1 bg-surface border border-border-default rounded text-[11.5px] text-text-primary focus:outline-none focus:border-brand disabled:opacity-50"
           />
         </label>
         {children}
@@ -36,16 +36,16 @@ export function QuestionFooter({
           onClick={onDuplicate}
           disabled={disabled}
           title="Duplicate"
-          className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface rounded transition-colors disabled:opacity-40"
+          className="p-1 text-text-muted hover:text-text-primary hover:bg-surface rounded transition-colors disabled:opacity-40"
         >
-          <IconCopy size={14} />
+          <IconCopy size={13} />
         </button>
         <button
           onClick={onDelete}
           title="Delete"
-          className="p-1.5 text-text-muted hover:text-error hover:bg-error-bg rounded transition-colors"
+          className="p-1 text-text-muted hover:text-error hover:bg-error-bg rounded transition-colors"
         >
-          <IconTrash size={14} />
+          <IconTrash size={13} />
         </button>
       </div>
     </div>
