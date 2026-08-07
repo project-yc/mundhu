@@ -26,6 +26,7 @@ const TYPE_DOT_CLASS = {
   coding: 'bg-success',
   free_text: 'bg-info',
   ranking: 'bg-error',
+  adaptive: 'bg-brand',
 };
 
 function getPointValue(item) {

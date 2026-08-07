@@ -11,10 +11,14 @@ import {
 import { PanelBlock } from '../SectionPanel';
 import { useAdaptiveSectionReport } from '../../hooks/useAdaptiveSectionReport';
 import {
+  describeCaps,
   formatCompetencyLabel,
+  formatDuration,
+  formatPercent,
   formatScoreValue,
   getRatioTone,
   joinRationales,
+  splitAnswerTurns,
 } from '../../utils/adaptiveReport';
 
 /**
@@ -38,13 +42,26 @@ function CompetencyTiles({ competencies }) {
               <span className={cn('text-[20px] font-bold leading-none', tone.text)}>
                 {formatScoreValue(competency.score)}
               </span>
+              {/* The section header reports out of 100 while these are rubric
+                  levels out of 4. Showing the percentage too means a recruiter
+                  doesn't have to reconcile two scales in their head. */}
               <span className="text-[12px] font-medium text-text-muted">
                 /{formatScoreValue(competency.max_score)}
               </span>
+              {formatPercent(competency.score, competency.max_score) && (
+                <span className="ml-[2px] text-[11px] font-medium text-text-faint">
+                  ({formatPercent(competency.score, competency.max_score)})
+                </span>
+              )}
             </p>
             <p className="mt-[5px] text-[12px] leading-[16px] text-text-secondary">
               {formatCompetencyLabel(competency.key)}
             </p>
+            {competency.caps_applied?.length > 0 && (
+              <p className="mt-[4px] text-[11px] leading-[15px] text-warning">
+                {describeCaps(competency.caps_applied)}
+              </p>
+            )}
           </div>
         );
       })}
@@ -82,6 +99,20 @@ function CompetencyTable({ competencies }) {
                 </TableCell>
                 <TableCell className="h-auto px-[12px] py-[11px] text-[12px] leading-[17px] text-text-secondary">
                   {joinRationales(competency.rationales) || '—'}
+                  {competency.caps_applied?.length > 0 && (
+                    <span className="mt-[5px] block text-[11px] font-medium text-warning">
+                      {describeCaps(competency.caps_applied)}
+                    </span>
+                  )}
+                  {/* The scorer cites the candidate's own words for each level
+                      it awards; showing them makes the score auditable. */}
+                  {competency.evidence?.length > 0 && (
+                    <span className="mt-[6px] block border-l-2 border-border-default pl-[8px] text-[11px] italic leading-[16px] text-text-muted">
+                      {competency.evidence.map((quote, i) => (
+                        <span key={i} className="block">&ldquo;{quote}&rdquo;</span>
+                      ))}
+                    </span>
+                  )}
                 </TableCell>
               </TableRow>
             );
@@ -109,9 +140,23 @@ function Transcript({ transcript }) {
             </div>
 
             {entry.answered ? (
-              <p className="mt-[7px] border-l-2 border-border-default bg-surface-hover px-[10px] py-[7px] text-[12px] italic leading-[18px] text-text-secondary">
-                {entry.answer}
-              </p>
+              /* The stored answer concatenates the candidate's initial reply with
+                 any follow-up reply. Split it back apart and interleave the
+                 interviewer's nudges, so the exchange reads in the order it
+                 actually happened instead of looking like an unprompted topic
+                 change mid-answer. */
+              splitAnswerTurns(entry.answer).map((turn, index) => (
+                <div key={index}>
+                  {index > 0 && entry.nudges?.[index - 1] && (
+                    <p className="mt-[7px] text-[12px] font-semibold leading-[18px] text-text-primary">
+                      Interviewer (follow-up): {entry.nudges[index - 1]}
+                    </p>
+                  )}
+                  <p className="mt-[7px] border-l-2 border-border-default bg-surface-hover px-[10px] py-[7px] text-[12px] italic leading-[18px] text-text-secondary">
+                    {turn}
+                  </p>
+                </div>
+              ))
             ) : (
               <p className="mt-[7px] text-[12px] italic leading-[18px] text-text-muted">
                 Not answered.
@@ -129,12 +174,37 @@ function Transcript({ transcript }) {
                   {formatScoreValue(entry.score)}/{formatScoreValue(entry.max_score)}
                 </span>
               )}
+              {entry.nudges?.length > 0 && (
+                <span className="inline-flex h-[22px] items-center rounded-[6px] bg-warning-bg px-[8px] text-[11px] font-medium text-warning">
+                  {entry.nudges.length === 1 ? 'Needed a prompt' : `${entry.nudges.length} prompts`}
+                </span>
+              )}
+              {formatDuration(entry.response_seconds) && (
+                <span className="text-[11px] text-text-faint">
+                  {formatDuration(entry.response_seconds)}
+                </span>
+              )}
+              {entry.caps_applied?.length > 0 && (
+                <span className="text-[11px] font-medium text-warning">
+                  {describeCaps(entry.caps_applied)}
+                </span>
+              )}
             </div>
 
             {entry.rationale && (
               <p className="mt-[5px] text-[12px] leading-[17px] text-text-secondary">
                 {entry.rationale}
               </p>
+            )}
+
+            {entry.evidence?.length > 0 && (
+              <div className="mt-[5px] border-l-2 border-border-default pl-[8px]">
+                {entry.evidence.map((quote, i) => (
+                  <p key={i} className="text-[11px] italic leading-[16px] text-text-muted">
+                    &ldquo;{quote}&rdquo;
+                  </p>
+                ))}
+              </div>
             )}
           </li>
         );
@@ -169,10 +239,20 @@ export function AdaptiveSectionPanel({ section, report }) {
     );
   }
 
-  if (!data) return null;
+  const competencies = data?.competencies || [];
+  const transcript = data?.transcript || [];
 
-  const competencies = data.competencies || [];
-  const transcript = data.transcript || [];
+  // Returning null here rendered an empty drawer with nothing but a title, which
+  // reads as a broken panel rather than an absent interview.
+  if (!data) {
+    return (
+      <PanelBlock>
+        <p className="text-[13px] leading-[20px] text-text-muted">
+          No interview data is available for this section.
+        </p>
+      </PanelBlock>
+    );
+  }
 
   // Runs scored before snapshots existed carry only a score and a summary.
   if (data.status === 'unavailable') {
@@ -188,6 +268,22 @@ export function AdaptiveSectionPanel({ section, report }) {
     );
   }
 
+  const answeredCount = data.answered_count ?? transcript.filter(entry => entry.answered).length;
+  const totalQuestions = data.total_questions ?? transcript.length;
+  // Every block below is conditional, so a scored-but-empty run would otherwise
+  // render an entirely blank panel.
+  const hasAnyContent = Boolean(data.summary) || competencies.length > 0 || transcript.length > 0;
+
+  if (!hasAnyContent) {
+    return (
+      <PanelBlock>
+        <p className="text-[13px] leading-[20px] text-text-muted">
+          This interview has no scored questions yet.
+        </p>
+      </PanelBlock>
+    );
+  }
+
   return (
     <>
       {data.summary && (
@@ -196,13 +292,47 @@ export function AdaptiveSectionPanel({ section, report }) {
         </PanelBlock>
       )}
 
+      {/* Question counts belong to the interview, not to the competency block —
+          nesting them there hid them whenever competencies were missing. */}
+      {totalQuestions > 0 && (
+        <PanelBlock>
+          <div className="flex flex-wrap items-center gap-x-[14px] gap-y-[4px] text-[12px] text-text-muted">
+            <span>{answeredCount} of {totalQuestions} questions answered</span>
+            {/* Independence. "3/3 unprompted" and "3/3, nudged every time" are
+                very different candidates and read identically without this. */}
+            {Number.isFinite(Number(data.questions_nudged)) && (
+              <span className={cn(data.questions_nudged > 0 && 'text-warning')}>
+                {data.questions_nudged === 0
+                  ? 'Answered without prompting'
+                  : `Needed prompting on ${data.questions_nudged} of ${totalQuestions}`}
+              </span>
+            )}
+            {formatDuration(data.total_seconds) && (
+              <span>{formatDuration(data.total_seconds)} total</span>
+            )}
+            {/* Scored on the answered subset only — without this a cut-short
+                interview reads exactly like a completed one. */}
+            {data.partial && (
+              <span className="font-medium text-warning">
+                Ended early — scored on answered questions only
+              </span>
+            )}
+            {/* The candidate answered these; the scorer failed to return a usable
+                score. Excluded from the denominator so they are not penalised —
+                but a competency that was probed and lost must not look like one
+                that was never probed. */}
+            {data.unscored_count > 0 && (
+              <span className="font-medium text-warning">
+                {data.unscored_count} answer{data.unscored_count === 1 ? '' : 's'} could not be scored
+              </span>
+            )}
+          </div>
+        </PanelBlock>
+      )}
+
       {competencies.length > 0 && (
         <PanelBlock title="Competency scores">
           <CompetencyTiles competencies={competencies} />
-          <p className="mt-[10px] text-[12px] text-text-muted">
-            {data.answered_count ?? transcript.filter(entry => entry.answered).length} of{' '}
-            {data.total_questions ?? transcript.length} questions answered
-          </p>
         </PanelBlock>
       )}
 

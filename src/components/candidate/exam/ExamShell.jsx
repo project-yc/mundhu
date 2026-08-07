@@ -24,9 +24,15 @@ export function ExamTopBar({ brand, children }) {
   )
 }
 
-export function ExamSidebar({ title, subtitle, children, legend, action }) {
+// `width` widens the rail for content-heavy panels — the question navigator fits
+// in 240px, but a scenario panel carrying stat grids, log blocks and chat
+// transcripts does not.
+export function ExamSidebar({ title, subtitle, children, legend, action, width = '240px' }) {
   return (
-    <aside className="hidden w-[240px] shrink-0 flex-col border-r border-border-subtle bg-chrome lg:flex">
+    <aside
+      style={{ width }}
+      className="hidden shrink-0 flex-col border-r border-border-subtle bg-chrome lg:flex"
+    >
       <div className="shrink-0 border-b border-border-subtle px-5 py-4">
         <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-text-primary">{title}</h2>
         {subtitle && <p className="mt-0.5 text-[12px] text-text-muted">{subtitle}</p>}

@@ -118,12 +118,17 @@ function ScoreOverview({ report, sections }) {
 
   const orderedTypes = ['technical_task', 'mcq', 'free_text', 'ranking', 'adaptive_interview'];
   const sectionMap = new Map(sections.map(section => [section.content_type, section]));
-  const overviewItems = orderedTypes.map(type => {
-    const section = sectionMap.get(type) || (type === 'technical_task' ? sectionMap.get('coding') : null);
-    const percent = section ? getScorePercent(section) : null;
-    const points = section?.score ?? 0;
-    return { type, section, percent, points };
-  });
+  // Only sections this assessment actually contains. Rendering the full set
+  // unconditionally showed an adaptive-only assessment as Coding 0/100,
+  // MCQ 0/100, Free Text 0/100 and Ranking 0/100 — four sections the candidate
+  // was never given, presented as if they had failed them.
+  const overviewItems = orderedTypes
+    .map(type => {
+      const section = sectionMap.get(type) || (type === 'technical_task' ? sectionMap.get('coding') : null);
+      if (!section) return null;
+      return { type, section, percent: getScorePercent(section), points: section.score ?? 0 };
+    })
+    .filter(Boolean);
 
   return (
     <div className="rounded-[10px] border border-border-default bg-surface px-[24px] pb-[20px] pt-[23px] shadow-card">
@@ -309,12 +314,17 @@ export default function ReportDetailScreen() {
           </div>
 
           <div className="absolute bottom-[20px] right-[38px] flex flex-wrap justify-end gap-[8px]">
-            <button
-              type="button"
-              className="inline-flex h-[41px] min-w-[146px] items-center justify-center rounded-[8px] border border-border-default bg-surface px-[22px] text-[14px] font-medium text-text-primary shadow-card transition-colors hover:bg-surface-hover"
-            >
-              Watch session
-            </button>
+            {/* A session only exists for coding sections. On an adaptive-only or
+                MCQ-only assessment there is nothing to watch, and the button
+                rendered anyway. */}
+            {report.session_id && (
+              <button
+                type="button"
+                className="inline-flex h-[41px] min-w-[146px] items-center justify-center rounded-[8px] border border-border-default bg-surface px-[22px] text-[14px] font-medium text-text-primary shadow-card transition-colors hover:bg-surface-hover"
+              >
+                Watch session
+              </button>
+            )}
             <button
               type="button"
               className="inline-flex h-[41px] min-w-[91px] items-center justify-center rounded-[8px] border border-error-border bg-error-bg px-[20px] text-[14px] font-bold text-error transition-colors hover:bg-error-bg/80"

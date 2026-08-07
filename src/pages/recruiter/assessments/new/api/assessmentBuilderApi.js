@@ -98,6 +98,40 @@ export async function deleteSectionItem(sectionId, itemId) {
   return authAxios.delete(`/api/v1/recruiter/sections/${sectionId}/items/${itemId}`);
 }
 
+// ─── Library Items ────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/library/my
+ *
+ * Used for adaptive interviews, which have no dedicated create endpoint the way
+ * MCQ / free text / ranking do — the item is a bare AssessmentItem and all of
+ * its configuration lives on the SectionItem.
+ */
+export async function createLibraryItem({ content_type, title, domain, seniority, language }) {
+  return authAxios.post('/api/v1/library/my', {
+    content_type,
+    title,
+    ...(domain ? { domain } : {}),
+    ...(seniority ? { seniority } : {}),
+    ...(language ? { language } : {}),
+  });
+}
+
+/**
+ * GET /api/v1/recruiter/adaptive/focus-areas
+ *
+ * The focus areas the engine's rubric catalog can actually ask AND score for
+ * this role/level. Anything outside this list is discarded by the engine without
+ * an error, so offering it would mean accepting a choice the interview ignores.
+ * `catalog_available: false` means the engine was unreachable and the full list
+ * was returned as a fallback.
+ */
+export async function getAdaptiveFocusAreas({ role_family, seniority }) {
+  return authAxios.get('/api/v1/recruiter/adaptive/focus-areas', {
+    params: { role_family, seniority },
+  });
+}
+
 // ─── MCQ Questions ────────────────────────────────────────────────────────────
 
 export async function createMcqQuestion(payload) {
@@ -271,6 +305,34 @@ export async function publishAssessmentFlow(state) {
           order: qIdx,
           points: item.points,
         });
+      } else if (item.type === 'adaptive') {
+        // Three calls, because the interview config is section-scoped: the
+        // library item carries only role/seniority metadata, and the config
+        // lands on the SectionItem created by the attach.
+        const config = item.adaptive_config || {};
+        const created = await createLibraryItem({
+          content_type: 'adaptive_interview',
+          title: section.name || 'AI Adaptive Interview',
+          domain: state.config_json?.domain || state.domain || '',
+          seniority: state.config_json?.seniority || state.seniority || '',
+        });
+        const assessmentItemId = created.data.id;
+
+        const attached = await attachItemToSection(sectionId, {
+          assessment_item_id: assessmentItemId,
+          order: qIdx,
+          points: item.points,
+        });
+
+        await updateSectionItem(sectionId, attached.data.id, {
+          adaptive_interview_config: config,
+        });
+      } else {
+        // Previously an unknown type fell through silently, publishing an empty
+        // section with no error anywhere.
+        throw new Error(
+          `Section "${section.name}" contains an unsupported item type: ${item.type}`,
+        );
       }
     }
   }

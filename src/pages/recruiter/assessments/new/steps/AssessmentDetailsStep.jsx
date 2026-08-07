@@ -6,8 +6,38 @@ import { createAssessment } from '../api/assessmentBuilderApi';
 
 const DURATION_OPTIONS = [30, 45, 60, 90, 120];
 const DEFAULT_DURATION = 45;
-const SENIORITY_OPTIONS = ['Junior Level', 'Mid Level', 'Senior Level', 'Lead Level', 'Staff Level'];
-const DEFAULT_SENIORITY = 'Junior Level';
+// Sent to the backend as `config_json.seniority`; values must match TaskSeniority.
+// These previously shipped display labels ("Junior Level") as the values, which
+// matched no enum member — so nothing downstream could read them.
+// "Entry level" is `new_grad`, a separate rung below Junior. Both are early
+// career (scaffolded questions, leniency scoring) but they score against
+// different level-calibrated rubrics.
+const SENIORITY_OPTIONS = [
+  { value: 'new_grad', label: 'Entry level' },
+  { value: 'junior', label: 'Junior' },
+  { value: 'mid', label: 'Mid' },
+  { value: 'senior', label: 'Senior' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'principal', label: 'Principal' },
+];
+const DEFAULT_SENIORITY = 'new_grad';
+
+// Must match TaskDomain — `config_json.domain` is what the adaptive interview
+// reads to resolve focus areas, role topics and its catalog slice.
+const DOMAIN_OPTIONS = [
+  { value: 'backend', label: 'Backend' },
+  { value: 'frontend', label: 'Frontend' },
+  { value: 'fullstack', label: 'Full Stack' },
+  { value: 'devops', label: 'DevOps' },
+  { value: 'data', label: 'Data' },
+  { value: 'data_science', label: 'Data Science' },
+  { value: 'llm_engineering', label: 'LLM Engineering' },
+  { value: 'ai_ml', label: 'ML Engineering' },
+  { value: 'mlops', label: 'MLOps' },
+  { value: 'mobile', label: 'Mobile' },
+  { value: 'security', label: 'Security' },
+];
+const DEFAULT_DOMAIN = 'fullstack';
 
 function StepProgress({ currentStep }) {
   const steps = [
@@ -101,6 +131,7 @@ export function AssessmentDetailsStep({ onCancel }) {
 
   const durationValue = state.duration_minutes ?? DEFAULT_DURATION;
   const seniorityValue = state.seniority || DEFAULT_SENIORITY;
+  const domainValue = state.domain || DEFAULT_DOMAIN;
 
   const handleSaveDraft = () => {
     localStorage.setItem(
@@ -122,6 +153,9 @@ export function AssessmentDetailsStep({ onCancel }) {
         config_json: {
           role: state.role || '',
           seniority: seniorityValue,
+          // `domain` (not `role`) is the key the adaptive interview config reads
+          // as its role_family fallback.
+          domain: domainValue,
         },
       });
       dispatch({
@@ -130,6 +164,8 @@ export function AssessmentDetailsStep({ onCancel }) {
           backendId: res.id || res.data?.id,
           duration_minutes: durationValue,
           seniority: seniorityValue,
+          domain: domainValue,
+          config_json: { role: state.role || '', seniority: seniorityValue, domain: domainValue },
         },
       });
       dispatch({ type: ACTIONS.SET_STEP, payload: 2 });
@@ -205,8 +241,19 @@ export function AssessmentDetailsStep({ onCancel }) {
                   value={seniorityValue}
                   onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { seniority: e.target.value } })}
                 >
-                  {SENIORITY_OPTIONS.map(level => (
-                    <option key={level} value={level}>{level}</option>
+                  {SENIORITY_OPTIONS.map(({ value, label }) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </SelectInput>
+              </Field>
+
+              <Field label="Discipline">
+                <SelectInput
+                  value={domainValue}
+                  onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { domain: e.target.value } })}
+                >
+                  {DOMAIN_OPTIONS.map(({ value, label }) => (
+                    <option key={value} value={value}>{label}</option>
                   ))}
                 </SelectInput>
               </Field>

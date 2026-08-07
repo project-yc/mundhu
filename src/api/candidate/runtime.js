@@ -6,7 +6,7 @@ const JSON_HEADERS = {
 
 const parseJson = async (response) => response.json().catch(() => ({}))
 
-const requestCandidate = async (url, token, options = {}, { unwrapData = true } = {}) => {
+export const requestCandidate = async (url, token, options = {}, { unwrapData = true } = {}) => {
   const response = await fetch(url, {
     ...options,
     headers: {

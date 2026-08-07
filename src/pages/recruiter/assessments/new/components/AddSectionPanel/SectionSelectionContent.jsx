@@ -20,7 +20,11 @@ export function SectionSelectionContent({
           </p>
         </div>
 
-        <button type="button" className="mt-[24px] block w-full text-left">
+        <button
+          type="button"
+          onClick={() => onAddSection('adaptive', 'AI Adaptive Interview')}
+          className="mt-[24px] block w-full rounded-[10px] text-left transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+        >
           <img
             src={ADAPTIVE_CARD_IMAGE}
             alt="Artificial Intelligence adaptive interview"

@@ -29,6 +29,7 @@ import {
   CandidateSectionIntroScreen,
 } from '../../components/candidate/CandidateSectionScaffold'
 import CandidateMcqSectionExperience from '../../components/candidate/CandidateMcqSectionExperience'
+import CandidateAdaptiveInterviewExperience from './adaptive-interview'
 
 const MAX_BOOT_WAIT_MS = 45000
 const BOOT_POLL_INTERVAL_MS = 1500
@@ -39,6 +40,7 @@ const SECTION_LABELS = {
   free_text: 'Free Text',
   ranking: 'Ranking',
   technical_task: 'Coding',
+  adaptive_interview: 'AI Interview',
 }
 
 const delay = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms))
@@ -174,7 +176,9 @@ export default function CandidateSectionRuntimePage() {
         return
       }
 
-      if (actionPayload.next_action === 'open_section') {
+      // Adaptive routes exactly like open_section — the difference is entirely in
+      // which experience the content_type dispatch renders.
+      if (actionPayload.next_action === 'open_section' || actionPayload.next_action === 'launch_adaptive_interview') {
         const nextRuntime = saveCandidateRuntimeState(actionPayload)
         setRuntimeState(nextRuntime)
         navigate(
@@ -234,7 +238,12 @@ export default function CandidateSectionRuntimePage() {
 
           if (needsRuntimeRefresh) {
             const nextAction = await getCandidateNextAction(instanceId, nextRuntime.sectionToken)
-            if (nextAction.next_action !== 'open_section' && nextAction.next_action !== 'launch_coding') {
+            const staysOnThisPage = (
+              nextAction.next_action === 'open_section'
+              || nextAction.next_action === 'launch_coding'
+              || nextAction.next_action === 'launch_adaptive_interview'
+            )
+            if (!staysOnThisPage) {
               handleNextAction(nextAction)
               return
             }
@@ -458,6 +467,29 @@ export default function CandidateSectionRuntimePage() {
   const sectionLabel = SECTION_LABELS[runtimeState?.contentType] || 'Section'
 
   if (screen === 'overview') {
+    // Like MCQ, the adaptive interview owns its own intro/loading/expiry screens
+    // and bootstraps itself, so it renders instead of the generic intro rather
+    // than going through beginSection/loadSectionContent.
+    if (runtimeState?.contentType === 'adaptive_interview') {
+      return (
+        <CandidateAdaptiveInterviewExperience
+          itemAttemptId={runtimeState.currentItemAttemptId}
+          sectionToken={runtimeState.sectionToken}
+          sectionName={runtimeState.sectionName || 'AI Interview'}
+          sectionOrder={runtimeState.sectionOrder}
+          sectionCount={runtimeState.sectionCount}
+          sectionTimerMinutes={runtimeState.sectionTimerMinutes}
+          onSubmitResult={async (result) => handleNextAction(result)}
+          onRequestNextAction={async () => {
+            // Resuming a run that already finished: the interview has no
+            // next_action of its own, so resolve one and advance.
+            const nextAction = await getCandidateNextAction(instanceId, runtimeState.sectionToken)
+            handleNextAction(nextAction)
+          }}
+        />
+      )
+    }
+
     if (runtimeState?.contentType === 'mcq') {
       return (
         <CandidateMcqSectionExperience

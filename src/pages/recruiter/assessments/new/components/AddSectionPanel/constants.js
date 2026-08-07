@@ -31,6 +31,76 @@ export const DRAWER_TYPE_LABELS = {
   coding: 'coding',
   ranking: 'ranking',
   free_text: 'free text',
+  adaptive: 'AI adaptive interview',
+};
+
+// --- Adaptive interview -----------------------------------------------------
+// Mirrors the backend's AdaptiveInterviewConfigSerializer. Only the fields a
+// recruiter should decide are here; question_mix, design_depth and role_topics
+// are left to the preset, and role/seniority/language come from the assessment.
+
+export const ADAPTIVE_PRESET_OPTIONS = [
+  { value: 'balanced_technical', label: 'Balanced technical', hint: 'Mix of task follow-up and role topics' },
+  { value: 'coding_task_followup', label: 'Coding task follow-up', hint: 'Every question grounded in their submitted code' },
+  { value: 'role_specific', label: 'Role specific', hint: 'Weighted toward role topics over their task' },
+  { value: 'system_design_path', label: 'System design', hint: 'Design-heavy probing' },
+  { value: 'architecture_deep_dive', label: 'Architecture deep dive', hint: 'Most design-heavy; best above mid level' },
+];
+
+// The 14 universal focus areas plus the per-role sets, kept in sync with
+// UNIVERSAL_FOCUS_AREAS / ROLE_FOCUS_AREA_DEFAULTS in
+// backend/core/assessments/services/adaptive_interview_config.py.
+export const UNIVERSAL_FOCUS_AREAS = [
+  'implementation_reasoning', 'debugging', 'testing_validation', 'edge_cases',
+  'code_maintainability', 'design_tradeoffs', 'performance_scalability', 'api_design',
+  'data_modeling', 'system_design', 'reliability', 'security',
+  'ai_tool_usage', 'communication_clarity',
+];
+
+export const ROLE_FOCUS_AREAS = {
+  backend: ['api_design', 'data_modeling', 'reliability', 'performance_scalability'],
+  frontend: ['component_architecture', 'state_management', 'data_fetching', 'accessibility', 'frontend_performance'],
+  fullstack: ['api_contracts', 'client_server_validation', 'end_to_end_data_flow'],
+  data: ['sql', 'etl_pipelines', 'data_modeling', 'data_quality'],
+  data_science: ['sql', 'experiment_design', 'metrics_definition', 'analytics_reasoning'],
+  devops: ['ci_cd', 'observability', 'incident_response', 'infrastructure_design'],
+  security: ['threat_modeling', 'secure_coding', 'incident_response', 'security'],
+  mobile: ['mobile_architecture', 'offline_sync', 'performance_scalability', 'ux_tradeoffs'],
+  llm_engineering: ['prompting', 'rag_retrieval', 'llm_tool_use', 'ai_safety_guardrails', 'agent_design', 'model_evaluation', 'latency_cost_tradeoffs'],
+  ai_ml: ['model_evaluation', 'feature_engineering', 'experiment_design', 'ml_modeling'],
+  mlops: ['model_deployment', 'monitoring_drift', 'serving_reliability', 'mlops_pipelines', 'infrastructure_design'],
+};
+
+export const ADAPTIVE_TIMER_OPTIONS = [10, 15, 20, 30, 45];
+export const ADAPTIVE_DEFAULT_TIMER = 20;
+
+// Roughly three minutes per question — an answer plus the model's turn. The
+// engine terminates on the question budget, not the clock, so this only sets
+// the budget; the timer is the hard stop.
+export const MINUTES_PER_QUESTION = 3;
+export const MAX_QUESTIONS_PER_COMPETENCY = 2;
+export const ADAPTIVE_QUESTION_CEILING = 12;
+
+export const formatFocusAreaLabel = (value) => (
+  String(value || '')
+    .split('_')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+);
+
+/**
+ * Derive the question budget from the section duration.
+ *
+ * Clamped by the competency cap because the engine raises a bare ValueError when
+ * `focusAreas x MAX_QUESTIONS_PER_COMPETENCY < max` — which escapes as a 500 on
+ * the candidate's first question rather than an authoring-time error.
+ */
+export const deriveQuestionCount = (timerMinutes, focusAreas = []) => {
+  const fromDuration = Math.floor((Number(timerMinutes) || ADAPTIVE_DEFAULT_TIMER) / MINUTES_PER_QUESTION);
+  const competencyCap = Math.max(focusAreas.length, 1) * MAX_QUESTIONS_PER_COMPETENCY;
+  const max = Math.max(1, Math.min(fromDuration, competencyCap, ADAPTIVE_QUESTION_CEILING));
+  return { min: Math.max(1, Math.min(3, max)), max };
 };
 
 export const FALLBACK_CODING_TASKS = [

@@ -3,6 +3,7 @@ import {
   IconCheckbox,
   IconWriting,
   IconSortAscending,
+  IconSparkles,
 } from '@tabler/icons-react';
 
 export const SECTION_TYPE_CONFIG = {
@@ -33,6 +34,13 @@ export const SECTION_TYPE_CONFIG = {
     badge: 'bg-violet-100 text-violet-700',
     Icon: IconSortAscending,
     defaultTimerMinutes: 10,
+  },
+  adaptive: {
+    label: 'AI Adaptive',
+    dot: 'bg-rose-500',
+    badge: 'bg-rose-100 text-rose-700',
+    Icon: IconSparkles,
+    defaultTimerMinutes: 20,
   },
 };
 

@@ -98,6 +98,25 @@ export function makeCodingItem() {
   };
 }
 
+export function makeAdaptiveItem() {
+  return {
+    id: crypto.randomUUID(),
+    type: 'adaptive',
+    backendItemId: null,
+    points: 100,
+    published: false,
+    locked: false,
+    // Config lives on the section item server-side, so it rides along with the
+    // item rather than on the section.
+    adaptive_config: {
+      preset: 'balanced_technical',
+      focus_areas: [],
+      question_count: { min: 3, max: 5 },
+      anchor: { type: 'coding_task', use_coding_task_as_anchor: true },
+    },
+  };
+}
+
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 export function assessmentBuilderReducer(state, action) {
   switch (action.type) {
@@ -122,6 +141,7 @@ export function assessmentBuilderReducer(state, action) {
       else if (items.length === 0 && action.payload.type === 'free_text') items = [makeFreeTextQuestion()];
       else if (items.length === 0 && action.payload.type === 'ranking') items = [makeRankingQuestion()];
       else if (items.length === 0 && action.payload.type === 'coding') items = [makeCodingItem()];
+      else if (items.length === 0 && action.payload.type === 'adaptive') items = [makeAdaptiveItem()];
 
       newSection.items = items;
       return {

@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getLibraryTasks } from '../../api/assessmentBuilderApi';
+import { getAdaptiveFocusAreas, getLibraryTasks } from '../../api/assessmentBuilderApi';
 import { SECTION_TYPE_CONFIG } from '../../constants/sectionTypeConfig';
 import {
+  ADAPTIVE_DEFAULT_TIMER,
   CODING_RUBRICS,
   DRAWER_CLOSE_MS,
   FALLBACK_CODING_TASKS,
+  ROLE_FOCUS_AREAS,
   createInitialOptions,
   createInitialRankingItems,
+  deriveQuestionCount,
 } from './constants';
 
-const DRAWER_SECTION_TYPES = ['mcq', 'coding', 'ranking', 'free_text'];
+const DRAWER_SECTION_TYPES = ['mcq', 'coding', 'ranking', 'free_text', 'adaptive'];
 const DEFAULT_CODING_FILTERS = { role: 'Front-end developer', language: '', difficulty: 'easy' };
 
 const createInitialRubricPoints = () => CODING_RUBRICS.reduce((acc, name) => ({ ...acc, [name]: 5 }), {});
@@ -41,7 +44,21 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   const [selectedTask, setSelectedTask] = useState(null);
   const [codingFilterOpen, setCodingFilterOpen] = useState(false);
   const [codingFilters, setCodingFilters] = useState(DEFAULT_CODING_FILTERS);
+  const [adaptivePreset, setAdaptivePreset] = useState('balanced_technical');
+  const [adaptiveAnchorId, setAdaptiveAnchorId] = useState('');
+  const [adaptiveFocusAreas, setAdaptiveFocusAreas] = useState([]);
+  const [adaptiveRoleTitle, setAdaptiveRoleTitle] = useState('');
+  const [adaptiveQuestionMax, setAdaptiveQuestionMax] = useState(null);
+  const [adaptiveMustAsk, setAdaptiveMustAsk] = useState('');
+  const [adaptiveAvoidTopics, setAdaptiveAvoidTopics] = useState('');
+  const [adaptiveFocusAreaOptions, setAdaptiveFocusAreaOptions] = useState([]);
+  const [adaptiveCatalogAvailable, setAdaptiveCatalogAvailable] = useState(true);
   const closeTimerRef = useRef(null);
+
+  // Role and level come from the assessment, not the section — one requisition,
+  // one role. Both are needed to ask the catalog what is actually scoreable.
+  const assessmentRoleFamily = (state.config_json?.domain || state.domain || '').toLowerCase();
+  const assessmentSeniority = (state.config_json?.seniority || state.seniority || '').toLowerCase();
 
   const resetDrawerState = () => {
     setDrawerOpen(false);
@@ -67,6 +84,13 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     setSelectedTask(null);
     setCodingFilterOpen(false);
     setCodingFilters(DEFAULT_CODING_FILTERS);
+    setAdaptivePreset('balanced_technical');
+    setAdaptiveAnchorId('');
+    setAdaptiveFocusAreas([]);
+    setAdaptiveRoleTitle('');
+    setAdaptiveQuestionMax(null);
+    setAdaptiveMustAsk('');
+    setAdaptiveAvoidTopics('');
   };
 
   const closeDrawer = () => {
@@ -88,10 +112,15 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     setDrawerType(type);
     setDrawerStep(options.step ?? 'section');
     setTargetSectionId(options.targetSectionId ?? null);
-    setSectionTimer(45);
+    setSectionTimer(type === 'adaptive' ? ADAPTIVE_DEFAULT_TIMER : 45);
     setItemTimer(5);
     setAiLevel('chat');
-    setPoints(5);
+    setPoints(type === 'adaptive' ? 100 : 5);
+    if (type === 'adaptive') {
+      // Seed with the role's focus areas so the section is valid without the
+      // recruiter having to pick anything.
+      setAdaptiveFocusAreas(ROLE_FOCUS_AREAS[assessmentRoleFamily] || []);
+    }
   };
 
   const handleAddSection = (type, label) => {
@@ -376,6 +405,106 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     closeDrawer();
   };
 
+  // Chips come from the engine catalog, not a hardcoded list: a focus area with
+  // no catalog entry is discarded by the engine with no error, so the recruiter
+  // would pick it and silently get neither a question nor a score for it.
+  useEffect(() => {
+    if (!drawerOpen || drawerType !== 'adaptive') return undefined;
+
+    let cancelled = false;
+    getAdaptiveFocusAreas({ role_family: assessmentRoleFamily, seniority: assessmentSeniority })
+      .then(res => {
+        if (cancelled) return;
+        const data = res.data || res || {};
+        const options = data.focus_areas || [];
+        setAdaptiveFocusAreaOptions(options);
+        setAdaptiveCatalogAvailable(data.catalog_available !== false);
+        // Drop any pre-seeded selection the catalog cannot honour.
+        setAdaptiveFocusAreas(current => {
+          const allowed = current.filter(area => options.includes(area));
+          return allowed.length > 0 ? allowed : options.slice(0, 4);
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Fall back to the role defaults rather than blocking authoring.
+        setAdaptiveFocusAreaOptions([]);
+        setAdaptiveCatalogAvailable(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [drawerOpen, drawerType, assessmentRoleFamily, assessmentSeniority]);
+
+  const adaptiveQuestionCount = useMemo(
+    () => deriveQuestionCount(sectionTimer, adaptiveFocusAreas),
+    [sectionTimer, adaptiveFocusAreas],
+  );
+
+  const toggleAdaptiveFocusArea = (focusArea) => {
+    setAdaptiveFocusAreas(current => (
+      current.includes(focusArea)
+        ? current.filter(value => value !== focusArea)
+        : [...current, focusArea]
+    ));
+  };
+
+  const handleCreateAdaptive = () => {
+    const splitLines = (value) => value
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean);
+
+    // The recruiter can override the derived budget, but never past what the
+    // competency cap allows — the engine 500s on the candidate's first question
+    // if focusAreas x 2 < max.
+    const derived = deriveQuestionCount(sectionTimer, adaptiveFocusAreas);
+    const questionMax = adaptiveQuestionMax
+      ? Math.min(Number(adaptiveQuestionMax), derived.max)
+      : derived.max;
+
+    const question = {
+      id: crypto.randomUUID(),
+      type: 'adaptive',
+      backendItemId: null,
+      points: Number(points),
+      published: false,
+      locked: false,
+      adaptive_config: {
+        preset: adaptivePreset,
+        focus_areas: adaptiveFocusAreas,
+        question_count: { min: Math.min(derived.min, questionMax), max: questionMax },
+        // '' means "most recent coding section" — the backend resolves that from
+        // a blank source id. Only the explicit 'none' option detaches the anchor.
+        anchor: adaptiveAnchorId === 'none'
+          ? { type: 'none', source_section_item_id: '', use_coding_task_as_anchor: false }
+          : {
+              type: 'coding_task',
+              source_section_item_id: adaptiveAnchorId || '',
+              use_coding_task_as_anchor: true,
+            },
+        ...(adaptiveRoleTitle.trim() ? { role_title: adaptiveRoleTitle.trim() } : {}),
+        ...(adaptiveMustAsk.trim() ? { must_ask_questions: splitLines(adaptiveMustAsk) } : {}),
+        ...(adaptiveAvoidTopics.trim() ? { avoid_topics: splitLines(adaptiveAvoidTopics) } : {}),
+      },
+    };
+
+    if (targetSectionId) {
+      dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
+    } else {
+      dispatch({
+        type: ACTIONS.ADD_SECTION,
+        payload: {
+          name: sectionName.trim() || 'AI Adaptive Interview',
+          type: 'adaptive',
+          timer_minutes: Number(sectionTimer),
+          ai_level_override: null,
+          items: [question],
+        },
+      });
+    }
+    closeDrawer();
+  };
+
   return {
     drawer: {
       isOpen: drawerOpen,
@@ -430,6 +559,24 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
       removeRankingItem,
       addRankingItem,
       handlePollTypeChange,
+      adaptivePreset,
+      setAdaptivePreset,
+      adaptiveAnchorId,
+      setAdaptiveAnchorId,
+      adaptiveFocusAreas,
+      toggleAdaptiveFocusArea,
+      adaptiveRoleTitle,
+      setAdaptiveRoleTitle,
+      adaptiveQuestionCount,
+      adaptiveQuestionMax,
+      setAdaptiveQuestionMax,
+      adaptiveMustAsk,
+      setAdaptiveMustAsk,
+      adaptiveAvoidTopics,
+      setAdaptiveAvoidTopics,
+      adaptiveFocusAreaOptions,
+      adaptiveCatalogAvailable,
+      assessmentRoleFamily,
     },
     actions: {
       addSection: handleAddSection,
@@ -437,6 +584,7 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
       createCoding: handleCreateCoding,
       createFreeText: handleCreateFreeText,
       createRanking: handleCreateRanking,
+      createAdaptive: handleCreateAdaptive,
     },
   };
 }

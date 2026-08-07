@@ -9,6 +9,8 @@ import {
   X,
 } from 'lucide-react';
 import {
+  ADAPTIVE_PRESET_OPTIONS,
+  ADAPTIVE_TIMER_OPTIONS,
   AI_LEVEL_OPTIONS,
   CODING_RUBRICS,
   DIFFICULTY_OPTIONS,
@@ -16,8 +18,11 @@ import {
   FILTER_ROLES,
   LANGUAGE_OPTIONS,
   POINT_OPTIONS,
+  ROLE_FOCUS_AREAS,
   TIMER_OPTIONS,
+  UNIVERSAL_FOCUS_AREAS,
   WORD_LIMIT_OPTIONS,
+  formatFocusAreaLabel,
 } from './constants';
 
 function DrawerFooter({ onCancel, onSubmit, submitLabel = 'Add' }) {
@@ -108,21 +113,27 @@ function SectionDetailsStep({ drawerType, form, onCancel, onContinue }) {
           />
         </div>
 
-        <label className="mt-[16px] block text-[15px] font-semibold leading-none text-text-primary">
-          Section Timer
-        </label>
-        <div className="relative mt-[10px]">
-          <select
-            value={form.sectionTimer}
-            onChange={event => form.setSectionTimer(Number(event.target.value))}
-            className="h-[42px] w-full appearance-none rounded-[8px] border border-border-default bg-surface px-[12px] pr-[38px] text-[15px] font-medium text-text-primary outline-none"
-          >
-            {TIMER_OPTIONS.map(minutes => (
-              <option key={minutes} value={minutes}>{minutes}m</option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
-        </div>
+        {/* Adaptive asks for duration on the next step, where it also drives the
+            question budget — asking twice would let the two disagree. */}
+        {drawerType !== 'adaptive' && (
+          <>
+            <label className="mt-[16px] block text-[15px] font-semibold leading-none text-text-primary">
+              Section Timer
+            </label>
+            <div className="relative mt-[10px]">
+              <select
+                value={form.sectionTimer}
+                onChange={event => form.setSectionTimer(Number(event.target.value))}
+                className="h-[42px] w-full appearance-none rounded-[8px] border border-border-default bg-surface px-[12px] pr-[38px] text-[15px] font-medium text-text-primary outline-none"
+              >
+                {TIMER_OPTIONS.map(minutes => (
+                  <option key={minutes} value={minutes}>{minutes}m</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
+            </div>
+          </>
+        )}
 
         {drawerType === 'coding' && (
           <>
@@ -668,7 +679,207 @@ function McqQuestionForm({ form, onCancel, onSubmit }) {
   );
 }
 
+function AdaptiveQuestionForm({ form, onCancel, onSubmit }) {
+  const roleFocusAreas = ROLE_FOCUS_AREAS[form.assessmentRoleFamily] || [];
+  // Prefer the engine catalog — it is the only source that knows what can
+  // actually be asked and scored. The static lists are the offline fallback.
+  const fallbackChoices = [
+    ...roleFocusAreas,
+    ...UNIVERSAL_FOCUS_AREAS.filter(value => !roleFocusAreas.includes(value)),
+  ];
+  const focusAreaChoices = form.adaptiveFocusAreaOptions?.length
+    ? form.adaptiveFocusAreaOptions
+    : fallbackChoices;
+  const { max: derivedMax } = form.adaptiveQuestionCount;
+  const noFocusAreas = form.adaptiveFocusAreas.length === 0;
+
+  return (
+    <>
+      <div className="flex h-[56px] flex-shrink-0 items-center border-b border-border-subtle px-[22px]">
+        <h2 className="text-[15px] font-medium leading-none text-text-secondary">
+          Configure <span className="font-bold text-text-primary">AI adaptive interview</span>
+        </h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-[22px] pb-[10px] pt-[24px]">
+        <p className="text-[14px] leading-[20px] text-text-secondary">
+          The interviewer asks one question at a time, adapting how it probes based on each
+          answer. Difficulty stays fixed at the assessment&apos;s seniority so candidates stay
+          comparable.
+        </p>
+
+        <div className="mt-[24px]">
+          <label className="block text-[15px] font-semibold leading-none text-text-primary">
+            Interview style
+          </label>
+          <div className="relative mt-[10px]">
+            <select
+              value={form.adaptivePreset}
+              onChange={event => form.setAdaptivePreset(event.target.value)}
+              className="h-[42px] w-full appearance-none rounded-[8px] border border-border-default bg-surface px-[12px] pr-[38px] text-[15px] font-medium text-text-primary outline-none"
+            >
+              {ADAPTIVE_PRESET_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
+          </div>
+          <p className="mt-[6px] text-[13px] leading-[18px] text-text-muted">
+            {ADAPTIVE_PRESET_OPTIONS.find(option => option.value === form.adaptivePreset)?.hint}
+          </p>
+        </div>
+
+        <div className="mt-[22px]">
+          <label className="block text-[15px] font-semibold leading-none text-text-primary">
+            Grounded on
+          </label>
+          <div className="relative mt-[10px]">
+            <select
+              value={form.adaptiveAnchorId}
+              onChange={event => form.setAdaptiveAnchorId(event.target.value)}
+              className="h-[42px] w-full appearance-none rounded-[8px] border border-border-default bg-surface px-[12px] pr-[38px] text-[15px] font-medium text-text-primary outline-none"
+            >
+              <option value="">Most recent coding section</option>
+              <option value="none">Nothing — standalone interview</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
+          </div>
+          <p className="mt-[6px] text-[13px] leading-[18px] text-text-muted">
+            Follow-up questions reference the candidate&apos;s submitted code and test results.
+          </p>
+        </div>
+
+        <div className="mt-[22px]">
+          <label className="block text-[15px] font-semibold leading-none text-text-primary">
+            Duration
+          </label>
+          <div className="relative mt-[10px]">
+            <select
+              value={form.sectionTimer}
+              onChange={event => form.setSectionTimer(Number(event.target.value))}
+              className="h-[42px] w-full appearance-none rounded-[8px] border border-border-default bg-surface px-[12px] pr-[38px] text-[15px] font-medium text-text-primary outline-none"
+            >
+              {ADAPTIVE_TIMER_OPTIONS.map(minutes => (
+                <option key={minutes} value={minutes}>{minutes} minutes</option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
+          </div>
+          <p className="mt-[6px] text-[13px] leading-[18px] text-text-muted">
+            Roughly <span className="font-semibold text-text-secondary">{derivedMax} question{derivedMax === 1 ? '' : 's'}</span>
+            {' '}at this length. The interview ends after the last question or when time runs out.
+          </p>
+        </div>
+
+        <div className="mt-[22px]">
+          <label className="block text-[15px] font-semibold leading-none text-text-primary">
+            Focus areas
+          </label>
+          <p className="mt-[6px] text-[13px] leading-[18px] text-text-muted">
+            What the interview probes and scores against. Pick at least one.
+            {form.adaptiveCatalogAvailable === false
+              ? ' Showing all known areas — some may not be scoreable for this role and level.'
+              : ' Only areas that can be scored for this role and level are shown.'}
+          </p>
+          <div className="mt-[10px] flex flex-wrap gap-[8px]">
+            {focusAreaChoices.map(focusArea => {
+              const selected = form.adaptiveFocusAreas.includes(focusArea);
+              return (
+                <button
+                  key={focusArea}
+                  type="button"
+                  onClick={() => form.toggleAdaptiveFocusArea(focusArea)}
+                  aria-pressed={selected}
+                  className={`h-[32px] rounded-full border px-[14px] text-[13px] font-medium transition-colors ${
+                    selected
+                      ? 'border-[var(--color-assessment-cta)] bg-[var(--color-assessment-cta)] text-[var(--color-assessment-cta-text)]'
+                      : 'border-border-default bg-surface text-text-secondary hover:bg-surface-hover'
+                  }`}
+                >
+                  {formatFocusAreaLabel(focusArea)}
+                </button>
+              );
+            })}
+          </div>
+          {noFocusAreas && (
+            <p className="mt-[8px] text-[13px] font-medium text-red-600">
+              Select at least one focus area.
+            </p>
+          )}
+        </div>
+
+        <div className="mt-[22px]">
+          <label className="block text-[15px] font-semibold leading-none text-text-primary">
+            What will they actually work on? <span className="font-normal text-text-muted">(optional)</span>
+          </label>
+          <input
+            value={form.adaptiveRoleTitle}
+            onChange={event => form.setAdaptiveRoleTitle(event.target.value)}
+            placeholder="e.g. Event-driven ingestion pipelines on our billing service"
+            className="mt-[10px] h-[42px] w-full rounded-[8px] border border-border-default bg-surface px-[12px] text-[15px] text-text-primary outline-none placeholder:text-text-muted"
+          />
+        </div>
+
+        <details className="mt-[24px] rounded-[8px] border border-border-default bg-surface-muted px-[14px] py-[12px]">
+          <summary className="cursor-pointer text-[14px] font-semibold text-text-primary">
+            Advanced
+          </summary>
+
+          <div className="mt-[14px]">
+            <label className="block text-[14px] font-semibold leading-none text-text-primary">
+              Number of questions
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={derivedMax}
+              value={form.adaptiveQuestionMax ?? derivedMax}
+              onChange={event => form.setAdaptiveQuestionMax(event.target.value)}
+              className="mt-[8px] h-[38px] w-[120px] rounded-[8px] border border-border-default bg-surface px-[12px] text-[15px] text-text-primary outline-none"
+            />
+            <p className="mt-[6px] text-[13px] leading-[18px] text-text-muted">
+              Capped at {derivedMax} — each focus area can carry at most two questions.
+            </p>
+          </div>
+
+          <div className="mt-[16px]">
+            <label className="block text-[14px] font-semibold leading-none text-text-primary">
+              Must ask about <span className="font-normal text-text-muted">(one per line)</span>
+            </label>
+            <textarea
+              rows={3}
+              value={form.adaptiveMustAsk}
+              onChange={event => form.setAdaptiveMustAsk(event.target.value)}
+              placeholder="How they would handle a duplicate write"
+              className="mt-[8px] w-full resize-none rounded-[8px] border border-border-default bg-surface px-[12px] py-[10px] text-[14px] text-text-primary outline-none placeholder:text-text-muted"
+            />
+          </div>
+
+          <div className="mt-[16px]">
+            <label className="block text-[14px] font-semibold leading-none text-text-primary">
+              Avoid topics <span className="font-normal text-text-muted">(one per line)</span>
+            </label>
+            <textarea
+              rows={2}
+              value={form.adaptiveAvoidTopics}
+              onChange={event => form.setAdaptiveAvoidTopics(event.target.value)}
+              placeholder="Kubernetes internals"
+              className="mt-[8px] w-full resize-none rounded-[8px] border border-border-default bg-surface px-[12px] py-[10px] text-[14px] text-text-primary outline-none placeholder:text-text-muted"
+            />
+          </div>
+        </details>
+      </div>
+
+      <DrawerFooter onCancel={onCancel} onSubmit={noFocusAreas ? () => {} : onSubmit} />
+    </>
+  );
+}
+
 function QuestionStep({ drawerType, form, actions, onCancel }) {
+  if (drawerType === 'adaptive') {
+    return <AdaptiveQuestionForm form={form} onCancel={onCancel} onSubmit={actions.createAdaptive} />;
+  }
+
   if (drawerType === 'coding') {
     return <CodingQuestionForm form={form} onCancel={onCancel} onSubmit={actions.createCoding} />;
   }
