@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { getAdaptiveFocusAreas, getLibraryTasks } from '../../api/assessmentBuilderApi';
 import { SECTION_TYPE_CONFIG } from '../../constants/sectionTypeConfig';
 import {
   ADAPTIVE_DEFAULT_TIMER,
   CODING_RUBRICS,
-  DRAWER_CLOSE_MS,
   FALLBACK_CODING_TASKS,
   ROLE_FOCUS_AREAS,
   createInitialOptions,
@@ -19,13 +19,11 @@ const createInitialRubricPoints = () => CODING_RUBRICS.reduce((acc, name) => ({ 
 
 export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerClosing, setDrawerClosing] = useState(false);
   const [drawerStep, setDrawerStep] = useState('section');
   const [drawerType, setDrawerType] = useState('mcq');
   const [targetSectionId, setTargetSectionId] = useState(null);
   const [sectionName, setSectionName] = useState('');
   const [sectionTimer, setSectionTimer] = useState(45);
-  const [itemTimer, setItemTimer] = useState(5);
   const [aiLevel, setAiLevel] = useState('chat');
   const [questionPrompt, setQuestionPrompt] = useState('');
   const [freeTextAnswer, setFreeTextAnswer] = useState('');
@@ -53,22 +51,54 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   const [adaptiveAvoidTopics, setAdaptiveAvoidTopics] = useState('');
   const [adaptiveFocusAreaOptions, setAdaptiveFocusAreaOptions] = useState([]);
   const [adaptiveCatalogAvailable, setAdaptiveCatalogAvailable] = useState(true);
-  const closeTimerRef = useRef(null);
 
   // Role and level come from the assessment, not the section — one requisition,
   // one role. Both are needed to ask the catalog what is actually scoreable.
   const assessmentRoleFamily = (state.config_json?.domain || state.domain || '').toLowerCase();
   const assessmentSeniority = (state.config_json?.seniority || state.seniority || '').toLowerCase();
 
+  // Mirrors LeftPanel's SectionAllocation math — the section-timer budget
+  // against the assessment's total duration. Kept unclamped here (can go
+  // negative) so over-allocation is detectable, unlike the display version.
+  const allocatedMinutes = state.sections.reduce((sum, s) => (
+    sum + Number(s.timer_minutes ?? SECTION_TYPE_CONFIG[s.type]?.defaultTimerMinutes ?? 0)
+  ), 0);
+  const totalMinutes = Math.max(Number(state.duration_minutes) || allocatedMinutes || 0, 0);
+  const remainingMinutes = totalMinutes - allocatedMinutes;
+
+  const guardSectionBudget = (newSectionTimerMinutes) => {
+    if (remainingMinutes <= 0) {
+      toast.error('No time left to allocate', {
+        description: 'Increase the assessment duration or shorten another section before adding a new one.',
+      });
+      return false;
+    }
+    if (Number(newSectionTimerMinutes) > remainingMinutes) {
+      toast.error('Section timer exceeds remaining time', {
+        description: `Only ${remainingMinutes} min left to allocate.`,
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const guardQuestionBudget = () => {
+    if (remainingMinutes <= 0) {
+      toast.error('No time left to allocate', {
+        description: 'Increase the assessment duration or shorten a section before adding more questions.',
+      });
+      return false;
+    }
+    return true;
+  };
+
   const resetDrawerState = () => {
     setDrawerOpen(false);
-    setDrawerClosing(false);
     setDrawerStep('section');
     setDrawerType('mcq');
     setTargetSectionId(null);
     setSectionName('');
     setSectionTimer(45);
-    setItemTimer(5);
     setAiLevel('chat');
     setQuestionPrompt('');
     setFreeTextAnswer('');
@@ -94,26 +124,15 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   };
 
   const closeDrawer = () => {
-    if (drawerClosing) return;
-    setDrawerClosing(true);
-    closeTimerRef.current = window.setTimeout(() => {
-      closeTimerRef.current = null;
-      resetDrawerState();
-    }, DRAWER_CLOSE_MS);
+    resetDrawerState();
   };
 
   const openDrawer = (type, options = {}) => {
-    if (closeTimerRef.current) {
-      window.clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-    setDrawerClosing(false);
     setDrawerOpen(true);
     setDrawerType(type);
     setDrawerStep(options.step ?? 'section');
     setTargetSectionId(options.targetSectionId ?? null);
     setSectionTimer(type === 'adaptive' ? ADAPTIVE_DEFAULT_TIMER : 45);
-    setItemTimer(5);
     setAiLevel('chat');
     setPoints(type === 'adaptive' ? 100 : 5);
     if (type === 'adaptive') {
@@ -129,6 +148,8 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
       return;
     }
 
+    if (!guardSectionBudget(SECTION_TYPE_CONFIG[type]?.defaultTimerMinutes ?? 0)) return;
+
     dispatch({
       type: ACTIONS.ADD_SECTION,
       payload: {
@@ -139,10 +160,6 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
       },
     });
   };
-
-  useEffect(() => () => {
-    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
-  }, []);
 
   useEffect(() => {
     const request = state.addQuestionDrawerRequest;
@@ -290,8 +307,10 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     };
 
     if (targetSectionId) {
+      if (!guardQuestionBudget()) return;
       dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
     } else {
+      if (!guardSectionBudget(sectionTimer)) return;
       dispatch({
         type: ACTIONS.ADD_SECTION,
         payload: {
@@ -319,8 +338,10 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     };
 
     if (targetSectionId) {
+      if (!guardQuestionBudget()) return;
       dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
     } else {
+      if (!guardSectionBudget(sectionTimer)) return;
       dispatch({
         type: ACTIONS.ADD_SECTION,
         payload: {
@@ -342,7 +363,7 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
           backendFreeTextId: null,
           backendItemId: null,
           points: Number(points),
-          override_timer_minutes: Number(itemTimer),
+          override_timer_minutes: null,
           published: false,
           locked: false,
           prompt: questionPrompt.trim(),
@@ -352,8 +373,10 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     };
 
     if (targetSectionId) {
+      if (!guardQuestionBudget()) return;
       dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
     } else {
+      if (!guardSectionBudget(sectionTimer)) return;
       dispatch({
         type: ACTIONS.ADD_SECTION,
         payload: {
@@ -380,7 +403,7 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
           backendRankingId: null,
           backendItemId: null,
           points: Number(points),
-          override_timer_minutes: Number(itemTimer),
+          override_timer_minutes: null,
           published: false,
           locked: false,
           prompt: questionPrompt.trim(),
@@ -389,8 +412,10 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     };
 
     if (targetSectionId) {
+      if (!guardQuestionBudget()) return;
       dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
     } else {
+      if (!guardSectionBudget(sectionTimer)) return;
       dispatch({
         type: ACTIONS.ADD_SECTION,
         payload: {
@@ -489,8 +514,10 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     };
 
     if (targetSectionId) {
+      if (!guardQuestionBudget()) return;
       dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
     } else {
+      if (!guardSectionBudget(sectionTimer)) return;
       dispatch({
         type: ACTIONS.ADD_SECTION,
         payload: {
@@ -508,7 +535,6 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   return {
     drawer: {
       isOpen: drawerOpen,
-      isClosing: drawerClosing,
       step: drawerStep,
       type: drawerType,
       close: closeDrawer,
@@ -519,8 +545,6 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
       setSectionName,
       sectionTimer,
       setSectionTimer,
-      itemTimer,
-      setItemTimer,
       aiLevel,
       setAiLevel,
       questionPrompt,
