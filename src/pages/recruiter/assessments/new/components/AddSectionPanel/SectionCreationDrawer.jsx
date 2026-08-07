@@ -24,6 +24,16 @@ import {
   WORD_LIMIT_OPTIONS,
   formatFocusAreaLabel,
 } from './constants';
+import { Sheet, SheetContent } from '../../../../../../components/ui/sheet';
+import { Input } from '../../../../../../components/ui/input';
+import { Textarea } from '../../../../../../components/ui/textarea';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '../../../../../../components/ui/select';
 
 function DrawerFooter({ onCancel, onSubmit, submitLabel = 'Add' }) {
   return (
@@ -74,18 +84,18 @@ function PointsSelect({ value, onChange, label = 'Total points' }) {
   return (
     <div>
       <label className="block text-[15px] font-semibold leading-none text-text-primary">{label}</label>
-      <div className="relative mt-[10px]">
-        <select
-          value={value}
-          onChange={event => onChange(Number(event.target.value))}
-          className="h-[42px] w-full appearance-none rounded-[8px] border border-border-default bg-surface px-[12px] pr-[38px] text-[15px] font-medium text-text-primary outline-none"
-        >
+      <Select value={String(value)} onValueChange={next => onChange(Number(next))}>
+        <SelectTrigger className="mt-[10px] h-[42px] rounded-[8px] border-border-default text-[15px] font-medium">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
           {POINT_OPTIONS.map(optionValue => (
-            <option key={optionValue} value={optionValue}>{String(optionValue).padStart(2, '0')}</option>
+            <SelectItem key={optionValue} value={String(optionValue)}>
+              {String(optionValue).padStart(2, '0')}
+            </SelectItem>
           ))}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
-      </div>
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -103,12 +113,12 @@ function SectionDetailsStep({ drawerType, form, onCancel, onContinue }) {
         <label className="block text-[15px] font-semibold leading-none text-text-primary">
           Section name
         </label>
-        <div className="mt-[10px] flex h-[42px] items-center rounded-[8px] border border-border-default bg-surface px-[12px]">
-          <FileText className="h-[16px] w-[16px] flex-shrink-0 text-text-muted" strokeWidth={1.8} />
-          <input
+        <div className="relative mt-[10px]">
+          <FileText className="pointer-events-none absolute left-[12px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
+          <Input
             value={form.sectionName}
             onChange={event => form.setSectionName(event.target.value)}
-            className="ml-[11px] min-w-0 flex-1 bg-transparent text-[15px] font-medium text-text-primary outline-none placeholder:text-text-muted"
+            className="h-[42px] rounded-[8px] border-border-default pl-[38px] text-[15px] font-medium"
             placeholder="e.g. Backend Engineer"
           />
         </div>
@@ -120,18 +130,16 @@ function SectionDetailsStep({ drawerType, form, onCancel, onContinue }) {
             <label className="mt-[16px] block text-[15px] font-semibold leading-none text-text-primary">
               Section Timer
             </label>
-            <div className="relative mt-[10px]">
-              <select
-                value={form.sectionTimer}
-                onChange={event => form.setSectionTimer(Number(event.target.value))}
-                className="h-[42px] w-full appearance-none rounded-[8px] border border-border-default bg-surface px-[12px] pr-[38px] text-[15px] font-medium text-text-primary outline-none"
-              >
+            <Select value={String(form.sectionTimer)} onValueChange={next => form.setSectionTimer(Number(next))}>
+              <SelectTrigger className="mt-[10px] h-[42px] rounded-[8px] border-border-default text-[15px] font-medium">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
                 {TIMER_OPTIONS.map(minutes => (
-                  <option key={minutes} value={minutes}>{minutes}m</option>
+                  <SelectItem key={minutes} value={String(minutes)}>{minutes}m</SelectItem>
                 ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
-            </div>
+              </SelectContent>
+            </Select>
           </>
         )}
 
@@ -140,18 +148,16 @@ function SectionDetailsStep({ drawerType, form, onCancel, onContinue }) {
             <label className="mt-[16px] block text-[15px] font-semibold leading-none text-text-primary">
               AI Level
             </label>
-            <div className="relative mt-[10px]">
-              <select
-                value={form.aiLevel}
-                onChange={event => form.setAiLevel(event.target.value)}
-                className="h-[42px] w-full appearance-none rounded-[8px] border border-border-default bg-surface px-[12px] pr-[38px] text-[15px] font-medium text-text-primary outline-none"
-              >
+            <Select value={form.aiLevel} onValueChange={form.setAiLevel}>
+              <SelectTrigger className="mt-[10px] h-[42px] rounded-[8px] border-border-default text-[15px] font-medium">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
                 {AI_LEVEL_OPTIONS.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                 ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
-            </div>
+              </SelectContent>
+            </Select>
 
             <div className="mt-[16px] flex items-center justify-between">
               <h3 className="text-[15px] font-semibold leading-none text-text-primary">
@@ -441,53 +447,50 @@ function FreeTextQuestionForm({ form, onCancel, onSubmit }) {
         <label className="mt-[24px] block text-[15px] font-semibold leading-none text-text-primary">
           Ask your question
         </label>
-        <input
+        <Input
           value={form.questionPrompt}
           onChange={event => form.setQuestionPrompt(event.target.value)}
-          className="mt-[10px] h-[42px] w-full rounded-[8px] border border-border-default bg-surface px-[12px] text-[15px] font-medium text-text-primary outline-none placeholder:text-text-muted"
+          className="mt-[10px] h-[42px] rounded-[8px] border-border-default text-[15px] font-medium"
           placeholder="Type your question"
         />
 
         <label className="mt-[20px] block text-[15px] font-semibold leading-none text-text-primary">
           Answer
         </label>
-        <textarea
+        <Textarea
           value={form.freeTextAnswer}
           onChange={event => form.setFreeTextAnswer(event.target.value)}
-          className="mt-[10px] h-[86px] w-full resize-none rounded-[8px] border border-border-default bg-surface px-[12px] py-[10px] text-[15px] font-medium text-text-primary outline-none placeholder:text-text-muted"
+          className="mt-[10px] h-[86px] resize-none rounded-[8px] border-border-default text-[15px] font-medium"
           placeholder="Type answer here..."
         />
 
         <label className="mt-[20px] block text-[15px] font-semibold leading-none text-text-primary">
           Grading hints
         </label>
-        <input
+        <Input
           value={form.gradingHints}
           onChange={event => form.setGradingHints(event.target.value)}
-          className="mt-[10px] h-[42px] w-full rounded-[8px] border border-border-default bg-surface px-[12px] text-[15px] font-medium text-text-primary outline-none placeholder:text-text-muted"
+          className="mt-[10px] h-[42px] rounded-[8px] border-border-default text-[15px] font-medium"
           placeholder="eg. O (n log n)"
         />
 
-        <div className="mt-[20px] grid grid-cols-2 gap-[22px]">
-          <PointsSelect value={form.itemTimer} onChange={form.setItemTimer} label="Timer" />
+        <div className="mt-[20px] max-w-[220px]">
           <PointsSelect value={form.points} onChange={form.setPoints} />
         </div>
 
         <label className="mt-[20px] block text-[15px] font-semibold leading-none text-text-primary">
           Word Limit
         </label>
-        <div className="relative mt-[10px]">
-          <select
-            value={form.wordLimit}
-            onChange={event => form.setWordLimit(Number(event.target.value))}
-            className="h-[42px] w-full appearance-none rounded-[8px] border border-border-default bg-surface px-[12px] pr-[38px] text-[15px] font-medium text-text-primary outline-none"
-          >
+        <Select value={String(form.wordLimit)} onValueChange={next => form.setWordLimit(Number(next))}>
+          <SelectTrigger className="mt-[10px] h-[42px] rounded-[8px] border-border-default text-[15px] font-medium">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
             {WORD_LIMIT_OPTIONS.map(value => (
-              <option key={value} value={value}>{String(value).padStart(2, '0')}</option>
+              <SelectItem key={value} value={String(value)}>{String(value).padStart(2, '0')}</SelectItem>
             ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
-        </div>
+          </SelectContent>
+        </Select>
       </div>
 
       <DrawerFooter onCancel={onCancel} onSubmit={onSubmit} />
@@ -512,10 +515,10 @@ function RankingQuestionForm({ form, onCancel, onSubmit }) {
           Ranking
         </label>
         <div className="mt-[10px] rounded-[10px] bg-surface-muted px-[14px] py-[14px]">
-          <textarea
+          <Textarea
             value={form.questionPrompt}
             onChange={event => form.setQuestionPrompt(event.target.value)}
-            className="h-[70px] w-full resize-none rounded-[8px] border border-border-default bg-surface px-[12px] py-[10px] text-[15px] font-medium text-text-primary outline-none placeholder:text-text-muted"
+            className="h-[70px] resize-none rounded-[8px] border-border-default text-[15px] font-medium"
             placeholder="Type your ranking prompt here"
           />
 
@@ -523,10 +526,10 @@ function RankingQuestionForm({ form, onCancel, onSubmit }) {
             {form.rankingItems.map(item => (
               <div key={item.id} className="grid grid-cols-[24px_minmax(0,1fr)_18px] items-center gap-[8px]">
                 <GripVertical className="h-[16px] w-[16px] text-text-faint" strokeWidth={2} />
-                <input
+                <Input
                   value={item.text}
                   onChange={event => form.updateRankingItem(item.id, event.target.value)}
-                  className="h-[38px] min-w-0 rounded-[8px] border border-border-default bg-surface px-[11px] text-[14px] font-medium text-text-primary outline-none placeholder:text-text-muted"
+                  className="h-[38px] rounded-[8px] border-border-default text-[14px] font-medium"
                   placeholder="Item text..."
                 />
                 <button
@@ -549,15 +552,14 @@ function RankingQuestionForm({ form, onCancel, onSubmit }) {
         <label className="mt-[20px] block text-[15px] font-semibold leading-none text-text-primary">
           Grading hints
         </label>
-        <input
+        <Input
           value={form.gradingHints}
           onChange={event => form.setGradingHints(event.target.value)}
-          className="mt-[10px] h-[42px] w-full rounded-[8px] border border-border-default bg-surface px-[12px] text-[15px] font-medium text-text-primary outline-none placeholder:text-text-muted"
+          className="mt-[10px] h-[42px] rounded-[8px] border-border-default text-[15px] font-medium"
           placeholder="eg. O (n log n)"
         />
 
-        <div className="mt-[20px] grid grid-cols-2 gap-[22px]">
-          <PointsSelect value={form.itemTimer} onChange={form.setItemTimer} label="Timer" />
+        <div className="mt-[20px] max-w-[220px]">
           <PointsSelect value={form.points} onChange={form.setPoints} />
         </div>
       </div>
@@ -583,10 +585,10 @@ function McqQuestionForm({ form, onCancel, onSubmit }) {
         <label className="mt-[24px] block text-[15px] font-semibold leading-none text-text-primary">
           Ask your question
         </label>
-        <input
+        <Input
           value={form.questionPrompt}
           onChange={event => form.setQuestionPrompt(event.target.value)}
-          className="mt-[10px] h-[42px] w-full rounded-[8px] border border-border-default bg-surface px-[12px] text-[15px] font-medium text-text-primary outline-none placeholder:text-text-muted"
+          className="mt-[10px] h-[42px] rounded-[8px] border-border-default text-[15px] font-medium"
           placeholder="Type your question"
         />
 
@@ -634,10 +636,10 @@ function McqQuestionForm({ form, onCancel, onSubmit }) {
                 >
                   <Check className="h-[12px] w-[12px]" strokeWidth={2.6} />
                 </button>
-                <input
+                <Input
                   value={option.text}
                   onChange={event => form.updateOption(option.id, event.target.value)}
-                  className="h-[38px] min-w-0 rounded-[8px] border border-border-default bg-surface px-[11px] text-[14px] font-medium text-text-primary outline-none placeholder:text-text-muted"
+                  className="h-[38px] rounded-[8px] border-border-default text-[14px] font-medium"
                   placeholder={index === 0 ? 'Option 1' : 'Type optional description...'}
                 />
                 <button
@@ -896,22 +898,11 @@ function QuestionStep({ drawerType, form, actions, onCancel }) {
 }
 
 export function SectionCreationDrawer({ drawer, form, actions }) {
-  if (!drawer.isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50">
-      <button
-        type="button"
-        aria-label={`Close ${drawer.type} drawer`}
-        onClick={drawer.close}
-        className={`absolute inset-0 bg-text-primary/35 transition-opacity duration-[380ms] ease-out ${
-          drawer.isClosing ? 'opacity-0' : 'opacity-100'
-        }`}
-      />
-      <div
-        className={`absolute inset-y-0 right-0 flex w-[min(760px,54vw)] min-w-[560px] flex-col border-l border-border-subtle bg-surface shadow-modal transition-all duration-[380ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          drawer.isClosing ? 'translate-x-full opacity-0' : 'translate-x-0 opacity-100 animate-slideInRight'
-        }`}
+    <Sheet open={drawer.isOpen} onOpenChange={open => { if (!open) drawer.close(); }}>
+      <SheetContent
+        side="right"
+        className="flex w-[min(760px,54vw)] min-w-[560px] max-w-none flex-col gap-0 p-0"
       >
         {drawer.step === 'section' ? (
           <SectionDetailsStep
@@ -928,7 +919,7 @@ export function SectionCreationDrawer({ drawer, form, actions }) {
             onCancel={drawer.close}
           />
         )}
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }
