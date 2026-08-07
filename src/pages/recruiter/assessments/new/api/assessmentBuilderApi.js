@@ -31,8 +31,14 @@ import { authAxios } from '../../../../../lib/axios';
  * Creates the top-level AssessmentTemplate.
  * @returns {{ id: string, message: string }}
  */
-export async function createAssessment({ name, description, duration_minutes, config_json }) {
-  return authAxios.post('/api/v1/create/assessment', { name, description, duration_minutes, config_json });
+export async function createAssessment({ name, description, duration_minutes, config_json, expiry_datetime }) {
+  return authAxios.post('/api/v1/create/assessment', {
+    name,
+    description,
+    duration_minutes,
+    config_json,
+    ...(expiry_datetime ? { expiry_datetime } : {}),
+  });
 }
 
 /**
