@@ -148,8 +148,10 @@ export function assessmentBuilderReducer(state, action) {
       return {
         ...state,
         sections: [...state.sections, newSection],
-        activeSection: '__add_section__',
-        activeQuestion: null,
+        // Jump straight into editing the section's first question (if any)
+        // instead of dropping back to the add-section chooser.
+        activeSection: newSection.id,
+        activeQuestion: items[0]?.id ?? null,
       };
     }
 
@@ -199,8 +201,10 @@ export function assessmentBuilderReducer(state, action) {
             ? { ...s, items: [...s.items, question], expanded: true }
             : s
         ),
-        activeSection: '__add_section__',
-        activeQuestion: null,
+        // Open the newly added question's editor right away instead of
+        // dropping back to the add-section chooser.
+        activeSection: sectionId,
+        activeQuestion: question.id,
       };
     }
 
