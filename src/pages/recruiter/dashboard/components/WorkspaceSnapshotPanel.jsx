@@ -10,13 +10,24 @@ const CX = 88;
 const CY = 102;
 const END_DEG = 352;
 
-// Outer ring first → largest arc, longest sweep; inner rings open up more
+// Outer ring first → largest arc, longest sweep; inner rings open up more.
+// Each ring's start angle is solved so the start points all fall on the same
+// horizontal line (START_LINE_Y, below center) — a true single line across
+// the differing radii, sitting below the "Total assessments" text.
+// The END angle is data-driven: a ring sweeps the full startDeg→END_DEG span
+// only when its count equals the total, otherwise it stops short in proportion
+// to its share of the total — so the arc lengths reflect the real numbers.
+const START_LINE_Y = CY + 25;
+const MIN_SWEEP_DEG = 4;
+function startDegForRadius(r) {
+  return 90 + Math.asin((START_LINE_Y - CY) / r) * (180 / Math.PI);
+}
 const RINGS = [
-  { r: 82, strokeWidth: 11, startDeg: 58,  color: 'var(--color-dashboard-ring-closed)' },
-  { r: 66, strokeWidth: 10, startDeg: 84,  color: 'var(--color-dashboard-ring-active)' },
-  { r: 51, strokeWidth: 9,  startDeg: 110, color: 'var(--color-dashboard-ring-draft)' },
-  { r: 36, strokeWidth: 8,  startDeg: 136, color: 'var(--color-dashboard-ring-expired-links)' },
-];
+  { key: 'closed',        r: 82, strokeWidth: 11, color: 'var(--color-dashboard-ring-closed)' },
+  { key: 'active',        r: 66, strokeWidth: 10, color: 'var(--color-dashboard-ring-active)' },
+  { key: 'draft',         r: 51, strokeWidth: 9,  color: 'var(--color-dashboard-ring-draft)' },
+  { key: 'expired_links', r: 36, strokeWidth: 8,  color: 'var(--color-dashboard-ring-expired-links)' },
+].map(ring => ({ ...ring, startDeg: startDegForRadius(ring.r) }));
 
 function polarPoint(cx, cy, r, angleDeg) {
   const rad = (angleDeg - 90) * (Math.PI / 180);
@@ -30,25 +41,31 @@ function arcPath(cx, cy, r, startDeg, sweepDeg) {
   return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
 }
 
-function RadialChart({ total }) {
+function RadialChart({ total, snap }) {
   return (
     <svg viewBox="0 0 200 195" className="w-full max-w-[210px] mx-auto">
-      {/* Colored arcs — each sweeps clockwise from its start to the shared top end */}
-      {RINGS.map((ring, i) => (
-        <path
-          key={`arc-${i}`}
-          d={arcPath(CX, CY, ring.r, ring.startDeg, END_DEG - ring.startDeg)}
-          fill="none"
-          stroke={ring.color}
-          strokeWidth={ring.strokeWidth}
-          strokeLinecap="round"
-        />
-      ))}
+      {/* Colored arcs — length is proportional to each count's share of the total */}
+      {RINGS.map((ring, i) => {
+        const value = Number(snap?.[ring.key] ?? 0);
+        const maxSweep = END_DEG - ring.startDeg;
+        const ratio = total > 0 ? Math.min(value / total, 1) : 0;
+        const sweepDeg = value > 0 ? Math.max(maxSweep * ratio, MIN_SWEEP_DEG) : 0;
+        return (
+          <path
+            key={`arc-${i}`}
+            d={arcPath(CX, CY, ring.r, ring.startDeg, sweepDeg)}
+            fill="none"
+            stroke={ring.color}
+            strokeWidth={ring.strokeWidth}
+            strokeLinecap="round"
+          />
+        );
+      })}
 
       {/* Total count — sits in the upper-right gap */}
       <text
-        x={152}
-        y={64}
+        x={128}
+        y={92}
         textAnchor="middle"
         fontSize="28"
         fontWeight="600"
@@ -58,8 +75,8 @@ function RadialChart({ total }) {
         {total ?? 0}
       </text>
       <text
-        x={152}
-        y={82}
+        x={128}
+        y={110}
         textAnchor="middle"
         fontSize="10.5"
         fill="#959595"
@@ -122,7 +139,7 @@ export default function WorkspaceSnapshotPanel() {
             />
           </div>
         ) : (
-          <RadialChart total={snap.total_assessments} />
+          <RadialChart total={snap.total_assessments} snap={snap} />
         )}
 
         {/* Legend */}
