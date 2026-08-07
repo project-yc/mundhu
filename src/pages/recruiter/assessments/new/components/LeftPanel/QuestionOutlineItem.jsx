@@ -1,4 +1,6 @@
-import { GripVertical, MoreVertical } from 'lucide-react';
+import { GripVertical } from 'lucide-react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useAssessmentBuilder } from '../../context/AssessmentBuilderContext';
 
 function getQuestionLabel(item, index) {
@@ -18,27 +20,59 @@ export function QuestionOutlineItem({ sectionId, item, index, isActive }) {
   const { dispatch, ACTIONS } = useAssessmentBuilder();
   const points = getPointValue(item);
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.56 : 1,
+  };
+
   const handleClick = () => {
     dispatch({ type: ACTIONS.SET_ACTIVE, payload: { sectionId, questionId: item.id } });
   };
 
+  const handleKeyDown = (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    handleClick();
+  };
+
   return (
-    <button
-      type="button"
+    <div
+      ref={setNodeRef}
+      style={style}
+      role="button"
+      tabIndex={0}
       onClick={handleClick}
-      className={`grid w-full grid-cols-[minmax(0,1fr)_auto_16px] items-center gap-[6px] rounded-button py-[1px] pl-[8px] pr-[1px] text-left transition-colors ${
+      onKeyDown={handleKeyDown}
+      className={`grid w-full grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-[6px] rounded-button py-[1px] pl-[4px] pr-[8px] text-left transition-colors ${
         isActive
           ? 'bg-brand-tint-light text-text-primary'
           : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
       }`}
     >
-      <span className="flex min-w-0 items-center gap-[6px]">
-        {index === 1 && (
-          <GripVertical className="h-[12px] w-[12px] flex-shrink-0 text-text-faint" strokeWidth={2} />
-        )}
-        <span className="min-w-0 truncate text-[12px] font-medium leading-[18px]">
-          {getQuestionLabel(item, index)}
-        </span>
+      <span
+        {...attributes}
+        {...listeners}
+        role="button"
+        tabIndex={0}
+        aria-label="Reorder question"
+        onClick={event => event.stopPropagation()}
+        className="flex h-[18px] w-[16px] flex-shrink-0 cursor-grab items-center justify-center rounded-button text-text-faint transition-colors hover:text-text-secondary active:cursor-grabbing"
+      >
+        <GripVertical className="h-[12px] w-[12px]" strokeWidth={2} />
+      </span>
+
+      <span className="min-w-0 truncate text-[12px] font-medium leading-[18px]">
+        {getQuestionLabel(item, index)}
       </span>
 
       {points > 0 && (
@@ -46,8 +80,6 @@ export function QuestionOutlineItem({ sectionId, item, index, isActive }) {
           {points} pts
         </span>
       )}
-
-      <MoreVertical className="h-[14px] w-[14px] text-[var(--color-assessment-step-active)]" strokeWidth={2} />
-    </button>
+    </div>
   );
 }
