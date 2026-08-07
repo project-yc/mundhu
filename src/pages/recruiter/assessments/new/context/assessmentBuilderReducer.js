@@ -26,6 +26,7 @@ export const initialState = {
   duration_minutes: null,
   role: '',
   seniority: '',
+  expiry_datetime: null,
 
   // Step 2
   sections: [],
