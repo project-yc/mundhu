@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "http://3.81.72.164/api/$1"
+      "destination": "https://dev.trudev.io/api/$1"
     },
     {
       "source": "/(.*)",
