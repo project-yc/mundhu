@@ -6,6 +6,7 @@ import {
   Award, FileText, Clock, Mail, TrendingUp, Filter, XCircle,
 } from 'lucide-react';
 import { getAllAssessments, getCandidatesWithReports } from '../../api/recruiter/assessment.jsx';
+import { normalizeList, extractCandidates } from './reports/utils/reportRows';
 
 const POLL_INTERVAL_MS = 8000;
 
@@ -97,7 +98,7 @@ export default function CandidatesScreen() {
   useEffect(() => {
     getAllAssessments()
       .then(d => {
-        const list = d.data || d;
+        const list = normalizeList(d);
         setAssessments(list);
         if (list.length > 0) setSelectedId(String(list[0].id));
       })
@@ -115,9 +116,9 @@ export default function CandidatesScreen() {
     getCandidatesWithReports(selectedId)
       .then(d => {
         if (!cancelled) {
-          const payload = d.data || d;
-          setCandidates(payload.candidates || []);
-          setAssessmentName(payload.assessment_name || '');
+          const payload = d?.data ?? d;
+          setCandidates(extractCandidates(d));
+          setAssessmentName(payload?.assessment_name || '');
         }
       })
       .catch(err => { if (!cancelled) setError(err.message || 'Failed to load candidates.'); })
@@ -136,9 +137,9 @@ export default function CandidatesScreen() {
       pollRef.current = setInterval(() => {
         getCandidatesWithReports(selectedId)
           .then(d => {
-            const payload = d.data || d;
-            setCandidates(payload.candidates || []);
-            setAssessmentName(payload.assessment_name || '');
+            const payload = d?.data ?? d;
+            setCandidates(extractCandidates(d));
+            setAssessmentName(payload?.assessment_name || '');
           })
           .catch(() => {});
       }, POLL_INTERVAL_MS);
