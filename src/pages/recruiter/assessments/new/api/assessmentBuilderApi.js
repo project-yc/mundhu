@@ -31,8 +31,14 @@ import { authAxios } from '../../../../../lib/axios';
  * Creates the top-level AssessmentTemplate.
  * @returns {{ id: string, message: string }}
  */
-export async function createAssessment({ name, description, duration_minutes, config_json }) {
-  return authAxios.post('/api/v1/create/assessment', { name, description, duration_minutes, config_json });
+export async function createAssessment({ name, description, duration_minutes, config_json, expiry_datetime }) {
+  return authAxios.post('/api/v1/create/assessment', {
+    name,
+    description,
+    duration_minutes,
+    config_json,
+    ...(expiry_datetime ? { expiry_datetime } : {}),
+  });
 }
 
 /**
@@ -229,15 +235,16 @@ export async function getLibraryTasks(filters = {}) {
 // ─── Full publish flow ────────────────────────────────────────────────────────
 
 /**
- * Orchestrates the full publish flow.
+ * Pushes local builder state to the backend: creates any section/item that
+ * doesn't have a backend id yet, and attaches it to its section.
  *
- * Assessment is already created in Step 1 — state.backendId is reused.
- * For each section: create section → for each item: create+publish+attach.
- * Finally: POST publish to lock the assessment.
- *
- * Returns { id: assessmentId } on success.
+ * Idempotent — sections/items that already carry a `backendId`/`backendItemId`
+ * (persisted into local state via `dispatch` after their first sync) are
+ * skipped, so calling this repeatedly (e.g. "Save as draft" clicked more than
+ * once) does not create duplicate backend records. Shared by both `saveDraft`
+ * and `publishAssessmentFlow` — publish just adds the final lock-in call.
  */
-export async function publishAssessmentFlow(state, onSectionCreated) {
+async function syncBuilderSections(state, { dispatch, ACTIONS }) {
   const assessmentId = state.backendId;
   if (!assessmentId) {
     throw new Error('No assessment ID found. Complete Step 1 first.');
@@ -260,48 +267,70 @@ export async function publishAssessmentFlow(state, onSectionCreated) {
       // created a SECOND section; the orphan then had zero items and the
       // publish check ("every section must have at least one question")
       // rejected the assessment permanently, with no way to delete it here.
-      onSectionCreated?.(section.id, sectionId);
+      dispatch({ type: ACTIONS.UPDATE_SECTION, payload: { sectionId: section.id, updates: { backendId: sectionId } } });
     }
 
     for (let qIdx = 0; qIdx < section.items.length; qIdx++) {
       const item = section.items[qIdx];
+      // Already synced — never re-create or re-attach an item that already
+      // has a backend SectionItem id.
+      if (item.backendItemId) continue;
 
       if (item.type === 'mcq') {
-        let mcqId = item.backendMcqId;
-        let itemId = item.backendItemId;
+        const mcqResult = await createMcqQuestion({
+          title: item.prompt?.slice(0, 60) || `MCQ ${qIdx + 1}`,
+          prompt: item.prompt,
+          selection_mode: item.selection_mode,
+          shuffle_options: item.shuffle_options,
+          show_explanation_after: item.show_explanation_after,
+        });
+        const mcqId = mcqResult.data.id;
 
-        if (!mcqId) {
-          const mcqResult = await createMcqQuestion({
-            title: item.prompt?.slice(0, 60) || `MCQ ${qIdx + 1}`,
-            prompt: item.prompt,
-            selection_mode: item.selection_mode,
-            shuffle_options: item.shuffle_options,
-            show_explanation_after: item.show_explanation_after,
-          });
-          mcqId = mcqResult.data.id;
-          itemId = mcqResult.data.assessment_item_id;
-
-          for (let oIdx = 0; oIdx < item.options.length; oIdx++) {
-            const opt = item.options[oIdx];
-            await addMcqOption(mcqId, { text: opt.text, is_correct: opt.is_correct, order_index: oIdx });
-          }
+        for (let oIdx = 0; oIdx < item.options.length; oIdx++) {
+          const opt = item.options[oIdx];
+          await addMcqOption(mcqId, { text: opt.text, is_correct: opt.is_correct, order_index: oIdx });
         }
 
-        await attachItemToSection(sectionId, {
-          assessment_item_id: itemId,
+        const attached = await attachItemToSection(sectionId, {
+          assessment_item_id: mcqResult.data.assessment_item_id,
           order: qIdx,
           points: item.points,
+        });
+        dispatch({
+          type: ACTIONS.UPDATE_QUESTION,
+          payload: {
+            sectionId: section.id,
+            questionId: item.id,
+            updates: { backendMcqId: mcqId, backendItemId: attached.data.id },
+          },
         });
 
       } else if (item.type === 'free_text') {
         const result = await createFreeTextQuestion({ prompt: item.prompt, word_limit: item.word_limit, grading_hints: item.grading_hints });
         if (!item.published) await publishFreeTextQuestion(result.data.id);
-        await attachItemToSection(sectionId, { assessment_item_id: result.data.assessment_item_id, order: qIdx, points: item.points });
+        const attached = await attachItemToSection(sectionId, { assessment_item_id: result.data.assessment_item_id, order: qIdx, points: item.points });
+        dispatch({
+          type: ACTIONS.UPDATE_QUESTION,
+          payload: {
+            sectionId: section.id,
+            questionId: item.id,
+            updates: { backendFreeTextId: result.data.id, backendItemId: attached.data.id },
+          },
+        });
 
       } else if (item.type === 'ranking') {
         const result = await createRankingQuestion({ prompt: item.prompt, items: item.items });
         if (!item.published) await publishRankingQuestion(result.data.id);
-        await attachItemToSection(sectionId, { assessment_item_id: result.data.assessment_item_id, order: qIdx, points: item.points });
+        const attached = await attachItemToSection(sectionId, { assessment_item_id: result.data.assessment_item_id, order: qIdx, points: item.points });
+        dispatch({
+          type: ACTIONS.UPDATE_QUESTION,
+          payload: {
+            sectionId: section.id,
+            questionId: item.id,
+            updates: { backendRankingId: result.data.id, backendItemId: attached.data.id },
+          },
+        });
+
       } else if (item.type === 'coding') {
         if (!item.task_id) {
           throw new Error(`Coding section "${section.name}" is missing a selected library task.`);
@@ -315,7 +344,7 @@ export async function publishAssessmentFlow(state, onSectionCreated) {
             + 'Reopen the section and pick a task from the library.',
           );
         }
-        const attachedCoding = await attachItemToSection(sectionId, {
+        const attached = await attachItemToSection(sectionId, {
           library_task_id: item.task_id,
           order: qIdx,
           points: item.points,
@@ -327,8 +356,14 @@ export async function publishAssessmentFlow(state, onSectionCreated) {
         if (item.ai_level) codingConfig.ai_level = item.ai_level;
         if (item.rubric_weights) codingConfig.rubric_weights = item.rubric_weights;
         if (Object.keys(codingConfig).length > 0) {
-          await updateSectionItem(sectionId, attachedCoding.data.id, codingConfig);
+          await updateSectionItem(sectionId, attached.data.id, codingConfig);
         }
+        dispatch({
+          type: ACTIONS.UPDATE_QUESTION,
+          payload: { sectionId: section.id, questionId: item.id, updates: { backendItemId: attached.data.id } },
+        });
+
+
       } else if (item.type === 'adaptive') {
         // Three calls, because the interview config is section-scoped: the
         // library item carries only role/seniority metadata, and the config
@@ -351,6 +386,10 @@ export async function publishAssessmentFlow(state, onSectionCreated) {
         await updateSectionItem(sectionId, attached.data.id, {
           adaptive_interview_config: config,
         });
+        dispatch({
+          type: ACTIONS.UPDATE_QUESTION,
+          payload: { sectionId: section.id, questionId: item.id, updates: { backendItemId: attached.data.id } },
+        });
       } else {
         // Previously an unknown type fell through silently, publishing an empty
         // section with no error anywhere.
@@ -361,6 +400,28 @@ export async function publishAssessmentFlow(state, onSectionCreated) {
     }
   }
 
+  return { id: assessmentId };
+}
+
+/**
+ * Persists the current builder state (sections/items) to the backend without
+ * locking the assessment in — safe to call repeatedly as the recruiter works.
+ */
+export async function saveDraft(state, { dispatch, ACTIONS }) {
+  return syncBuilderSections(state, { dispatch, ACTIONS });
+}
+
+/**
+ * Orchestrates the full publish flow.
+ *
+ * Assessment is already created in Step 1 — state.backendId is reused.
+ * Syncs any not-yet-persisted sections/items, then POSTs publish to lock the
+ * assessment.
+ *
+ * Returns { id: assessmentId } on success.
+ */
+export async function publishAssessmentFlow(state, { dispatch, ACTIONS }) {
+  const { id: assessmentId } = await syncBuilderSections(state, { dispatch, ACTIONS });
   const result = await authAxios.post(`/api/v1/assessments/${assessmentId}/publish`, {});
   return { id: assessmentId, ...result };
 }

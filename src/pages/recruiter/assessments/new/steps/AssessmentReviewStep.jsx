@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAssessmentBuilder } from '../context/AssessmentBuilderContext';
 import { SECTION_TYPE_CONFIG, AI_LEVEL_LABELS } from '../constants/sectionTypeConfig';
-import { publishAssessmentFlow } from '../api/assessmentBuilderApi';
+import { publishAssessmentFlow, saveDraft } from '../api/assessmentBuilderApi';
 import { LeftPanel } from '../components/LeftPanel/LeftPanel';
 import { Button } from '../../../../../components/ui/button';
 import {
@@ -128,6 +129,7 @@ export function AssessmentReviewStep() {
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState('');
   const [draftSaved, setDraftSaved] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
 
   const { sections, name, duration_minutes, ai_level } = state;
 
@@ -158,24 +160,26 @@ export function AssessmentReviewStep() {
     dispatch({ type: ACTIONS.SET_ACTIVE, payload: { sectionId: '__add_section__', questionId: null } });
   };
 
-  const handleSaveDraft = () => {
-    localStorage.setItem('assessmentBuilderDraft', JSON.stringify(state));
-    setDraftSaved(true);
+  const handleSaveDraft = async () => {
+    setSavingDraft(true);
+    setError('');
+    try {
+      await saveDraft(state, { dispatch, ACTIONS });
+      localStorage.setItem('assessmentBuilderDraft', JSON.stringify(state));
+      setDraftSaved(true);
+      toast.success('Draft saved.');
+    } catch (err) {
+      toast.error('Failed to save draft', { description: err.message || 'Please try again.' });
+    } finally {
+      setSavingDraft(false);
+    }
   };
 
   const handlePublish = async () => {
     setPublishing(true);
     setError('');
     try {
-      // Write each created section's backend id straight back into builder
-      // state so a mid-publish failure can be retried without creating
-      // duplicate, itemless sections that then block publishing entirely.
-      const result = await publishAssessmentFlow(state, (localSectionId, backendId) => {
-        dispatch({
-          type: ACTIONS.UPDATE_SECTION,
-          payload: { sectionId: localSectionId, updates: { backendId } },
-        });
-      });
+      const result = await publishAssessmentFlow(state, { dispatch, ACTIONS });
       navigate(`/recruiter/assessments/${result.id || state.backendId}`);
     } catch (err) {
       if (err.message?.startsWith('MISSING_ENDPOINT')) {
@@ -255,9 +259,10 @@ export function AssessmentReviewStep() {
             variant="secondary"
             size="lg"
             onClick={handleSaveDraft}
+            disabled={savingDraft}
             className="h-[41px] min-w-[136px] px-[24px] text-[14px] font-medium"
           >
-            Save as draft
+            {savingDraft ? 'Saving...' : 'Save as draft'}
           </Button>
           <Button
             type="button"

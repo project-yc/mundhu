@@ -5,6 +5,7 @@ export function SectionSelectionContent({
   currentStep,
   onAddSection,
   onSaveDraft,
+  savingDraft = false,
   onReview,
   canReview = false,
 }) {
@@ -23,7 +24,7 @@ export function SectionSelectionContent({
         <button
           type="button"
           onClick={() => onAddSection('adaptive', 'AI Adaptive Interview')}
-          className="mt-[24px] block w-full rounded-[10px] text-left transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+          className="mt-[24px] block w-full max-w-[380px] rounded-[10px] text-left transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
         >
           <img
             src={ADAPTIVE_CARD_IMAGE}
@@ -56,9 +57,10 @@ export function SectionSelectionContent({
         <button
           type="button"
           onClick={onSaveDraft}
-          className="h-[40px] rounded-button border border-border-default bg-surface px-[28px] text-[14px] font-medium text-text-primary shadow-card transition-colors hover:bg-surface-hover"
+          disabled={savingDraft}
+          className="h-[40px] rounded-button border border-border-default bg-surface px-[28px] text-[14px] font-medium text-text-primary shadow-card transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Save as draft
+          {savingDraft ? 'Saving...' : 'Save as draft'}
         </button>
         <button
           type="button"

@@ -22,25 +22,25 @@ function SortableRankItem({ rankItem, onTextChange, onDelete }) {
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-2 group">
+    <div ref={setNodeRef} style={style} className="flex items-center gap-1.5 group">
       <button
         {...attributes}
         {...listeners}
         className="cursor-grab active:cursor-grabbing text-text-muted hover:text-text-secondary p-1 rounded"
       >
-        <IconGripVertical size={14} />
+        <IconGripVertical size={13} />
       </button>
       <input
         value={rankItem.text}
         onChange={e => onTextChange(rankItem.id, e.target.value)}
         placeholder="Item text…"
-        className="flex-1 px-3 py-2 bg-page border border-border-default rounded-lg text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20"
+        className="flex-1 px-2.5 py-1.5 bg-page border border-border-default rounded-md text-[12.5px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20"
       />
       <button
         onClick={() => onDelete(rankItem.id)}
-        className="opacity-0 group-hover:opacity-100 p-1.5 text-text-muted hover:text-error hover:bg-error-bg rounded transition-all"
+        className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-error hover:bg-error-bg rounded transition-all"
       >
-        <IconTrash size={12} />
+        <IconTrash size={11} />
       </button>
     </div>
   );
@@ -78,27 +78,27 @@ export function RankingEditor({ sectionId, item, allItems, itemIndex }) {
   };
 
   return (
-    <div className="max-w-[640px] mx-auto px-6 py-6 space-y-4">
+    <div className="max-w-[540px] mx-auto px-5 py-5 space-y-3">
       {/* Section config */}
       <SectionConfigCard timerMinutes={section?.timer_minutes} />
 
       {/* Card */}
-      <div className="bg-surface border border-border-default rounded-xl overflow-hidden">
+      <div className="bg-surface border border-border-default rounded-lg overflow-hidden">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-border-default">
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-text-muted uppercase tracking-widest">
-            <IconSortAscending size={13} /> Ranking · Q{itemIndex + 1} of {allItems.length}
+        <div className="px-3.5 py-2.5 border-b border-border-default">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-text-muted uppercase tracking-widest">
+            <IconSortAscending size={12} /> Ranking · Q{itemIndex + 1} of {allItems.length}
           </span>
         </div>
 
         {/* Body */}
-        <div className="px-4 pt-3 space-y-3">
+        <div className="px-3.5 pt-2.5 space-y-2.5">
           <textarea
             value={item.prompt}
             onChange={e => updateItem({ prompt: e.target.value })}
             placeholder="Type your ranking prompt here…"
             rows={3}
-            className="w-full px-3.5 py-2.5 bg-page border border-border-default rounded-lg text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 resize-none"
+            className="w-full px-3 py-2 bg-page border border-border-default rounded-md text-[12.5px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 resize-none"
           />
 
           {/* Draggable rank items */}

@@ -1,5 +1,17 @@
-import { ChevronDown, Menu, Plus } from 'lucide-react';
-import { useSortable } from '@dnd-kit/sortable';
+import { ChevronDown, Menu, Plus, Trash2 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+  useSortable,
+} from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { SECTION_TYPE_CONFIG } from '../../constants/sectionTypeConfig';
 import { useAssessmentBuilder } from '../../context/AssessmentBuilderContext';
@@ -76,6 +88,25 @@ export function SectionOutlineItem({ section, activeQuestion }) {
     });
   };
 
+  const handleDeleteSection = (event) => {
+    event.stopPropagation();
+    if (!window.confirm(`Delete "${section.name || cfg.label}"? This removes all its questions too.`)) return;
+    dispatch({ type: ACTIONS.REMOVE_SECTION, payload: { sectionId: section.id } });
+  };
+
+  const questionSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  const handleQuestionDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = items.findIndex(i => i.id === active.id);
+    const newIndex = items.findIndex(i => i.id === over.id);
+    dispatch({
+      type: ACTIONS.REORDER_QUESTIONS,
+      payload: { sectionId: section.id, items: arrayMove(items, oldIndex, newIndex) },
+    });
+  };
+
   return (
     <div ref={setNodeRef} style={style} className="select-none">
       <div
@@ -83,7 +114,7 @@ export function SectionOutlineItem({ section, activeQuestion }) {
         tabIndex={0}
         onClick={handleSectionClick}
         onKeyDown={handleSectionKeyDown}
-        className="grid w-full grid-cols-[26px_minmax(0,1fr)_48px] items-start gap-[8px] text-left"
+        className="grid w-full grid-cols-[26px_minmax(0,1fr)_70px] items-start gap-[8px] text-left"
       >
         <img src={icon} alt="" className="mt-[1px] h-[26px] w-[26px] flex-shrink-0" />
 
@@ -96,7 +127,19 @@ export function SectionOutlineItem({ section, activeQuestion }) {
           </span>
         </span>
 
-        <span className="flex items-center justify-end gap-[9px] pt-[5px] text-[var(--color-assessment-step-active)]">
+        <span className="flex items-center justify-end gap-[8px] pt-[5px] text-[var(--color-assessment-step-active)]">
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label="Delete section"
+            onClick={handleDeleteSection}
+            onKeyDown={event => {
+              if (event.key === 'Enter' || event.key === ' ') handleDeleteSection(event);
+            }}
+            className="rounded-button text-text-faint transition-colors hover:text-error"
+          >
+            <Trash2 className="h-[15px] w-[15px]" strokeWidth={2} />
+          </span>
           <span
             role="button"
             tabIndex={0}
@@ -128,17 +171,21 @@ export function SectionOutlineItem({ section, activeQuestion }) {
 
       {section.expanded && (
         <div className="ml-[34px] mt-[10px] border-l border-border-subtle pl-[9px]">
-          <div className="space-y-[10px]">
-            {items.map((item, index) => (
-              <QuestionOutlineItem
-                key={item.id}
-                sectionId={section.id}
-                item={item}
-                index={index}
-                isActive={activeQuestion === item.id}
-              />
-            ))}
-          </div>
+          <DndContext sensors={questionSensors} collisionDetection={closestCenter} onDragEnd={handleQuestionDragEnd}>
+            <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-[10px]">
+                {items.map((item, index) => (
+                  <QuestionOutlineItem
+                    key={item.id}
+                    sectionId={section.id}
+                    item={item}
+                    index={index}
+                    isActive={activeQuestion === item.id}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
           {section.type !== 'coding' && (
             <button
               type="button"

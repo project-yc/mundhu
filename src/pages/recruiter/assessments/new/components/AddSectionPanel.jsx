@@ -1,4 +1,7 @@
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { useAssessmentBuilder } from '../context/AssessmentBuilderContext';
+import { saveDraft } from '../api/assessmentBuilderApi';
 import { SectionCreationDrawer } from './AddSectionPanel/SectionCreationDrawer';
 import { SectionSelectionContent } from './AddSectionPanel/SectionSelectionContent';
 import { useSectionCreationDrawer } from './AddSectionPanel/useSectionCreationDrawer';
@@ -6,9 +9,19 @@ import { useSectionCreationDrawer } from './AddSectionPanel/useSectionCreationDr
 export function AddSectionPanel() {
   const { dispatch, ACTIONS, state } = useAssessmentBuilder();
   const { drawer, form, actions } = useSectionCreationDrawer({ dispatch, ACTIONS, state });
+  const [savingDraft, setSavingDraft] = useState(false);
 
-  const handleSaveDraft = () => {
-    localStorage.setItem('assessmentBuilderDraft', JSON.stringify(state));
+  const handleSaveDraft = async () => {
+    setSavingDraft(true);
+    try {
+      await saveDraft(state, { dispatch, ACTIONS });
+      localStorage.setItem('assessmentBuilderDraft', JSON.stringify(state));
+      toast.success('Draft saved.');
+    } catch (err) {
+      toast.error('Failed to save draft', { description: err.message || 'Please try again.' });
+    } finally {
+      setSavingDraft(false);
+    }
   };
 
   const handleReview = () => {
@@ -22,6 +35,7 @@ export function AddSectionPanel() {
         currentStep={state.currentStep}
         onAddSection={actions.addSection}
         onSaveDraft={handleSaveDraft}
+        savingDraft={savingDraft}
         onReview={handleReview}
         canReview={state.sections.length > 0}
       />
