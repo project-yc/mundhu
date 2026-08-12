@@ -3,7 +3,8 @@ import { getAdaptiveFocusAreas, getLibraryTasks } from '../../api/assessmentBuil
 import { SECTION_TYPE_CONFIG } from '../../constants/sectionTypeConfig';
 import {
   ADAPTIVE_DEFAULT_TIMER,
-  CODING_RUBRICS,
+  CODING_RUBRIC_DIMENSIONS,
+  DEFAULT_CODING_TASK_INDEX,
   DRAWER_CLOSE_MS,
   FALLBACK_CODING_TASKS,
   ROLE_FOCUS_AREAS,
@@ -15,7 +16,8 @@ import {
 const DRAWER_SECTION_TYPES = ['mcq', 'coding', 'ranking', 'free_text', 'adaptive'];
 const DEFAULT_CODING_FILTERS = { role: 'Front-end developer', language: '', difficulty: 'easy' };
 
-const createInitialRubricPoints = () => CODING_RUBRICS.reduce((acc, name) => ({ ...acc, [name]: 5 }), {});
+// Keyed by backend dimension key, not display label — these are sent to the API.
+const createInitialRubricPoints = () => CODING_RUBRIC_DIMENSIONS.reduce((acc, d) => ({ ...acc, [d.key]: 3 }), {});
 
 export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -26,7 +28,7 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   const [sectionName, setSectionName] = useState('');
   const [sectionTimer, setSectionTimer] = useState(45);
   const [itemTimer, setItemTimer] = useState(5);
-  const [aiLevel, setAiLevel] = useState('chat');
+  const [aiLevel, setAiLevel] = useState('chat_only');
   const [questionPrompt, setQuestionPrompt] = useState('');
   const [freeTextAnswer, setFreeTextAnswer] = useState('');
   const [gradingHints, setGradingHints] = useState('');
@@ -69,7 +71,7 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     setSectionName('');
     setSectionTimer(45);
     setItemTimer(5);
-    setAiLevel('chat');
+    setAiLevel('chat_only');
     setQuestionPrompt('');
     setFreeTextAnswer('');
     setGradingHints('');
@@ -114,7 +116,7 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     setTargetSectionId(options.targetSectionId ?? null);
     setSectionTimer(type === 'adaptive' ? ADAPTIVE_DEFAULT_TIMER : 45);
     setItemTimer(5);
-    setAiLevel('chat');
+    setAiLevel('chat_only');
     setPoints(type === 'adaptive' ? 100 : 5);
     if (type === 'adaptive') {
       // Seed with the role's focus areas so the section is valid without the
@@ -307,13 +309,19 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   };
 
   const handleCreateCoding = () => {
-    const task = selectedTask || codingTasks[0] || null;
+    // Fall back to the task the list actually highlights, not index 0 — those
+    // disagreed, so accepting the visible default published a different task.
+    const task = selectedTask || codingTasks[DEFAULT_CODING_TASK_INDEX] || null;
     const question = {
           id: crypto.randomUUID(),
           type: 'coding',
           task_id: task?.id ?? null,
           task_data: task,
           points: Number(points),
+          // Section-scoped runtime config; applied to the SectionItem after it
+          // is attached, the same way adaptive_interview_config is.
+          ai_level: aiLevel || null,
+          rubric_weights: { ...rubricPoints },
           published: false,
           locked: true,
     };

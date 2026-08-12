@@ -38,27 +38,21 @@ function StatLine({ label, value }) {
 }
 
 /**
- * Block 1 — deterministic review gate.
+ * Deterministic review gate.
  *
- * Sits above the AI summary deliberately. This is computed from session
- * evidence, not generated, and the product rule is that it stays separate from
- * (and above) anything the model wrote.
+ * Sits above everything the model wrote — it is computed from session evidence,
+ * not generated, and the product rule is that it stays separate from (and
+ * above) the AI narrative.
+ *
+ * Renders ONLY when flagged. The clean state used to get its own green banner,
+ * which — alongside the "Review status: Clear" stat and the "No proctoring
+ * flags" paragraph — meant the panel said "nothing is wrong" three times before
+ * showing a single score. Clean is now conveyed once, by the stat line.
  */
 function ReviewStatus({ reviewPolicy }) {
   if (!reviewPolicy) return null;
-  const flagged = needsHumanReview(reviewPolicy);
+  if (!needsHumanReview(reviewPolicy)) return null;
   const reasons = reviewPolicy.reasons || [];
-
-  if (!flagged) {
-    return (
-      <div className="flex items-center gap-[8px] rounded-[10px] border border-success-border bg-success-bg px-[12px] py-[9px]">
-        <ShieldCheck className="h-[16px] w-[16px] flex-shrink-0 text-success" strokeWidth={2} />
-        <p className="text-[13px] font-medium text-success">
-          No review flags — session evidence is consistent.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="rounded-[10px] border border-warning-border bg-warning-bg px-[12px] py-[11px]">
@@ -261,7 +255,12 @@ export function CodingSectionPanel({ report }) {
 
   const authorship = formatPercent(coding.authorship?.independent_authorship_ratio_net);
   const proctoringFlags = getProctoringFlags(coding.proctoring);
+  const hasDimensions = DIMENSION_ORDER.some(([key]) => coding.dimensions?.[key]);
 
+  // Order is decision-first: the score and the rubric that produced it, then
+  // the evidence behind them, then the narrative, then the raw timeline.
+  // Previously the score was the fifth block, behind a review banner, an AI
+  // paragraph and a row of task tags.
   return (
     <>
       <PanelBlock>
@@ -278,21 +277,9 @@ export function CodingSectionPanel({ report }) {
         </PanelBlock>
       )}
 
-      {coding.topInsight && (
-        <PanelBlock title="AI summary">
-          <p className="text-[13px] leading-[20px] text-text-secondary">{coding.topInsight}</p>
-        </PanelBlock>
-      )}
-
-      {coding.taskLabels.length > 0 && (
-        <PanelBlock title="Top skills / Labels">
-          <SkillChips labels={coding.taskLabels} />
-        </PanelBlock>
-      )}
-
-      <PanelBlock title="Detailed score">
+      <PanelBlock title="Coding section score">
         <div className="flex flex-col items-center gap-[18px] sm:flex-row sm:items-center">
-          <ScoreGauge value={coding.score} caption="Coding section score" />
+          <ScoreGauge value={coding.score} caption="Weighted rubric average" />
           <div className="min-w-0 flex-1">
             <StatLine label="Independent authorship" value={authorship} />
             <StatLine
@@ -305,11 +292,20 @@ export function CodingSectionPanel({ report }) {
             />
           </div>
         </div>
+        {/* The card on the page behind this drawer shows points earned out of
+            points available; this gauge is the rubric average. They are
+            different quantities and used to differ with no explanation. */}
+        <p className="mt-[10px] text-[11px] leading-[15px] text-text-muted">
+          Average of the rubric dimensions below, weighted by AI access level. The section
+          card shows points earned out of points available, which is a different measure.
+        </p>
       </PanelBlock>
 
-      <PanelBlock title="Rubric scoring">
-        <RubricTable dimensions={coding.dimensions} />
-      </PanelBlock>
+      {hasDimensions && (
+        <PanelBlock title="Rubric scoring">
+          <RubricTable dimensions={coding.dimensions} />
+        </PanelBlock>
+      )}
 
       {coding.evidence.length > 0 && (
         <PanelBlock title="Behavioral evidence">
@@ -329,51 +325,13 @@ export function CodingSectionPanel({ report }) {
         </PanelBlock>
       )}
 
-      {coding.growthEdges.length > 0 && (
-        <PanelBlock title="Growth edges">
-          <ul className="space-y-[8px]">
-            {coding.growthEdges.map((edge, index) => (
-              <li
-                key={`growth-${index}`}
-                className="rounded-[10px] border border-warning-border bg-warning-bg px-[12px] py-[10px]"
-              >
-                <p className="text-[12px] leading-[18px] text-text-primary">
-                  {typeof edge === 'object' ? edge.moment : edge}
-                </p>
-                {typeof edge === 'object' && edge.alternative && (
-                  <p className="mt-[4px] text-[12px] leading-[18px] text-text-secondary">
-                    {edge.alternative}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </PanelBlock>
-      )}
-
-      {coding.probes.length > 0 && (
-        <PanelBlock title="Interview probes">
-          <ol className="space-y-[8px]">
-            {coding.probes.map((probe, index) => (
-              <li
-                key={`probe-${index}`}
-                className="rounded-[10px] border border-border-subtle bg-surface px-[12px] py-[10px]"
-              >
-                <p className="text-[11px] font-bold text-brand">Q{index + 1}</p>
-                <p className="mt-[3px] text-[12px] leading-[18px] text-text-secondary">{probe}</p>
-              </li>
-            ))}
-          </ol>
-        </PanelBlock>
-      )}
-
-      {coding.proctoring && (
-        <PanelBlock title="Proctoring">
-          {proctoringFlags.length === 0 ? (
-            <p className="text-[12px] leading-[17px] text-text-muted">
-              {coding.proctoring.summary || 'No proctoring flags detected.'}
-            </p>
-          ) : (
+      {/* Proctoring belongs with the evidence, not after the narrative — it is
+          the same kind of signal. It renders only when there is something to
+          say; a "no flags detected" paragraph was the third restatement of a
+          clean result. */}
+      {proctoringFlags.length > 0 && (
+        <PanelBlock title="Proctoring flags">
+          {(
             <ul className="space-y-[8px]">
               {proctoringFlags.map(flag => {
                 const tokens = getSignalTokens(flag.signal);
@@ -397,16 +355,72 @@ export function CodingSectionPanel({ report }) {
         </PanelBlock>
       )}
 
-      <ActivityTimeline timeline={coding.timeline} />
+      {coding.topInsight && (
+        <PanelBlock title="AI summary">
+          <p className="text-[13px] leading-[20px] text-text-secondary">{coding.topInsight}</p>
+        </PanelBlock>
+      )}
 
-      <PanelBlock>
-        <button
-          type="button"
-          className="inline-flex h-[36px] items-center justify-center rounded-[8px] border border-border-default bg-surface px-[18px] text-[13px] font-medium text-text-primary shadow-card transition-colors hover:bg-surface-hover"
-        >
-          View code
-        </button>
-      </PanelBlock>
+      {coding.growthEdges.length > 0 && (
+        <PanelBlock title="Development areas">
+          <ul className="space-y-[8px]">
+            {coding.growthEdges.map((edge, index) => {
+              const isObject = edge && typeof edge === 'object';
+              return (
+                <li
+                  key={`growth-${index}`}
+                  className="rounded-[10px] border border-border-subtle bg-surface px-[12px] py-[10px]"
+                >
+                  <p className="text-[12px] leading-[18px] text-text-primary">
+                    {isObject ? edge.moment : edge}
+                  </p>
+                  {/* `why` explains what the moment reveals about engineering
+                      maturity — the only part of this block that bears on a
+                      hiring decision. It was being dropped, leaving just the
+                      candidate-facing coaching. */}
+                  {isObject && edge.why && (
+                    <p className="mt-[6px] text-[12px] leading-[18px] text-text-secondary">
+                      {edge.why}
+                    </p>
+                  )}
+                  {isObject && edge.alternative && (
+                    <p className="mt-[6px] text-[12px] leading-[17px] text-text-muted">
+                      <span className="font-semibold">Stronger approach: </span>
+                      {edge.alternative}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </PanelBlock>
+      )}
+
+      {coding.probes.length > 0 && (
+        <PanelBlock title="Interview probes">
+          <ol className="space-y-[8px]">
+            {coding.probes.map((probe, index) => (
+              <li
+                key={`probe-${index}`}
+                className="rounded-[10px] border border-border-subtle bg-surface px-[12px] py-[10px]"
+              >
+                <p className="text-[11px] font-bold text-brand">Q{index + 1}</p>
+                <p className="mt-[3px] text-[12px] leading-[18px] text-text-secondary">{probe}</p>
+              </li>
+            ))}
+          </ol>
+        </PanelBlock>
+      )}
+
+      {/* Task metadata, not a claim about the candidate — the old "Top skills"
+          heading read as the latter. Demoted to the end. */}
+      {coding.taskLabels.length > 0 && (
+        <PanelBlock title="Task skills covered">
+          <SkillChips labels={coding.taskLabels} />
+        </PanelBlock>
+      )}
+
+      <ActivityTimeline timeline={coding.timeline} />
     </>
   );
 }

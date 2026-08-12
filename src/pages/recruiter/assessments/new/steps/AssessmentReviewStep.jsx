@@ -167,7 +167,15 @@ export function AssessmentReviewStep() {
     setPublishing(true);
     setError('');
     try {
-      const result = await publishAssessmentFlow(state);
+      // Write each created section's backend id straight back into builder
+      // state so a mid-publish failure can be retried without creating
+      // duplicate, itemless sections that then block publishing entirely.
+      const result = await publishAssessmentFlow(state, (localSectionId, backendId) => {
+        dispatch({
+          type: ACTIONS.UPDATE_SECTION,
+          payload: { sectionId: localSectionId, updates: { backendId } },
+        });
+      });
       navigate(`/recruiter/assessments/${result.id || state.backendId}`);
     } catch (err) {
       if (err.message?.startsWith('MISSING_ENDPOINT')) {

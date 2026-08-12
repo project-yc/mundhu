@@ -86,8 +86,15 @@ function getScorePercent(section) {
   return Math.round((score / maxScore) * 100);
 }
 
+/**
+ * Renders a score, or null when there isn't one.
+ *
+ * This used to return '00' for a missing value, so an ungraded section — which
+ * is exactly when getScorePercent returns null — was displayed as a hard zero
+ * with nothing marking it as ungraded. Callers must handle null.
+ */
 function formatScore(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return '00';
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return null;
   return String(Math.round(Number(value))).padStart(2, '0');
 }
 
@@ -169,8 +176,13 @@ function ScoreOverview({ report, sections }) {
                 </div>
                 <div className="mt-[16px] flex items-center gap-[7px]">
                   <span className={`h-[12px] w-[12px] rounded-full ${meta.dot}`} />
-                  <span className="text-[13px] font-bold text-text-primary">{formatScore(percent)}/100</span>
-                  <span className="text-[12px] text-text-faint">{points} Points</span>
+                  {formatScore(percent) === null ? (
+                    <span className="text-[13px] font-semibold text-text-muted">Not graded</span>
+                  ) : (
+                    <span className="text-[13px] font-bold text-text-primary">
+                      {formatScore(percent)}% of {points} pts
+                    </span>
+                  )}
                 </div>
               </div>
             );
@@ -195,9 +207,16 @@ function InsightBanner({ report }) {
   const insight = report.top_insight || report.ai_narrative_assessments?.top_insight || '';
   if (!insight) return null;
 
+  // Neutral, not amber. `top_insight` is a summary, not a warning — the caution
+  // styling editorialised every insight, painting a positive observation as a
+  // concern. The coding panel repeats this string; keeping the registers
+  // consistent is what stops it reading as two different claims.
   return (
-    <div className="rounded-[10px] border border-warning-border bg-warning-bg px-[11px] py-[8px]">
-      <p className="text-[14px] leading-[18px] text-warning">{insight}</p>
+    <div className="rounded-[10px] border border-border-subtle bg-surface px-[11px] py-[9px]">
+      <p className="text-[11px] font-semibold uppercase leading-[14px] tracking-wide text-text-muted">
+        AI summary
+      </p>
+      <p className="mt-[3px] text-[14px] leading-[19px] text-text-secondary">{insight}</p>
     </div>
   );
 }
@@ -284,7 +303,9 @@ export default function ReportDetailScreen() {
                 className="inline-flex h-[41px] items-center justify-center gap-[8px] rounded-[8px] bg-[var(--color-assessment-cta)] px-[23px] text-[14px] font-bold text-[var(--color-assessment-cta-text)] transition-colors hover:bg-[var(--color-assessment-cta-hover)]"
               >
                 <Download className="h-[15px] w-[15px]" strokeWidth={1.8} />
-                Download Pdf
+                {/* The handler serializes the report to JSON — labelling it
+                    "Pdf" promised a file this never produced. */}
+                Download JSON
               </button>
             </div>
           </div>

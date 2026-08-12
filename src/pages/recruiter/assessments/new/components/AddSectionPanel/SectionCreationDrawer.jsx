@@ -12,7 +12,8 @@ import {
   ADAPTIVE_PRESET_OPTIONS,
   ADAPTIVE_TIMER_OPTIONS,
   AI_LEVEL_OPTIONS,
-  CODING_RUBRICS,
+  CODING_RUBRIC_DIMENSIONS,
+  DEFAULT_CODING_TASK_INDEX,
   DIFFICULTY_OPTIONS,
   DRAWER_TYPE_LABELS,
   FILTER_ROLES,
@@ -153,26 +154,29 @@ function SectionDetailsStep({ drawerType, form, onCancel, onContinue }) {
               <ChevronDown className="pointer-events-none absolute right-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
             </div>
 
-            <div className="mt-[16px] flex items-center justify-between">
+            <div className="mt-[16px]">
               <h3 className="text-[15px] font-semibold leading-none text-text-primary">
-                Rubrics <span className="font-medium text-[#78879a]">(Max 5 pts per criterion)</span>
+                Rubric weighting
               </h3>
-              <span className="text-[15px] font-bold leading-none text-[#62b33a]">5/5 pts</span>
+              <p className="mt-[5px] text-[13px] leading-[17px] text-[#78879a]">
+                How much each dimension counts toward the section score. Leave them equal
+                to weight all four the same.
+              </p>
             </div>
 
             <div className="mt-[9px] space-y-[4px]">
-              {CODING_RUBRICS.map(name => (
-                <div key={name} className="flex h-[40px] items-center rounded-[7px] bg-[#f7f7f7] pl-[13px] pr-[5px]">
-                  <span className="text-[15px] font-semibold leading-none text-text-primary">{name}</span>
+              {CODING_RUBRIC_DIMENSIONS.map(({ key, label }) => (
+                <div key={key} className="flex h-[40px] items-center rounded-[7px] bg-[#f7f7f7] pl-[13px] pr-[5px]">
+                  <span className="text-[15px] font-semibold leading-none text-text-primary">{label}</span>
                   <HelpCircle className="ml-[7px] h-[16px] w-[16px] flex-shrink-0 fill-[#ed7f1a] text-surface" strokeWidth={2.5} />
                   <div className="relative ml-auto">
                     <select
-                      value={form.rubricPoints[name]}
-                      onChange={event => form.setRubricPoints(current => ({ ...current, [name]: Number(event.target.value) }))}
+                      value={form.rubricPoints[key]}
+                      onChange={event => form.setRubricPoints(current => ({ ...current, [key]: Number(event.target.value) }))}
                       className="h-[32px] w-[72px] appearance-none rounded-[8px] border border-border-default bg-surface pl-[10px] pr-[24px] text-[14px] font-semibold text-text-primary outline-none"
                     >
                       {[1, 2, 3, 4, 5].map(value => (
-                        <option key={value} value={value}>{value} pts</option>
+                        <option key={value} value={value}>{value}×</option>
                       ))}
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-[8px] top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-text-primary" strokeWidth={2} />
@@ -293,7 +297,8 @@ function CodingQuestionForm({ form, onCancel, onSubmit }) {
             const taskTitle = task.title || task.name || 'Untitled task';
             const language = task.language || task.primary_language || task.tags?.[0] || 'Python';
             const tags = task.tags?.filter(tag => tag !== language).slice(0, 2) || [];
-            const selected = form.selectedTask?.id === task.id || (!form.selectedTask && index === 1);
+            const selected = form.selectedTask?.id === task.id
+              || (!form.selectedTask && index === DEFAULT_CODING_TASK_INDEX);
             return (
               <button
                 key={task.id}

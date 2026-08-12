@@ -237,7 +237,7 @@ export async function getLibraryTasks(filters = {}) {
  *
  * Returns { id: assessmentId } on success.
  */
-export async function publishAssessmentFlow(state) {
+export async function publishAssessmentFlow(state, onSectionCreated) {
   const assessmentId = state.backendId;
   if (!assessmentId) {
     throw new Error('No assessment ID found. Complete Step 1 first.');
@@ -255,6 +255,12 @@ export async function publishAssessmentFlow(state) {
         timer_minutes: section.timer_minutes ?? null,
       });
       sectionId = sectionResult.data.id;
+      // Persist the id back into builder state immediately. Without this, a
+      // failure later in the loop left `backendId` null, so retrying Publish
+      // created a SECOND section; the orphan then had zero items and the
+      // publish check ("every section must have at least one question")
+      // rejected the assessment permanently, with no way to delete it here.
+      onSectionCreated?.(section.id, sectionId);
     }
 
     for (let qIdx = 0; qIdx < section.items.length; qIdx++) {
@@ -300,11 +306,29 @@ export async function publishAssessmentFlow(state) {
         if (!item.task_id) {
           throw new Error(`Coding section "${section.name}" is missing a selected library task.`);
         }
-        await attachItemToSection(sectionId, {
+        if (String(item.task_id).startsWith('fallback-')) {
+          // FALLBACK_CODING_TASKS are placeholders shown when the library API is
+          // down. Their ids are not real UUIDs and blow up mid-publish, after
+          // earlier sections have already been created server-side.
+          throw new Error(
+            `Coding section "${section.name}" is using a placeholder task. `
+            + 'Reopen the section and pick a task from the library.',
+          );
+        }
+        const attachedCoding = await attachItemToSection(sectionId, {
           library_task_id: item.task_id,
           order: qIdx,
           points: item.points,
         });
+        // Section-scoped runtime config lands on the SectionItem, mirroring the
+        // adaptive path below. Both are omitted when unset so the task/assessment
+        // defaults still apply.
+        const codingConfig = {};
+        if (item.ai_level) codingConfig.ai_level = item.ai_level;
+        if (item.rubric_weights) codingConfig.rubric_weights = item.rubric_weights;
+        if (Object.keys(codingConfig).length > 0) {
+          await updateSectionItem(sectionId, attachedCoding.data.id, codingConfig);
+        }
       } else if (item.type === 'adaptive') {
         // Three calls, because the interview config is section-scoped: the
         // library item carries only role/seniority metadata, and the config

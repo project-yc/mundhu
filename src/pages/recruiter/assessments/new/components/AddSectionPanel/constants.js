@@ -15,13 +15,37 @@ export const ADAPTIVE_CARD_IMAGE = adaptiveCard;
 
 export const TIMER_OPTIONS = [15, 30, 45, 60, 90];
 export const POINT_OPTIONS = [5, 10, 15, 20];
+// Values must match backend AILevel (assessments/constants.py). This used to
+// send 'chat', which the serializer rejects and which analytics would have
+// silently weighted as full access.
 export const AI_LEVEL_OPTIONS = [
-  { value: 'chat', label: 'Chat only' },
+  { value: 'chat_only', label: 'Chat only' },
   { value: 'full', label: 'Full agent' },
+  { value: 'inline_completions', label: 'Inline completions only' },
   { value: 'none', label: 'Disabled' },
 ];
-export const CODING_RUBRICS = ['Problem solving process', 'Task Completion', 'AI Collaboration', 'Design Quality'];
-export const FILTER_ROLES = ['Front-end developer', 'QA engineer', 'QA engineer', 'Front-end developer', 'Front-end developer'];
+
+/**
+ * Recruiter-weightable rubric dimensions.
+ *
+ * Keys match SessionReport's dimension fields — the weights are applied in
+ * compute_overall_score, so a label change here without a key change is safe
+ * but a key change is not.
+ */
+export const CODING_RUBRIC_DIMENSIONS = [
+  { key: 'problem_solving_process', label: 'Problem solving process' },
+  { key: 'task_completion', label: 'Task Completion' },
+  { key: 'ai_collaboration', label: 'AI Collaboration' },
+  { key: 'design_quality', label: 'Design Quality' },
+];
+export const CODING_RUBRICS = CODING_RUBRIC_DIMENSIONS.map(d => d.label);
+
+// Which task in the list is pre-selected when the recruiter picks none.
+// The list highlight and the create handler must agree on this — they used to
+// differ (1 vs 0), so accepting the default published a task the UI never
+// showed as selected.
+export const DEFAULT_CODING_TASK_INDEX = 0;
+export const FILTER_ROLES = ['Front-end developer', 'QA engineer', 'Back-end developer', 'Data engineer', 'Full-stack developer'];
 export const LANGUAGE_OPTIONS = ['', 'Python', 'JavaScript', 'Ruby', 'C++', 'Go', 'Java'];
 export const DIFFICULTY_OPTIONS = ['easy', 'medium', 'hard', 'adaptive'];
 export const WORD_LIMIT_OPTIONS = [50, 100, 150, 200, 300];

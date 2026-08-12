@@ -14,8 +14,9 @@ function getScorePercent(section) {
   return Math.round((score / maxScore) * 100);
 }
 
+/** Null when there is no score — an ungraded section must not read as a zero. */
 function formatScore(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return '00';
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return null;
   return String(Math.round(Number(value))).padStart(2, '0');
 }
 
@@ -70,10 +71,14 @@ export function SectionCard({ section, onShowDetails }) {
         </div>
 
         <div className="mt-auto">
-          <p className="text-[20px] font-bold leading-[18px] text-text-primary">
-            {formatScore(percent)}{' '}
-            <span className="text-[14px] font-medium text-text-muted">(out of 100)</span>
-          </p>
+          {formatScore(percent) === null ? (
+            <p className="text-[15px] font-semibold leading-[18px] text-text-muted">Not graded</p>
+          ) : (
+            <p className="text-[20px] font-bold leading-[18px] text-text-primary">
+              {formatScore(percent)}%{' '}
+              <span className="text-[14px] font-medium text-text-muted">of points available</span>
+            </p>
+          )}
           {signalLabel && (
             <p className={cn('mt-[5px] text-[13px] font-bold leading-[18px]', getSectionSignalTone(percent))}>
               {signalLabel}
