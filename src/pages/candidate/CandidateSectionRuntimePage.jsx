@@ -45,15 +45,28 @@ const SECTION_LABELS = {
 
 const delay = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms))
 
-const clearSubmissionTransitionParams = () => {
+const stripUrlParams = (params) => {
   const url = new URL(window.location.href)
-  if (!url.searchParams.has('submission_status') && !url.searchParams.has('submitted_section_type')) {
+  if (!params.some((param) => url.searchParams.has(param))) {
     return
   }
-  url.searchParams.delete('submission_status')
-  url.searchParams.delete('submitted_section_type')
+  params.forEach((param) => url.searchParams.delete(param))
   window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
 }
+
+// `section_token` is used as a bearer token, so leaving it in the address bar
+// puts it in browser history, the Referer header on any outbound link, and
+// every proxy/CDN access log. It is consumed once into runtime state (see
+// getBootstrapRuntime) and must be dropped as soon as that has happened —
+// unconditionally, not only on the coding-submit return path.
+// See docs/audits/01-account-creation-auth.md (M8).
+const SENSITIVE_URL_PARAMS = ['section_token', 'current_item_attempt_id', 'content_type']
+const clearSensitiveUrlParams = () => stripUrlParams(SENSITIVE_URL_PARAMS)
+
+// These drive the post-submit transition banner, so they are cleared only
+// after it has been shown.
+const TRANSITION_URL_PARAMS = ['submission_status', 'submitted_section_type']
+const clearSubmissionTransitionParams = () => stripUrlParams(TRANSITION_URL_PARAMS)
 
 const getBootstrapRuntime = (locationState, searchParams, params) => {
   const stateRuntime = locationState?.runtime ? normalizeCandidateRuntimeState(locationState.runtime) : null
@@ -254,6 +267,10 @@ export default function CandidateSectionRuntimePage() {
 
           setRuntimeState(nextRuntime)
           setContent(null)
+          // The token is now persisted in runtime state, so it no longer needs
+          // to be in the URL. Unconditional — every path through here has just
+          // saved it.
+          clearSensitiveUrlParams()
           if (returningFromCodingSubmit) {
             await delay(POST_SUBMIT_TRANSITION_MS)
             clearSubmissionTransitionParams()

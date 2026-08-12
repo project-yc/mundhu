@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../auth/authContext';
 import UserSidebar from '../components/layout/UserSidebar';
 import UserTopbar from '../components/layout/UserTopbar';
 import UserPageLayout from '../components/layout/UserPageLayout';
@@ -65,21 +65,16 @@ const getInitials = (name) => {
 };
 
 export default function UserSettingsPage() {
-  const navigate = useNavigate();
+  const { logout } = useAuth();
   const storedUser = useMemo(() => parseStoredUser(), []);
   const name = getDisplayName(storedUser);
   const score = getSignalScore(storedUser);
   const initials = getInitials(name);
 
-  const handleSignOut = () => {
-    // TODO: align sign-out clearing with centralized auth store once available.
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('org');
-    navigate('/login');
-  };
+  // The centralized auth store the old TODO here was waiting for now exists:
+  // it revokes the refresh token server-side and clears candidate sessionStorage
+  // too, neither of which this did. See audit H2/L1.
+  const handleSignOut = () => { logout(); };
 
   return (
     <UserPageLayout

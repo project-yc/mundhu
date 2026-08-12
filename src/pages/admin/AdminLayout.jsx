@@ -2,7 +2,8 @@
 // Mirrors RecruiterLayout's structure and uses the same RecruiterThemeProvider
 // so admin pages get the same clean token-based theme.
 import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
+import { useAuth } from '../../auth/authContext';
 import {
   ShieldCheck, LayoutDashboard, Layers, Library,
   LogOut, ChevronLeft, ChevronRight, Menu, X,
@@ -16,7 +17,7 @@ const NAV = [
 ];
 
 function LayoutShell({ children }) {
-  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -24,10 +25,9 @@ function LayoutShell({ children }) {
   const userName = user?.full_name || user?.name || user?.email || 'Admin';
   const initials = userName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
-  const handleLogout = () => {
-    ['authToken', 'refreshToken', 'user', 'userRole', 'org'].forEach(k => localStorage.removeItem(k));
-    navigate('/login');
-  };
+  // Goes through the auth context so the refresh token is actually revoked
+  // server-side — this used to only clear localStorage. See audit H2/L1.
+  const handleLogout = () => { logout(); };
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">

@@ -13,8 +13,13 @@ dist-ssr
 *.local
 
 # Vite per-developer env overrides
+.env
 .env.local
 .env.*.local
+!.env.example
+# `.env` was previously not ignored, so the working copy (which holds the
+# Google OAuth client ID) was one `git add -A` away from being committed.
+# `.env.dev` / `.env.prod` stay tracked deliberately — they carry no secrets.
 
 # Editor directories and files
 .vscode/*

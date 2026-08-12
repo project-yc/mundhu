@@ -45,13 +45,17 @@ import UserSettingsPage from './users/pages/UserSettingsPage'
 import ProtectedRoute from './utils/ProtectedRoute'
 import AdminRoute from './utils/AdminRoute'
 import { RecruiterThemeProvider } from './theme/RecruiterThemeProvider'
+import { AuthProvider } from './auth/AuthProvider'
+import { useAuth } from './auth/authContext'
+import AcceptInvitePage from './pages/auth/AcceptInvitePage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
 
 function RoleBasedRedirect() {
-  const token = localStorage.getItem('authToken');
-  const userRole = localStorage.getItem('userRole');
-  const org = (() => { try { return JSON.parse(localStorage.getItem('org') || '{}'); } catch { return {}; } })();
+  const { role: userRole, org, isLoading, isAuthenticated } = useAuth();
 
-  if (!token) return <Navigate to="/login" replace />;
+  if (isLoading) return null;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   if (userRole === 'ORG_ADMIN' || userRole === 'ADMIN') {
     // ORG_ADMIN = recruiter who created a workspace
@@ -73,12 +77,17 @@ function RoleBasedRedirect() {
 function App() {
   return (
     <Router>
+      <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/recruiter/signup" element={<SignupPage />} />
         <Route path="/waitlist" element={<WaitlistPage />} />
+        {/* Account recovery — these were linked but had no route. */}
+        <Route path="/accept-invite" element={<AcceptInvitePage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route 
           path="/admin" 
           element={
@@ -305,10 +314,23 @@ function App() {
         <Route path="/assessment/:token" element={<AssessmentLandingPage />} />
         <Route path="/assessment/:token/mcq/:sectionIndex" element={<McqSectionPage />} />
         <Route path="/assessment/:token/complete" element={<AssessmentCompletionPage />} />
-        <Route path="/__exam-preview" element={<ExamPreview />} />
-        <Route path="/recruiter/onboarding" element={<OnboardingPage />} />
+        {/* Dev-only preview harness — must not ship as a public route. */}
+        {import.meta.env.DEV && (
+          <Route path="/__exam-preview" element={<ExamPreview />} />
+        )}
+        {/* Guarded: this renders the org-creation wizard and collects company
+            details + teammate emails, so it must not be reachable anonymously. */}
+        <Route
+          path="/recruiter/onboarding"
+          element={
+            <ProtectedRoute requiredRole="RECRUITER">
+              <OnboardingPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </AuthProvider>
     </Router>
   )
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../auth/authContext';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -31,19 +32,13 @@ async function doRecruiterSignup(name, email, password) {
   return data;
 }
 
-function storeAuthData(data) {
-  const tokens       = data.tokens || data;
-  const accessToken  = tokens.access_token  || data.access_token;
-  const refreshToken = tokens.refresh_token || data.refresh_token;
-  if (!accessToken) return;
-  localStorage.setItem('authToken',    accessToken);
-  localStorage.setItem('refreshToken', refreshToken);
-  if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
-  if (data.org)  localStorage.setItem('org',  JSON.stringify(data.org));
-  const role = data.role || data.user?.role || null;
-  if (role) localStorage.setItem('userRole', role);
-  else      localStorage.removeItem('userRole');
-}
+// How long the success banner shows before redirecting. Preserved from the
+// original implementation — this is a deliberate UX beat, not an accident.
+const REDIRECT_DELAY_MS = 900;
+
+// storeAuthData lived here as one of four copies — see audit L1. Session
+// writes now go through the auth context so the app re-renders with the new
+// identity instead of relying on a full page reload.
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function EyeIcon({ className }) {
@@ -78,6 +73,8 @@ function GoogleIcon() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function SignupPage() {
+  const navigate = useNavigate();
+  const { login } = useAuth();
   const [name,            setName]            = useState('');
   const [email,           setEmail]           = useState('');
   const [password,        setPassword]        = useState('');
@@ -97,9 +94,9 @@ export default function SignupPage() {
     setError(''); setSuccess(''); setLoading(true);
     try {
       const data = await doRecruiterSignup(name.trim(), email, password);
-      storeAuthData(data);
+      login(data);
       setSuccess('Account created! Setting up your workspace…');
-      setTimeout(() => { window.location.href = '/recruiter/onboarding'; }, 900);
+      setTimeout(() => navigate('/recruiter/onboarding', { replace: true }), REDIRECT_DELAY_MS);
     } catch (err) {
       setError(err.message || 'Signup failed. Please try again.');
     } finally {
@@ -108,12 +105,15 @@ export default function SignupPage() {
   };
 
   const handleGoogleSuccess = (data) => {
-    storeAuthData(data);
+    login(data);
     setError('');
     setSuccess('Account ready! Redirecting…');
     setTimeout(() => {
-      window.location.href = data.org?.is_onboarded === false ? '/recruiter/onboarding' : '/recruiter/dashboard';
-    }, 900);
+      navigate(
+        data.org?.is_onboarded === false ? '/recruiter/onboarding' : '/recruiter/dashboard',
+        { replace: true },
+      );
+    }, REDIRECT_DELAY_MS);
   };
 
   return (

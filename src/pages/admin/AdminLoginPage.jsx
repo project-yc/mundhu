@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RecruiterThemeProvider } from '../../theme/RecruiterThemeProvider';
+import { useAuth } from '../../auth/authContext';
 
 async function doAdminLogin(email, password) {
   const res = await fetch('/api/auth/v1/admin/login', {
@@ -13,23 +14,9 @@ async function doAdminLogin(email, password) {
   return data;
 }
 
-function storeAuthData(data) {
-  const tokens = data.tokens || data;
-  const accessToken = tokens.access_token || data.access_token;
-  const refreshToken = tokens.refresh_token || data.refresh_token;
-  if (!accessToken) return null;
-  localStorage.setItem('authToken', accessToken);
-  localStorage.setItem('refreshToken', refreshToken);
-  if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
-  if (data.org) localStorage.setItem('org', JSON.stringify(data.org));
-  const role = data.role || null;
-  if (role) localStorage.setItem('userRole', role);
-  else localStorage.removeItem('userRole');
-  return role;
-}
-
 export default function AdminLoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,12 +29,15 @@ export default function AdminLoginPage() {
     setLoading(true);
     try {
       const data = await doAdminLogin(email, password);
-      const role = storeAuthData(data);
-      if (role === 'ADMIN') {
-        navigate('/admin', { replace: true });
-      } else {
+      // Check the role BEFORE persisting anything. This used to store the
+      // tokens first and then show an error, leaving a rejected user holding a
+      // valid half-signed-in session. See audit M9.
+      if (data.role !== 'ADMIN') {
         setError('This account does not have platform admin access.');
+        return;
       }
+      login(data);
+      navigate('/admin', { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {

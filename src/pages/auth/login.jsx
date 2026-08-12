@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../auth/authContext';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -19,24 +20,15 @@ async function doLogin(email, password) {
   return data;
 }
 
-function storeAuthData(data) {
-  const tokens       = data.tokens || data;
-  const accessToken  = tokens.access_token  || data.access_token;
-  const refreshToken = tokens.refresh_token || data.refresh_token;
-  if (!accessToken) return null;
-  localStorage.setItem('authToken',    accessToken);
-  localStorage.setItem('refreshToken', refreshToken);
-  if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
-  if (data.org)  localStorage.setItem('org',  JSON.stringify(data.org));
-  const role = data.role || data.user?.role || null;
-  if (role) localStorage.setItem('userRole', role);
-  else      localStorage.removeItem('userRole');
-  return role;
-}
+// How long the success banner shows before redirecting. Preserved from the
+// original implementation — this is a deliberate UX beat, not an accident.
+const REDIRECT_DELAY_MS = 900;
 
-function resolveRedirect(userRole) {
+// storeAuthData and resolveRedirect used to be defined here, in signup.jsx, in
+// AdminLoginPage.jsx, and in an orphaned utils/authSession.js — four copies
+// that had already drifted apart. See audit L1.
+function resolveRedirect(userRole, org) {
   if (userRole === 'ORG_ADMIN' || userRole === 'ADMIN') {
-    const org = (() => { try { return JSON.parse(localStorage.getItem('org') || '{}'); } catch { return {}; } })();
     if (org?.org_id) return org.is_onboarded === false ? '/recruiter/onboarding' : '/recruiter/dashboard';
     if (userRole === 'ADMIN') return '/admin';
     return '/recruiter/onboarding';
@@ -78,6 +70,8 @@ function GoogleIcon() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function LoginPage() {
+  const navigate = useNavigate();
+  const { login } = useAuth();
   const [email,      setEmail]      = useState('');
   const [password,   setPassword]   = useState('');
   const [showPw,     setShowPw]     = useState(false);
@@ -86,15 +80,25 @@ export default function LoginPage() {
   const [error,      setError]      = useState('');
   const [success,    setSuccess]    = useState('');
 
+  // Shared by the password and Google paths. Keeps the original brief success
+  // banner before redirecting — only the mechanism changed, from a full page
+  // reload (`window.location.href`) to in-app routing, so the session the auth
+  // context just stored survives the transition.
+  const completeLogin = (data) => {
+    login(data);
+    setError('');
+    setSuccess('Login successful! Redirecting…');
+    setTimeout(() => {
+      navigate(resolveRedirect(data.role, data.org), { replace: true });
+    }, REDIRECT_DELAY_MS);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) { setError('Email and password are required.'); return; }
     setError(''); setSuccess(''); setLoading(true);
     try {
-      const data     = await doLogin(email, password);
-      const userRole = storeAuthData(data);
-      setSuccess('Login successful! Redirecting…');
-      setTimeout(() => { window.location.href = resolveRedirect(userRole); }, 900);
+      completeLogin(await doLogin(email, password));
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
@@ -102,12 +106,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleSuccess = (data) => {
-    const userRole = storeAuthData(data);
-    setError('');
-    setSuccess('Login successful! Redirecting…');
-    setTimeout(() => { window.location.href = resolveRedirect(userRole); }, 900);
-  };
+  const handleGoogleSuccess = (data) => completeLogin(data);
 
   return (
     <div

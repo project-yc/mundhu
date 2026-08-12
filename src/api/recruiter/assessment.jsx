@@ -1,4 +1,5 @@
-import { authAxios, forceLogout } from '../../lib/axios';
+import { authAxios } from '../../lib/axios';
+import { forceLogout, getAccessToken } from '../../lib/session';
 import { listAssessments, listCandidateReports } from './reports';
 
 /**
@@ -6,14 +7,16 @@ import { listAssessments, listCandidateReports } from './reports';
  * Returns { s3_key: string }
  */
 export const uploadTaskZip = async (zipFile, onProgress) => {
-  const token = localStorage.getItem('authToken');
+  // XHR (not authAxios) because it is the only client that reports upload
+  // progress. Token is read at call time so it picks up a rotated one.
+  const token = getAccessToken();
   const formData = new FormData();
   formData.append('file', zipFile);
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/v1/tasks/upload-zip');
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
     if (onProgress) {
       xhr.upload.addEventListener('progress', (e) => {
@@ -23,6 +26,10 @@ export const uploadTaskZip = async (zipFile, onProgress) => {
 
     xhr.onload = () => {
       if (xhr.status === 401) {
+        // Reject before signing out. This used to call forceLogout() and
+        // return without settling, so the awaiting caller hung forever — only
+        // masked because the page was navigating away. See audit L6.
+        reject(new Error('Your session expired. Please sign in again.'));
         forceLogout();
         return;
       }
