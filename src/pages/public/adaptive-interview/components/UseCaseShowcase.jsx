@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { motion as Motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { motion as Motion, useReducedMotion } from 'motion/react';
 import { USE_CASES } from '../useCases';
-import ChatShot from './ChatShot';
+import ChatMock from './ChatMock';
 import { DISPLAY, MONO, Pill } from './primitives';
 
 export default function UseCaseShowcase() {
@@ -61,18 +61,20 @@ export default function UseCaseShowcase() {
         })}
       </div>
 
-      {/* Active panel */}
+      {/* Active panel.
+          Keyed remount rather than AnimatePresence: the new panel swaps in
+          immediately and fades up, instead of waiting out an exit animation.
+          That keeps rapid tab clicks responsive and means a throttled tab
+          (backgrounded, low-power) can never strand the outgoing panel. */}
       <div className="mt-8 lg:mt-10">
-        <AnimatePresence mode="wait">
-          <Motion.div
-            key={active.id}
-            role="tabpanel"
-            initial={reduce ? false : { opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduce ? undefined : { opacity: 0, y: -8 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="grid gap-8 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:gap-12 lg:items-start"
-          >
+        <Motion.div
+          key={active.id}
+          role="tabpanel"
+          initial={reduce ? false : { opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="grid gap-8 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:gap-12 lg:items-start"
+        >
             {/* Copy */}
             <div className="lg:pt-2">
               <div className="flex items-center gap-2.5">
@@ -113,70 +115,22 @@ export default function UseCaseShowcase() {
               </ul>
             </div>
 
-            {/* Visual */}
-            <div>
-              <ChatShot
-                src={active.image}
-                alt={active.caption}
-                title={`AI Adaptive Interview — ${active.tab}`}
-                caption={active.caption}
-                fileHint={`1600 × 1000 · ${active.file}`}
-                accent={active.accent}
-              />
-              <SampleExchange quote={active.quote} accent={active.accent} />
+            {/* Visual. `min-w-0` so the code-diff row's <pre> scrolls inside
+                its own box instead of widening this grid column — without it
+                the code tab renders wider than the other four and the layout
+                jumps on every tab change. */}
+            <div className="min-w-0">
+              <ChatMock chat={active.chat} accent={active.accent} />
+              <p
+                className="mt-3 text-center text-[10.5px]"
+                style={{ fontFamily: MONO, color: 'var(--lp-fg-faint)' }}
+              >
+                Illustrative transcript · the chips are the engine&apos;s own decisions
+              </p>
             </div>
-          </Motion.div>
-        </AnimatePresence>
+        </Motion.div>
       </div>
     </div>
   );
 }
 
-/** A three-line taste of the real thing: question → answer → adapted follow-up. */
-function SampleExchange({ quote, accent }) {
-  return (
-    <div
-      className="mt-4 rounded-2xl p-4 sm:p-5"
-      style={{ background: 'rgba(255,255,255,0.022)', border: '1px solid var(--lp-line-soft)' }}
-    >
-      <p
-        className="mb-3 text-[9.5px] uppercase"
-        style={{ fontFamily: MONO, letterSpacing: '0.16em', color: 'var(--lp-fg-faint)' }}
-      >
-        Sample exchange
-      </p>
-      <div className="flex flex-col gap-2.5">
-        <Line who="Panel" text={quote.q} accent={accent} strong />
-        <Line who="Candidate" text={quote.a} accent={accent} />
-        <Line who="Panel" text={quote.f} accent={accent} strong adapted />
-      </div>
-    </div>
-  );
-}
-
-function Line({ who, text, accent, strong, adapted }) {
-  return (
-    <div className="flex gap-3">
-      <span
-        className="mt-[3px] w-[62px] flex-shrink-0 text-right text-[9.5px]"
-        style={{ fontFamily: MONO, color: strong ? accent : 'var(--lp-fg-faint)' }}
-      >
-        {who}
-      </span>
-      <p
-        className="text-[12.5px] leading-[1.6]"
-        style={{ color: strong ? 'var(--lp-fg)' : 'var(--lp-fg-dim)' }}
-      >
-        {text}
-        {adapted && (
-          <span
-            className="ml-2 align-middle text-[9px] uppercase"
-            style={{ fontFamily: MONO, letterSpacing: '0.1em', color: accent }}
-          >
-            ← adapted
-          </span>
-        )}
-      </p>
-    </div>
-  );
-}
