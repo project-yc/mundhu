@@ -418,13 +418,87 @@
 }
 
 /* ═══════════════════════════════════════════════════════
+   AI ADAPTIVE INTERVIEW — public product page
+   (/product/adaptive-interview). Everything is scoped under
+   `.adaptive-lp` so this dark marketing surface never leaks
+   into the recruiter or candidate app shells.
+   ═══════════════════════════════════════════════════════ */
+.adaptive-lp {
+  --lp-ink:          #0A0908;
+  --lp-surface:      #131110;
+  --lp-raised:       #1B1816;
+  --lp-line:         rgba(255, 240, 230, 0.09);
+  --lp-line-soft:    rgba(255, 240, 230, 0.055);
+  --lp-fg:           #F7F2ED;
+  --lp-fg-dim:       #A79C93;
+  --lp-fg-faint:     #6E655E;
+  --lp-ember:        #FF6B00;
+  --lp-ember-bright: #FF8528;
+  --lp-ember-soft:   #FFA94D;
+
+  background-color: var(--lp-ink);
+  color: var(--lp-fg);
+  color-scheme: dark;
+}
+
+.adaptive-lp ::selection { background: #FF8528; color: #1C0E04; }
+.adaptive-lp ::-webkit-scrollbar-thumb { background: rgba(255, 240, 230, 0.14); }
+.adaptive-lp ::-webkit-scrollbar-thumb:hover { background: rgba(255, 133, 40, 0.5); }
+
+/* Faint engineering grid behind the hero. */
+.lp-grid-bg {
+  background-image:
+    linear-gradient(to right,  rgba(255, 240, 230, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 240, 230, 0.05) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+/* Slow-drifting ember bloom. Purely decorative. */
+.lp-aurora { animation: lpAurora 20s ease-in-out infinite alternate; }
+@keyframes lpAurora {
+  0%   { transform: translate3d(-3%, -2%, 0) scale(1);    opacity: 0.5; }
+  100% { transform: translate3d(5%, 4%, 0)   scale(1.22); opacity: 0.85; }
+}
+
+/* Skeleton sweep inside the screenshot placeholders. */
+.lp-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.06) 48%,
+    transparent 72%
+  );
+  background-size: 220% 100%;
+  animation: lpShimmer 3.4s linear infinite;
+}
+@keyframes lpShimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -120% 0; }
+}
+
+.lp-caret { animation: lpCaret 1.05s steps(2, start) infinite; }
+@keyframes lpCaret { 50% { opacity: 0; } }
+
+/* The marquee of role families. */
+.lp-marquee { animation: lpMarquee 38s linear infinite; }
+@keyframes lpMarquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.lp-marquee-host:hover .lp-marquee { animation-play-state: paused; }
+
+/* ═══════════════════════════════════════════════════════
    Reduced motion — hold every animated state at its resting value.
    ═══════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
   .timer-urgent,
   .autosave-pulse,
   .ember-sweep,
-  .cand-section-item {
+  .cand-section-item,
+  .lp-aurora,
+  .lp-shimmer,
+  .lp-caret,
+  .lp-marquee {
     animation: none !important;
     transition: none !important;
   }

@@ -269,16 +269,6 @@ export default function CandidatesScreen() {
               </div>
             </div>
 
-            {/* Stats row */}
-            <div className="mt-[17px]">
-              <div className="grid grid-cols-1 gap-[8px] md:grid-cols-2 xl:grid-cols-4">
-                <MetricCard label="Total" description="Candidates for this assessment" value={total} icon={Users} loading={loading} featured />
-                <MetricCard label="Submitted" description="Completed the assessment" value={submitted} icon={FileText} loading={loading} />
-                <MetricCard label="Scored" description="With a generated report" value={scored} icon={FileText} loading={loading} />
-                <MetricCard label="Avg score" description="Across scored candidates" value={avgScore !== null ? avgScore : '—'} icon={FileText} loading={loading} />
-              </div>
-            </div>
-
             {/* Table */}
             <div className="mt-[17px] overflow-hidden rounded-[10px] border border-border-subtle bg-surface">
               <div className="overflow-x-auto">

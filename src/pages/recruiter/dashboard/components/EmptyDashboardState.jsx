@@ -37,7 +37,7 @@ function ActionCard({ title, description, ctaLabel, onClick, image }) {
   );
 }
 
-export default function EmptyDashboardState({ userName, onCreateAssessment, onInviteTeam, onOpenLibrary, onBrowseTemplates }) {
+export default function EmptyDashboardState({ userName, onCreateAssessment, onInviteTeam, onOpenLibrary, onBrowseTemplates, onSeeHowItWorks }) {
   const firstName = (userName || 'Recruiter').split(' ')[0];
 
   return (
@@ -74,7 +74,8 @@ export default function EmptyDashboardState({ userName, onCreateAssessment, onIn
           </p>
           <button
             type="button"
-            className="absolute left-[16px] bottom-[12px] flex items-center justify-center px-3 py-[6px] rounded-lg bg-white text-[11px] font-medium text-black"
+            onClick={onSeeHowItWorks}
+            className="absolute left-[16px] bottom-[12px] flex items-center justify-center px-3 py-[6px] rounded-lg bg-white text-[11px] font-medium text-black transition-transform hover:scale-[1.03] active:scale-[0.98]"
           >
             See how it works
           </button>

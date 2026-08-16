@@ -33,6 +33,9 @@ import TaskLibraryPage from './pages/recruiter/TaskLibraryPage'
 // Code-split: pulls CodeMirror + the markdown renderer out of the main bundle.
 // This route always opens in its own tab, so the extra fetch costs nothing elsewhere.
 const TaskCodeViewPage = lazy(() => import('./pages/recruiter/TaskCodeViewPage'))
+// Public product page for the AI Adaptive Interview. Code-split: it is
+// marketing-weight and never loads for someone who stays inside the app.
+const AdaptiveInterviewLanding = lazy(() => import('./pages/public/adaptive-interview'))
 import UserDashboardPage from './users/pages/UserDashboardPage'
 import UserSimulationsPage from './users/pages/UserSimulationsPage'
 import UserSimulationDetailPage from './users/pages/UserSimulationDetailPage'
@@ -84,6 +87,16 @@ function App() {
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/recruiter/signup" element={<SignupPage />} />
         <Route path="/waitlist" element={<WaitlistPage />} />
+        {/* Public: linked from the dashboard's AI Adaptive card and shareable
+            on its own to founders/hiring managers, so no auth guard. */}
+        <Route
+          path="/product/adaptive-interview"
+          element={
+            <Suspense fallback={<div className="min-h-screen bg-[#0A0908]" />}>
+              <AdaptiveInterviewLanding />
+            </Suspense>
+          }
+        />
         {/* Account recovery — these were linked but had no route. */}
         <Route path="/accept-invite" element={<AcceptInvitePage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
