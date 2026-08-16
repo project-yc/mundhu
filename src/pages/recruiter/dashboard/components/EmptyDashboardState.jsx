@@ -61,7 +61,7 @@ export default function EmptyDashboardState({ userName, onCreateAssessment, onIn
           <img
             src={adaptiveCardBg}
             alt="AI Adaptive Interview — see how it works"
-            className="absolute inset-0 w-full h-full object-fit object-left"
+            className="absolute inset-0 w-full h-full object-cover object-left"
           />
           {/* Invisible hit target over the baked-in "See how it works" button */}
           <button
