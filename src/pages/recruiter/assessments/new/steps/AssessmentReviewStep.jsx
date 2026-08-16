@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAssessmentBuilder } from '../context/AssessmentBuilderContext';
@@ -125,7 +124,6 @@ function ReviewTable({ rows }) {
 
 export function AssessmentReviewStep() {
   const { state, dispatch, ACTIONS } = useAssessmentBuilder();
-  const navigate = useNavigate();
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState('');
   const [draftSaved, setDraftSaved] = useState(false);
@@ -179,8 +177,8 @@ export function AssessmentReviewStep() {
     setPublishing(true);
     setError('');
     try {
-      const result = await publishAssessmentFlow(state, { dispatch, ACTIONS });
-      navigate(`/recruiter/assessments/${result.id || state.backendId}`);
+      await publishAssessmentFlow(state, { dispatch, ACTIONS });
+      dispatch({ type: ACTIONS.SET_STEP, payload: 4 });
     } catch (err) {
       if (err.message?.startsWith('MISSING_ENDPOINT')) {
         setError(`Cannot publish yet - some backend endpoints are not implemented:\n${err.message.replace('MISSING_ENDPOINT: ', '')}`);
