@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AskAnythingBar } from '../../../components/recruiter/AskAnythingBar';
 import DashboardHeader from './components/DashboardHeader';
@@ -6,6 +7,8 @@ import CandidateMetricsPanel from './components/CandidateMetricsPanel';
 import ScoreDistributionPanel from './components/ScoreDistributionPanel';
 import WorkspaceSnapshotPanel from './components/WorkspaceSnapshotPanel';
 import RecentActivityPanel from './components/RecentActivityPanel';
+import EmptyDashboardState from './components/EmptyDashboardState';
+import { getDashboardStats } from '../../../api/recruiter/dashboard';
 
 function getUser() {
   try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
@@ -15,6 +18,39 @@ export default function RecruiterDashboard() {
   const navigate = useNavigate();
   const user = getUser();
   const userName = user?.full_name || user?.name || user?.email || 'Recruiter';
+
+  // null = still checking, 0 = empty state, >0 = normal dashboard
+  const [totalAssessments, setTotalAssessments] = useState(null);
+
+  const checkAssessmentCount = useCallback(async () => {
+    try {
+      const res = await getDashboardStats();
+      const data = res?.data ?? res ?? {};
+      setTotalAssessments(Number(data?.workspace_snapshot?.total_assessments ?? 0));
+    } catch {
+      // If the check fails, fall back to the normal (populated) dashboard.
+      setTotalAssessments(1);
+    }
+  }, []);
+
+  useEffect(() => { checkAssessmentCount(); }, [checkAssessmentCount]);
+
+  if (totalAssessments === 0) {
+    return (
+      <div className="flex flex-col h-full bg-[#FBF9F4] overflow-hidden">
+        <AskAnythingBar className="px-[18px] flex-shrink-0" />
+        <div className="flex-1 min-h-0 overflow-y-auto px-[18px] pb-4 pt-3 lg:pb-4 lg:pt-3">
+          <EmptyDashboardState
+            userName={userName}
+            onCreateAssessment={() => navigate('/recruiter/assessments/new')}
+            onInviteTeam={() => navigate('/recruiter/invite')}
+            onOpenLibrary={() => navigate('/recruiter/task-library')}
+            onBrowseTemplates={() => navigate('/recruiter/assessments/new')}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-full bg-[#FBF9F4]">
