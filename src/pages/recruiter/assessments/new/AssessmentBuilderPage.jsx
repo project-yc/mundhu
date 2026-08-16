@@ -7,6 +7,7 @@ import { getBuilderState } from './api/assessmentBuilderApi';
 import { AssessmentDetailsStep } from './steps/AssessmentDetailsStep';
 import { AssessmentBuilderStep } from './steps/AssessmentBuilderStep';
 import { AssessmentReviewStep } from './steps/AssessmentReviewStep';
+import { AssessmentSuccessStep } from './steps/AssessmentSuccessStep';
 import { AskAnythingBar } from '../../../../components/recruiter/AskAnythingBar';
 import { Toaster } from '../../../../components/ui/sonner';
 
@@ -83,6 +84,9 @@ function BuilderLayout() {
           )}
           {state.currentStep === 3 && (
             <AssessmentReviewStep />
+          )}
+          {state.currentStep === 4 && (
+            <AssessmentSuccessStep assessmentId={state.backendId} />
           )}
         </div>
       </div>
