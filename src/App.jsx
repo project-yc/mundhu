@@ -205,7 +205,7 @@ function App() {
           }
         />
         <Route
-          path="/recruiter/assessments/new" 
+          path="/recruiter/assessments/new"
           element={
             <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><AssessmentBuilderPage /></RecruiterLayout>

@@ -57,19 +57,27 @@ export default function EmptyDashboardState({ userName, onCreateAssessment, onIn
 
       {/* Top row: AI Adaptive Interview banner + Ready to hire card */}
       <div className="flex gap-2.5 lg:gap-2.5 xl:gap-3 2xl:gap-3.5 items-stretch">
-        <div className="flex-1 min-w-0 relative rounded-2xl overflow-hidden h-[130px] lg:h-[130px] xl:h-[150px] 2xl:h-[164px]">
-          <img
-            src={adaptiveCardBg}
-            alt="AI Adaptive Interview — see how it works"
-            className="absolute inset-0 w-full h-full object-cover object-left"
-          />
-          {/* Invisible hit target over the baked-in "See how it works" button */}
+        <div
+          className="flex-1 min-w-0 relative rounded-2xl overflow-hidden h-[130px] lg:h-[130px] xl:h-[150px] 2xl:h-[164px] bg-[#FB7414]"
+          style={{
+            backgroundImage: `url(${adaptiveCardBg})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }}
+        >
+          <p className="absolute left-[16px] top-[13px] text-white text-[13.5px] lg:text-[14px] font-medium leading-[16px] max-w-[70%]">
+            AI Adaptive Interview
+          </p>
+          <p className="absolute left-[16px] top-[34px] text-[10.5px] lg:text-[11px] text-[rgba(255,255,255,0.65)] font-medium leading-[14px] max-w-[56%] lg:max-w-[360px]">
+            Create intelligent interviews that adapt in real time. AI asks follow-up questions, evaluates responses, and supports behavioral, coding, and scenario-based assessments.
+          </p>
           <button
             type="button"
-            aria-label="See how it works"
-            className="absolute"
-            style={{ left: '2.3%', bottom: '8%', width: '17.4%', height: '16.5%' }}
-          />
+            className="absolute left-[16px] bottom-[12px] flex items-center justify-center px-3 py-[6px] rounded-lg bg-white text-[11px] font-medium text-black"
+          >
+            See how it works
+          </button>
         </div>
 
         <div className="w-[220px] lg:w-[210px] xl:w-[230px] 2xl:w-[250px] flex-shrink-0 bg-white border border-[#e4e4e4] rounded-2xl h-[130px] lg:h-[130px] xl:h-[150px] 2xl:h-[164px] relative overflow-hidden">
