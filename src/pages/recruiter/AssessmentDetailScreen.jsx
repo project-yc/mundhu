@@ -310,7 +310,7 @@ function CandidateFunnelCard({ candidates, isReady, navigate, id }) {
           <Users className="w-8 h-8 text-text-faint mb-3" />
           <p className="text-[13px] text-text-muted">No candidates invited yet.</p>
           {isReady && (
-            <button onClick={() => navigate(`/recruiter/invite?assessmentId=${id}`)}
+            <button onClick={() => navigate(`/recruiter/invite/candidates?assessmentId=${id}`)}
               className="mt-3 text-[12px] text-brand hover:underline">
               Send first invite →
             </button>
@@ -501,7 +501,7 @@ export default function AssessmentDetailScreen() {
           </div>
         </div>
         {isReady && (
-          <button onClick={() => navigate(`/recruiter/invite?assessmentId=${id}`)}
+          <button onClick={() => navigate(`/recruiter/invite/candidates?assessmentId=${id}`)}
             className="flex items-center gap-2 px-4 py-2.5 bg-brand hover:bg-brand-hover text-on-brand text-[13px] font-bold rounded-xl transition-all duration-150 active:scale-[0.97] flex-shrink-0">
             <UserPlus className="w-4 h-4" />Invite Candidates
           </button>
@@ -585,7 +585,7 @@ export default function AssessmentDetailScreen() {
               {candidates.length === 0 ? 'No candidates invited yet.' : 'No candidates match this filter.'}
             </p>
             {candidates.length === 0 && isReady && (
-              <button onClick={() => navigate(`/recruiter/invite?assessmentId=${id}`)}
+              <button onClick={() => navigate(`/recruiter/invite/candidates?assessmentId=${id}`)}
                 className="mt-3 flex items-center gap-1.5 mx-auto text-[12px] text-brand hover:underline">
                 <UserPlus className="w-3.5 h-3.5" />Invite candidates →
               </button>
@@ -604,7 +604,7 @@ export default function AssessmentDetailScreen() {
           <div className="px-6 py-3 bg-surface border-t border-border-default flex items-center justify-between">
             <p className="text-[11px] text-text-muted">{filtered.length} of {candidates.length} candidate{candidates.length !== 1 ? 's' : ''}</p>
             {isReady && (
-              <button onClick={() => navigate(`/recruiter/invite?assessmentId=${id}`)}
+              <button onClick={() => navigate(`/recruiter/invite/candidates?assessmentId=${id}`)}
                 className="flex items-center gap-1.5 text-[11px] text-brand hover:underline">
                 <UserPlus className="w-3 h-3" />Invite more
               </button>
