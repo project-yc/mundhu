@@ -13,6 +13,7 @@ import CandidatesScreen from './pages/recruiter/CandidatesScreen'
 import ReportsScreen from './pages/recruiter/reports'
 import ReportDetailScreen from './pages/recruiter/ReportDetailScreen'
 import InviteScreen from './pages/recruiter/invite'
+import TeamInviteScreen from './pages/recruiter/invite/TeamInviteScreen'
 import InviteCandidate from './pages/recruiter/InviteCandidate'
 import VerifyCandidateInvite from './pages/recruiter/VerifyCandidateInvite'
 import CandidateAssessmentCompletePage from './pages/candidate/CandidateAssessmentCompletePage'
@@ -29,6 +30,8 @@ import AdminAssessmentsPage from './pages/admin/AdminAssessmentsPage'
 import AdminLibraryPage from './pages/admin/AdminLibraryPage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import TaskLibraryPage from './pages/recruiter/TaskLibraryPage'
+import EmptyDashboardState from './pages/recruiter/dashboard/components/EmptyDashboardState'
+import { AskAnythingBar } from './components/recruiter/AskAnythingBar'
 // Code-split: pulls CodeMirror + the markdown renderer out of the main bundle.
 // This route always opens in its own tab, so the extra fetch costs nothing elsewhere.
 const TaskCodeViewPage = lazy(() => import('./pages/recruiter/TaskCodeViewPage'))
@@ -195,15 +198,28 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        <Route 
-          path="/recruiter/dashboard" 
+        <Route
+          path="/recruiter/dashboard"
           element={
             <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><RecruiterDashboard /></RecruiterLayout>
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
+        <Route
+          path="/dev-preview/empty-dashboard"
+          element={
+            <RecruiterLayout>
+              <div className="flex flex-col h-full bg-[#FBF9F4] overflow-hidden">
+                <AskAnythingBar className="px-[18px] flex-shrink-0" />
+                <div className="flex-1 min-h-0 overflow-y-auto px-[18px] pb-4 pt-3">
+                  <EmptyDashboardState userName="Angelica Singh" />
+                </div>
+              </div>
+            </RecruiterLayout>
+          }
+        />
+        <Route
           path="/recruiter/assessments/new" 
           element={
             <ProtectedRoute requiredRole="RECRUITER">
@@ -299,16 +315,26 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route 
-          path="/recruiter/invite" 
+        <Route
+          path="/recruiter/invite"
+          element={
+            <ProtectedRoute requiredRole="RECRUITER">
+              <RecruiterLayout><TeamInviteScreen /></RecruiterLayout>
+            </ProtectedRoute>
+          }
+        />
+        {/* Original per-assessment candidate invite flow — kept intact, moved off
+            /recruiter/invite now that it hosts the team invite screen. */}
+        <Route
+          path="/recruiter/invite/candidates"
           element={
             <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><InviteScreen /></RecruiterLayout>
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/:assessmentId/invite" 
+        <Route
+          path="/:assessmentId/invite"
           element={
             <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterThemeProvider>
