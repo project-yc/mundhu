@@ -94,7 +94,7 @@ export default function AssessmentTable({ assessments, loading, onOpenWizard }) 
     return matchSearch && matchStatus;
   }), [assessments, search, statusFilter]);
 
-  const handleInvite = (assessmentId) => navigate(`/recruiter/invite?assessmentId=${assessmentId}`);
+  const handleInvite = (assessmentId) => navigate(`/recruiter/invite/candidates?assessmentId=${assessmentId}`);
 
   return (
     <div className="space-y-4">
