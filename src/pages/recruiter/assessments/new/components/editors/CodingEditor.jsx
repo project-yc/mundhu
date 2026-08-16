@@ -45,7 +45,7 @@ export function CodingEditor({ sectionId, item }) {
     setLoadingLibrary(true);
     setLibError('');
     getLibraryTasks()
-      .then(res => setLibraryTasks(res.data || res || []))
+      .then(tasks => setLibraryTasks(tasks))
       .catch(e => setLibError(e.message))
       .finally(() => setLoadingLibrary(false));
   }, []);

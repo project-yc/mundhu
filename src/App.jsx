@@ -7,7 +7,6 @@ import WaitlistPage from './pages/auth/waitlist'
 import RecruiterDashboard from './pages/recruiter/RecruiterDashboard'
 import AssessmentDetailScreen from './pages/recruiter/AssessmentDetailScreen'
 import RecruiterLayout from './pages/recruiter/RecruiterLayout'
-import AssessmentsScreen from './pages/recruiter/AssessmentsScreen'
 import AssessmentsListPage from './pages/recruiter/assessments-list'
 import PipelineScreen from './pages/recruiter/pipeline'
 import CandidatesScreen from './pages/recruiter/CandidatesScreen'
@@ -212,13 +211,23 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        <Route 
-          path="/recruiter/assessments/:id" 
+        {/* Resume an existing draft. Must be declared before `/:id` so "edit"
+            is not swallowed by the detail screen's param route. */}
+        <Route
+          path="/recruiter/assessments/:id/edit"
+          element={
+            <ProtectedRoute requiredRole="RECRUITER">
+              <RecruiterLayout><AssessmentBuilderPage /></RecruiterLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/recruiter/assessments/:id"
           element={
             <ProtectedRoute requiredRole="RECRUITER">
               <RecruiterLayout><AssessmentDetailScreen /></RecruiterLayout>
             </ProtectedRoute>
-          } 
+          }
         />
         <Route
           path="/recruiter/assessments"

@@ -1,14 +1,16 @@
 import { ADAPTIVE_CARD_IMAGE, SECTION_CARDS } from './constants';
 import { StepProgress } from './StepProgress';
 
-export function SectionSelectionContent({
-  currentStep,
-  onAddSection,
-  onSaveDraft,
-  savingDraft = false,
-  onReview,
-  canReview = false,
-}) {
+/**
+ * The section-type picker.
+ *
+ * Save-as-draft and Review & Publish used to live at the bottom of this
+ * component, which meant they vanished the moment you clicked a question —
+ * selecting a question swaps the whole right panel to an editor. They are
+ * builder-wide actions, so they now live in a persistent footer
+ * (`BuilderActionsFooter`) instead.
+ */
+export function SectionSelectionContent({ currentStep, onAddSection }) {
   return (
     <>
       <div className="w-[calc(100%-24px)]">
@@ -51,25 +53,6 @@ export function SectionSelectionContent({
             </button>
           ))}
         </div>
-      </div>
-
-      <div className="mt-auto flex w-[calc(100%-24px)] justify-end gap-[10px] pt-[24px]">
-        <button
-          type="button"
-          onClick={onSaveDraft}
-          disabled={savingDraft}
-          className="h-[40px] rounded-button border border-border-default bg-surface px-[28px] text-[14px] font-medium text-text-primary shadow-card transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {savingDraft ? 'Saving...' : 'Save as draft'}
-        </button>
-        <button
-          type="button"
-          onClick={onReview}
-          disabled={!canReview}
-          className="h-[40px] rounded-button bg-[var(--color-assessment-cta)] px-[28px] text-[14px] font-bold text-[var(--color-assessment-cta-text)] shadow-card transition-colors hover:bg-[var(--color-assessment-cta-hover)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--color-assessment-cta)]"
-        >
-          Review &amp; Publish
-        </button>
       </div>
     </>
   );

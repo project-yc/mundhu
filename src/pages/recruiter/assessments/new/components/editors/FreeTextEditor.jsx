@@ -34,6 +34,28 @@ export function FreeTextEditor({ sectionId, item, allItems, itemIndex }) {
             rows={4}
             className="w-full px-3 py-2 bg-page border border-border-default rounded-md text-[12.5px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 resize-none"
           />
+          {/*
+            The model answer. It reaches the AI grader as its own block —
+            separate from grading hints — but had no field here, so a question
+            picked from the library or hydrated from a saved draft carried one
+            invisibly with no way to see or correct it.
+          */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-secondary uppercase tracking-wider mb-1">
+              Model answer
+              <span className="ml-1.5 normal-case tracking-normal font-normal text-text-muted">
+                — sent to the grader, never to the candidate
+              </span>
+            </label>
+            <textarea
+              value={item.answer ?? ''}
+              onChange={e => updateItem({ answer: e.target.value })}
+              placeholder="What a strong answer covers…"
+              rows={3}
+              className="w-full px-3 py-2 bg-page border border-border-default rounded-md text-[12.5px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 resize-none"
+            />
+          </div>
+
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="block text-[10px] font-semibold text-text-secondary uppercase tracking-wider mb-1">

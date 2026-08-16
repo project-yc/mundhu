@@ -8,6 +8,8 @@ import {
   SlidersHorizontal,
   X,
 } from 'lucide-react';
+import CreateTaskOverlay from '../../../../../../components/recruiter/CreateTaskOverlay.jsx';
+import LibraryPickerPanel from '../../../../../../components/recruiter/library/LibraryPickerPanel.jsx';
 import {
   ADAPTIVE_PRESET_OPTIONS,
   ADAPTIVE_TIMER_OPTIONS,
@@ -36,7 +38,7 @@ import {
   SelectItem,
 } from '../../../../../../components/ui/select';
 
-function DrawerFooter({ onCancel, onSubmit, submitLabel = 'Add' }) {
+function DrawerFooter({ onCancel, onSubmit, submitLabel = 'Add', submitDisabled = false }) {
   return (
     <div className="flex flex-shrink-0 justify-end gap-[10px] px-[28px] pb-[28px] pt-[10px]">
       <button
@@ -49,7 +51,8 @@ function DrawerFooter({ onCancel, onSubmit, submitLabel = 'Add' }) {
       <button
         type="button"
         onClick={onSubmit}
-        className="h-[42px] min-w-[82px] rounded-[8px] bg-[var(--color-assessment-cta)] px-[24px] text-[15px] font-bold text-[var(--color-assessment-cta-text)] shadow-card transition-colors hover:bg-[var(--color-assessment-cta-hover)]"
+        disabled={submitDisabled}
+        className="h-[42px] min-w-[82px] rounded-[8px] bg-[var(--color-assessment-cta)] px-[24px] text-[15px] font-bold text-[var(--color-assessment-cta-text)] shadow-card transition-colors hover:bg-[var(--color-assessment-cta-hover)] disabled:cursor-not-allowed disabled:opacity-40"
       >
         {submitLabel}
       </button>
@@ -57,25 +60,59 @@ function DrawerFooter({ onCancel, onSubmit, submitLabel = 'Add' }) {
   );
 }
 
-function QuestionModeTabs() {
+/**
+ * Library / manual switch.
+ *
+ * Both buttons shipped without an `onClick`, so this could never switch and the
+ * library half of the overlay was unreachable. The label was "Upload file",
+ * which the design calls "From Task library" — since neither button had ever
+ * had behaviour, the label was drift rather than intent.
+ */
+function QuestionModeTabs({ value, onChange }) {
+  const modes = [
+    { key: 'library', label: 'From Task library' },
+    { key: 'manual', label: 'Enter manually' },
+  ];
+
   return (
     <div className="grid h-[38px] grid-cols-2 rounded-full border border-border-default bg-surface-muted p-[3px]">
-      <button type="button" className="rounded-full text-[14px] font-medium text-text-secondary">
-        Upload file
-      </button>
-      <button type="button" className="rounded-full border border-border-default bg-surface text-[14px] font-semibold text-text-primary shadow-card">
-        Enter manually
-      </button>
+      {modes.map(mode => {
+        const active = value === mode.key;
+        return (
+          <button
+            key={mode.key}
+            type="button"
+            onClick={() => onChange(mode.key)}
+            aria-pressed={active}
+            className={`rounded-full text-[14px] transition-colors ${
+              active
+                ? 'border border-border-default bg-surface font-semibold text-text-primary shadow-card'
+                : 'font-medium text-text-secondary'
+            }`}
+          >
+            {mode.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function QuestionIntro() {
+// The copy used to be the MCQ sentence unconditionally, which read "Add a
+// Multiple Choice Question" on the ranking and free-text forms as soon as they
+// were routed through here.
+const INTRO_COPY = {
+  mcq: 'Add a multiple choice question. You can mix types within the same assessment.',
+  ranking: 'Add a list for the candidate to put in order. You can mix types within the same assessment.',
+  free_text: 'Add a written-answer question. You can mix types within the same assessment.',
+};
+
+function QuestionIntro({ contentType = 'mcq' }) {
   return (
     <div className="mt-[24px]">
       <h3 className="text-[21px] font-bold leading-none text-text-primary">Questions &amp; Answers</h3>
       <p className="mt-[8px] text-[14px] leading-[20px] text-text-secondary">
-        Add a Multiple Choice Question. You can mix types within the same assessment.
+        {INTRO_COPY[contentType] || INTRO_COPY.mcq}
       </p>
     </div>
   );
@@ -225,9 +262,9 @@ function CodingQuestionForm({ form, onCancel, onSubmit }) {
 
       <div className="relative min-h-0 flex-1 overflow-y-auto px-[22px] pt-[24px]">
         <div>
-          <h3 className="text-[21px] font-bold leading-none text-text-primary">Questions &amp; Answers</h3>
+          <h3 className="text-[21px] font-bold leading-none text-text-primary">Coding task</h3>
           <p className="mt-[8px] text-[14px] leading-[20px] text-text-secondary">
-            Add a Multiple Choice Question. You can mix types within the same assessment.
+            Pick a task from the library. You can mix types within the same assessment.
           </p>
         </div>
 
@@ -299,12 +336,15 @@ function CodingQuestionForm({ form, onCancel, onSubmit }) {
           {form.libraryError && (
             <p className="py-[8px] text-[13px] text-error">{form.libraryError}</p>
           )}
-          {!form.libraryLoading && form.codingTasks.map((task, index) => {
+          {!form.libraryLoading && form.codingTasks.map((task) => {
             const taskTitle = task.title || task.name || 'Untitled task';
             const language = task.language || task.primary_language || task.tags?.[0] || 'Python';
             const tags = task.tags?.filter(tag => tag !== language).slice(0, 2) || [];
-            const selected = form.selectedTask?.id === task.id
-              || (!form.selectedTask && index === DEFAULT_CODING_TASK_INDEX);
+            // Only an actual choice counts. This used to also highlight row 0
+            // when nothing was selected, while the submit handler fell back to
+            // that same row — so a recruiter who picked nothing silently got
+            // task #0 and it looked like they had chosen it.
+            const selected = form.selectedTask?.id === task.id;
             return (
               <button
                 key={task.id}
@@ -368,7 +408,10 @@ function CodingQuestionForm({ form, onCancel, onSubmit }) {
               <p className="text-[14px] font-medium leading-none text-text-primary">Select the role</p>
               <div className="mt-[11px] flex flex-wrap gap-x-[7px] gap-y-[8px]">
                 {FILTER_ROLES.map((role, index) => {
-                  const active = form.codingFilters.role === role && index === 0;
+                  // The `&& index === 0` this used to carry meant only the first
+                  // role could ever render as selected — clicking any other one
+                  // updated state while the radio stayed empty.
+                  const active = form.codingFilters.role === role;
                   return (
                     <button
                       key={`${role}-${index}`}
@@ -436,18 +479,20 @@ function CodingQuestionForm({ form, onCancel, onSubmit }) {
   );
 }
 
-function FreeTextQuestionForm({ form, onCancel, onSubmit }) {
+function FreeTextQuestionForm({ form, onCancel, onSubmit, submitLabel = 'Add' }) {
+  const editing = form.editingLibraryItem;
   return (
     <>
       <div className="flex h-[56px] flex-shrink-0 items-center border-b border-border-subtle px-[22px]">
         <h2 className="text-[15px] font-medium leading-none text-text-secondary">
-          Create your <span className="font-bold text-text-primary">Free text</span> Question
+          {editing ? 'Edit' : 'Create your'}{' '}
+          <span className="font-bold text-text-primary">Free text</span> Question
         </h2>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-[22px] py-[22px]">
-        <QuestionModeTabs />
-        <QuestionIntro />
+        <QuestionModeTabs value={form.questionMode} onChange={form.setQuestionMode} />
+        <QuestionIntro contentType="free_text" />
 
         <label className="mt-[24px] block text-[15px] font-semibold leading-none text-text-primary">
           Ask your question
@@ -460,8 +505,12 @@ function FreeTextQuestionForm({ form, onCancel, onSubmit }) {
         />
 
         <label className="mt-[20px] block text-[15px] font-semibold leading-none text-text-primary">
-          Answer
+          Model answer
         </label>
+        <p className="mt-[4px] text-[13px] leading-[17px] text-text-secondary">
+          Shown to the AI grader, never to the candidate. Leave blank to grade on
+          the prompt alone.
+        </p>
         <Textarea
           value={form.freeTextAnswer}
           onChange={event => form.setFreeTextAnswer(event.target.value)}
@@ -498,23 +547,25 @@ function FreeTextQuestionForm({ form, onCancel, onSubmit }) {
         </Select>
       </div>
 
-      <DrawerFooter onCancel={onCancel} onSubmit={onSubmit} />
+      <DrawerFooter onCancel={onCancel} onSubmit={onSubmit} submitLabel={submitLabel} />
     </>
   );
 }
 
-function RankingQuestionForm({ form, onCancel, onSubmit }) {
+function RankingQuestionForm({ form, onCancel, onSubmit, submitLabel = 'Add' }) {
+  const editing = form.editingLibraryItem;
   return (
     <>
       <div className="flex h-[56px] flex-shrink-0 items-center border-b border-border-subtle px-[22px]">
         <h2 className="text-[15px] font-medium leading-none text-text-secondary">
-          Create your <span className="font-bold text-text-primary">Ranking</span> Question
+          {editing ? 'Edit' : 'Create your'}{' '}
+          <span className="font-bold text-text-primary">Ranking</span> Question
         </h2>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-[22px] py-[22px]">
-        <QuestionModeTabs />
-        <QuestionIntro />
+        <QuestionModeTabs value={form.questionMode} onChange={form.setQuestionMode} />
+        <QuestionIntro contentType="ranking" />
 
         <label className="mt-[24px] block text-[15px] font-semibold leading-none text-text-primary">
           Ranking
@@ -554,38 +605,83 @@ function RankingQuestionForm({ form, onCancel, onSubmit }) {
           </button>
         </div>
 
-        <label className="mt-[20px] block text-[15px] font-semibold leading-none text-text-primary">
-          Grading hints
-        </label>
-        <Input
-          value={form.gradingHints}
-          onChange={event => form.setGradingHints(event.target.value)}
-          className="mt-[10px] h-[42px] rounded-[8px] border-border-default text-[15px] font-medium"
-          placeholder="eg. O (n log n)"
-        />
+        {/*
+          The "Grading hints" field that used to sit here is gone. Ranking is
+          scored deterministically by RankingScoringService against correct_rank
+          — there is no grader to hint. Nothing read the value, no column exists
+          to store it in, and it was dropped on the way to the API.
+        */}
+        <p className="mt-[16px] text-[13px] leading-[17px] text-text-secondary">
+          The order above is the correct answer. Candidates see the items
+          shuffled.
+        </p>
 
         <div className="mt-[20px] max-w-[220px]">
           <PointsSelect value={form.points} onChange={form.setPoints} />
         </div>
       </div>
 
-      <DrawerFooter onCancel={onCancel} onSubmit={onSubmit} />
+      <DrawerFooter onCancel={onCancel} onSubmit={onSubmit} submitLabel={submitLabel} />
     </>
   );
 }
 
-function McqQuestionForm({ form, onCancel, onSubmit }) {
+// The drawer's heading, per authored type. `LibraryPickerPanel` was already
+// parameterized by content_type; only the routing to it was MCQ-only.
+const TYPE_LABEL = { mcq: 'MCQ', ranking: 'Ranking', free_text: 'Free text' };
+
+function LibraryMode({ contentType, form, actions, onCancel }) {
   return (
     <>
       <div className="flex h-[56px] flex-shrink-0 items-center border-b border-border-subtle px-[22px]">
         <h2 className="text-[15px] font-medium leading-none text-text-secondary">
-          Create your <span className="font-bold text-text-primary">MCQ</span> Question
+          Create your{' '}
+          <span className="font-bold text-text-primary">{TYPE_LABEL[contentType]}</span> Question
+        </h2>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col px-[22px] py-[22px]">
+        <QuestionModeTabs value={form.questionMode} onChange={form.setQuestionMode} />
+
+        <div className="mt-[18px] min-h-0 flex-1">
+          <LibraryPickerPanel
+            contentType={contentType}
+            selectedId={form.selectedLibraryItem?.id}
+            onSelect={form.setSelectedLibraryItem}
+            onEdit={actions.editLibraryItem}
+            onCreateCustom={actions.openCreateOverlay}
+            refreshToken={form.libraryRefreshToken}
+          />
+        </div>
+
+        <div className="mt-[18px] max-w-[220px] flex-shrink-0">
+          <PointsSelect value={form.points} onChange={form.setPoints} label="Total Points" />
+        </div>
+      </div>
+
+      <DrawerFooter
+        onCancel={onCancel}
+        onSubmit={actions.addFromLibrary}
+        submitDisabled={!form.selectedLibraryItem}
+      />
+    </>
+  );
+}
+
+function McqQuestionForm({ form, onCancel, onSubmit, submitLabel = 'Add' }) {
+  const editing = form.editingLibraryItem;
+  return (
+    <>
+      <div className="flex h-[56px] flex-shrink-0 items-center border-b border-border-subtle px-[22px]">
+        <h2 className="text-[15px] font-medium leading-none text-text-secondary">
+          {editing ? 'Edit' : 'Create your'}{' '}
+          <span className="font-bold text-text-primary">MCQ</span> Question
         </h2>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-[22px] py-[22px]">
-        <QuestionModeTabs />
-        <QuestionIntro />
+        <QuestionModeTabs value={form.questionMode} onChange={form.setQuestionMode} />
+        <QuestionIntro contentType="mcq" />
 
         <label className="mt-[24px] block text-[15px] font-semibold leading-none text-text-primary">
           Ask your question
@@ -679,9 +775,15 @@ function McqQuestionForm({ form, onCancel, onSubmit }) {
             <span className={`h-[14px] w-[14px] rounded-full bg-surface transition-transform ${form.shuffleOptions ? 'translate-x-[13px]' : 'translate-x-0'}`} />
           </button>
         </div>
+
+        <p className="mt-[16px] text-[13px] leading-[18px] text-text-muted">
+          {editing
+            ? 'Changes are saved to My Library. Editing a shared TruDev question saves a copy instead — the original is left untouched.'
+            : 'Saved to My Library so you can reuse it in other assessments.'}
+        </p>
       </div>
 
-      <DrawerFooter onCancel={onCancel} onSubmit={onSubmit} />
+      <DrawerFooter onCancel={onCancel} onSubmit={onSubmit} submitLabel={submitLabel} />
     </>
   );
 }
@@ -891,40 +993,150 @@ function QuestionStep({ drawerType, form, actions, onCancel }) {
     return <CodingQuestionForm form={form} onCancel={onCancel} onSubmit={actions.createCoding} />;
   }
 
+  // All three question types support both modes. Free text and ranking used to
+  // route straight to their manual forms, which is why the toggle above those
+  // forms was rendered with no props at all — clicking either button threw.
+  if (form.questionMode === 'library') {
+    return (
+      <LibraryMode
+        contentType={drawerType}
+        form={form}
+        actions={actions}
+        onCancel={onCancel}
+      />
+    );
+  }
+
+  // The same form authors a new question and edits an existing library one —
+  // only where the save lands differs.
+  const editing = form.editingLibraryItem;
+
   if (drawerType === 'free_text') {
-    return <FreeTextQuestionForm form={form} onCancel={onCancel} onSubmit={actions.createFreeText} />;
+    return (
+      <FreeTextQuestionForm
+        form={form}
+        onCancel={onCancel}
+        onSubmit={editing ? actions.saveLibraryEdit : actions.createFreeText}
+        submitLabel={editing ? 'Save' : 'Add'}
+      />
+    );
   }
 
   if (drawerType === 'ranking') {
-    return <RankingQuestionForm form={form} onCancel={onCancel} onSubmit={actions.createRanking} />;
+    return (
+      <RankingQuestionForm
+        form={form}
+        onCancel={onCancel}
+        onSubmit={editing ? actions.saveLibraryEdit : actions.createRanking}
+        submitLabel={editing ? 'Save' : 'Add'}
+      />
+    );
   }
 
-  return <McqQuestionForm form={form} onCancel={onCancel} onSubmit={actions.createMcq} />;
+  return (
+    <McqQuestionForm
+      form={form}
+      onCancel={onCancel}
+      onSubmit={editing ? actions.saveLibraryEdit : actions.createMcq}
+      submitLabel={editing ? 'Save' : 'Add'}
+    />
+  );
+}
+
+/**
+ * Asked before editing a question other assessments already use.
+ *
+ * A SectionItem is a plain FK — nothing is snapshotted — so editing in place
+ * really does rewrite every assessment referencing the question. That is
+ * occasionally what the recruiter wants (fixing a typo everywhere), so it stays
+ * available; it just stops being the silent default.
+ */
+function EditScopeDialog({ scope, actions }) {
+  if (!scope) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-[440px] rounded-[12px] bg-surface p-[22px] shadow-modal">
+        <h3 className="text-[17px] font-bold text-text-primary">
+          This question is used elsewhere
+        </h3>
+        <p className="mt-[8px] text-[14px] leading-[20px] text-text-secondary">
+          {scope.usageCount} other assessment{scope.usageCount === 1 ? '' : 's'} use
+          {scope.usageCount === 1 ? 's' : ''} this question. Editing it in place changes
+          it for {scope.usageCount === 1 ? 'that one' : 'all of them'}.
+        </p>
+
+        <div className="mt-[20px] flex flex-col gap-[8px]">
+          <button
+            type="button"
+            onClick={() => actions.resolveEditScope('copy')}
+            className="h-[42px] rounded-[8px] bg-[var(--color-assessment-cta)] px-[16px] text-[15px] font-bold text-[var(--color-assessment-cta-text)]"
+          >
+            Make a copy for this assessment
+          </button>
+          <button
+            type="button"
+            onClick={() => actions.resolveEditScope('in_place')}
+            className="h-[42px] rounded-[8px] border border-border-default bg-surface px-[16px] text-[15px] font-medium text-text-primary hover:bg-surface-hover"
+          >
+            Edit everywhere it's used
+          </button>
+          <button
+            type="button"
+            onClick={actions.cancelEditScope}
+            className="h-[38px] text-[14px] font-medium text-text-secondary hover:text-text-primary"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function SectionCreationDrawer({ drawer, form, actions }) {
   return (
-    <Sheet open={drawer.isOpen} onOpenChange={open => { if (!open) drawer.close(); }}>
-      <SheetContent
-        side="right"
-        className="flex w-[min(760px,54vw)] min-w-[560px] max-w-none flex-col gap-0 p-0"
-      >
-        {drawer.step === 'section' ? (
-          <SectionDetailsStep
-            drawerType={drawer.type}
-            form={form}
-            onCancel={drawer.close}
-            onContinue={drawer.continueToQuestion}
-          />
-        ) : (
-          <QuestionStep
-            drawerType={drawer.type}
-            form={form}
-            actions={actions}
-            onCancel={drawer.close}
-          />
-        )}
-      </SheetContent>
-    </Sheet>
+    <>
+      <Sheet open={drawer.isOpen} onOpenChange={open => { if (!open) drawer.close(); }}>
+        <SheetContent
+          side="right"
+          className="flex w-[min(760px,54vw)] min-w-[560px] max-w-none flex-col gap-0 p-0"
+        >
+          {drawer.step === 'section' ? (
+            <SectionDetailsStep
+              drawerType={drawer.type}
+              form={form}
+              onCancel={drawer.close}
+              onContinue={drawer.continueToQuestion}
+            />
+          ) : (
+            <QuestionStep
+              drawerType={drawer.type}
+              form={form}
+              actions={actions}
+              onCancel={drawer.close}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/*
+        Stacked over the drawer rather than replacing it: authoring or importing
+        a batch of questions shouldn't cost the recruiter the section they were
+        halfway through building. It saves into My Library, which is the tab the
+        picker is already showing.
+      */}
+      <CreateTaskOverlay
+        open={form.createOverlay.open}
+        onOpenChange={open => { if (!open) actions.closeCreateOverlay(); }}
+        taskType={form.createOverlay.type}
+        onSave={actions.saveCreateOverlay}
+        // Domain/role/difficulty come from the assessment and section, so the
+        // overlay drops straight to upload → confirm columns → review.
+        inheritsMetadata
+      />
+
+      <EditScopeDialog scope={form.editScope} actions={actions} />
+    </>
   );
 }

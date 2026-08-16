@@ -16,6 +16,7 @@ export const ACTIONS = {
   OPEN_ADD_QUESTION_DRAWER: 'OPEN_ADD_QUESTION_DRAWER',
   CLEAR_ADD_QUESTION_DRAWER: 'CLEAR_ADD_QUESTION_DRAWER',
   SET_STEP: 'SET_STEP',
+  HYDRATE: 'HYDRATE',
 };
 
 // ─── Initial state ─────────────────────────────────────────────────────────────
@@ -309,6 +310,12 @@ export function assessmentBuilderReducer(state, action) {
 
     case ACTIONS.SET_STEP:
       return { ...state, currentStep: action.payload };
+
+    // Resume an existing draft. `getBuilderState` has existed since the builder
+    // was written but was imported nowhere, which is why "Edit" on the
+    // assessments list opened a blank builder and a refresh lost everything.
+    case ACTIONS.HYDRATE:
+      return { ...state, ...action.payload };
 
     default:
       return state;

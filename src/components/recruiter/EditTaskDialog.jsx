@@ -46,6 +46,7 @@ function toFormState(item) {
     })),
     word_limit: td.word_limit ?? '',
     grading_hints: td.grading_hints || '',
+    sample_answer: td.sample_answer || '',
     scoring_mode: td.scoring_mode || 'weighted_partial',
     items: (td.items || []).map(i => ({ text: i.text || '' })),
   };
@@ -79,6 +80,9 @@ function toPayload(form, contentType) {
     const limit = Number(form.word_limit);
     if (Number.isFinite(limit) && limit > 0) payload.free_text.word_limit = limit;
     if (form.grading_hints.trim()) payload.free_text.grading_hints = form.grading_hints.trim();
+    // The model answer. Absent here, this dialog could show and rewrite a
+    // free-text question without ever surfacing the field the AI grader reads.
+    if (form.sample_answer.trim()) payload.free_text.sample_answer = form.sample_answer.trim();
   } else if (contentType === 'ranking') {
     payload.ranking = {
       prompt: form.prompt,
@@ -221,6 +225,14 @@ function FreeTextFields({ form, set }) {
           />
         </Field>
       </div>
+      <Field label="Model answer" htmlFor="sample_answer" hint="Internal — the answer the grader compares against. Never shown to candidates.">
+        <Textarea
+          id="sample_answer"
+          value={form.sample_answer}
+          onChange={e => set('sample_answer', e.target.value)}
+          rows={3}
+        />
+      </Field>
       <Field label="Grading hints" htmlFor="grading_hints" hint="Internal — guides the grader, never shown to candidates.">
         <Textarea
           id="grading_hints"

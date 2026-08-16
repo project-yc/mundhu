@@ -63,8 +63,11 @@ export const createAssessment = async (name, description, duration_minutes, conf
 // (admin screens, CandidatesScreen, InviteScreen) keep working.
 export const getAllAssessments = listAssessments;
 
+// `include_sections` is opt-in server-side (GetAssessmentView). Without it the
+// response carries no `sections` key at all, so AssessmentDetailScreen rendered
+// "0 sections · 0 questions" for every assessment, however many it really had.
 export const getAssessmentById = async (id) => {
-  return authAxios.get(`/api/v1/assessment/${id}`);
+  return authAxios.get(`/api/v1/assessment/${id}?include_sections=true`);
 };
 
 export const getTasksByAssessmentId = async (assessmentId) => {

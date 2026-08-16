@@ -23,6 +23,7 @@ import {
 import { AskAnythingBar } from '../../components/recruiter/AskAnythingBar.jsx';
 import CreateTaskOverlay from '../../components/recruiter/CreateTaskOverlay.jsx';
 import EditTaskDialog from '../../components/recruiter/EditTaskDialog.jsx';
+import { buildLibraryTypeData } from '../../lib/libraryTypeData.js';
 import {
   Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink,
   BreadcrumbPage, BreadcrumbSeparator,
@@ -87,39 +88,13 @@ const CREATE_TASK_TYPES = [
   { key: 'mcq', label: 'MCQ Section', icon: Pencil },
   { key: 'ranking', label: 'Ranking', icon: History },
   { key: 'free_text', label: 'Free text', icon: Heart },
-  { key: 'coding_dsa', label: 'Coding- DSA', icon: Undo2, dividerBefore: true },
-  { key: 'coding_scenario', label: 'Coding- Scenario based', icon: Redo2 },
+  // Coding tasks need a repo bundle, not a question form — CreateTaskOverlay
+  // cannot author them. These used to console.log and silently do nothing.
+  { key: 'coding_dsa', label: 'Coding- DSA', icon: Undo2, dividerBefore: true, disabled: true },
+  { key: 'coding_scenario', label: 'Coding- Scenario based', icon: Redo2, disabled: true },
 ];
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-
-// Maps a question from CreateTaskOverlay onto the nested type_data the library
-// create endpoint expects (see API_CONTRACTS_TASK_LIBRARY.md §2.2).
-function buildTypeData(contentType, q) {
-  if (contentType === 'mcq') {
-    return {
-      prompt: q.question || '',
-      selection_mode: 'single',
-      options: (q.options || []).map(o => ({
-        text: o.text,
-        is_correct: !!o.is_correct,
-        points: o.is_correct ? 1 : 0,
-      })),
-    };
-  }
-  if (contentType === 'ranking') {
-    return {
-      prompt: q.question || '',
-      scoring_mode: 'weighted_partial',
-      // Overlay items are plain strings, already in correct order.
-      items: (q.items || []).map(text => ({ text: typeof text === 'string' ? text : text?.text || '' })),
-    };
-  }
-  return {
-    prompt: q.question || '',
-    ...(q.guideline ? { grading_hints: q.guideline } : {}),
-  };
-}
 
 // ─── sub-components ───────────────────────────────────────────────────────────
 function SectionHeader({ label, count, color, open, onToggle }) {
@@ -306,17 +281,24 @@ function CreateTaskMenu({ onSelect }) {
           role="menu"
           className="absolute right-0 top-full mt-2 w-64 bg-surface border border-border-subtle rounded-xl shadow-lg p-1.5 z-50 origin-top-right animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-150"
         >
-          {CREATE_TASK_TYPES.map(({ key, label, icon: Icon, dividerBefore }) => (
+          {CREATE_TASK_TYPES.map(({ key, label, icon: Icon, dividerBefore, disabled }) => (
             <div key={key}>
               {dividerBefore && <div className="my-1 border-t border-border-subtle" />}
               <button
                 type="button"
                 role="menuitem"
+                disabled={disabled}
+                title={disabled ? 'Coding tasks are authored by upload, not here — not available yet.' : undefined}
                 onClick={() => {
+                  if (disabled) return;
                   onSelect?.(key);
                   setOpen(false);
                 }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] text-text-primary hover:bg-surface-muted transition-colors duration-150"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] text-text-primary transition-colors duration-150 ${
+                  disabled
+                    ? 'opacity-40 cursor-not-allowed'
+                    : 'hover:bg-surface-muted'
+                }`}
               >
                 <Icon className="w-4 h-4 text-text-muted flex-shrink-0" />
                 <span>{label}</span>
@@ -330,8 +312,13 @@ function CreateTaskMenu({ onSelect }) {
 }
 
 // ─── page ─────────────────────────────────────────────────────────────────────
+// Large enough that the page still feels like a full library view, small enough
+// that a big org's library doesn't serialize every row on first paint.
+const LIBRARY_PAGE_SIZE = 100;
+
 export default function TaskLibraryPage() {
   const [allTasks, setAllTasks] = useState([]);
+  const [totalTasks, setTotalTasks] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -380,14 +367,21 @@ export default function TaskLibraryPage() {
     return [{ value: '', label: 'All' }, ...opts];
   }, [filterOptions]);
 
+  // The list endpoints return a paginated envelope; the api module normalizes it
+  // to { items, total, page, totalPages }.
   const doFetch = useCallback(async (f, s, tab) => {
     const currentTab = tab ?? activeTab;
     setLoading(true);
     setError('');
     try {
       const fetchFn = currentTab === 'my' ? getMyLibrary : getTrudevLibrary;
-      const res = await fetchFn({ ...f, search: s.trim() || undefined });
-      setAllTasks((res?.data) || []);
+      const page = await fetchFn({
+        ...f,
+        search: s.trim() || undefined,
+        page_size: LIBRARY_PAGE_SIZE,
+      });
+      setAllTasks(page.items);
+      setTotalTasks(page.total);
     } catch (err) {
       setError(err.message || 'Failed to load task library.');
     } finally {
@@ -402,8 +396,15 @@ export default function TaskLibraryPage() {
       setError('');
       try {
         const fetchFn = activeTab === 'my' ? getMyLibrary : getTrudevLibrary;
-        const res = await fetchFn({ ...filters, search: search.trim() || undefined });
-        if (!cancelled) setAllTasks((res?.data) || []);
+        const page = await fetchFn({
+          ...filters,
+          search: search.trim() || undefined,
+          page_size: LIBRARY_PAGE_SIZE,
+        });
+        if (!cancelled) {
+          setAllTasks(page.items);
+          setTotalTasks(page.total);
+        }
       } catch (err) {
         if (!cancelled) setError(err.message || 'Failed to load task library.');
       } finally {
@@ -427,10 +428,8 @@ export default function TaskLibraryPage() {
 
   const handleCreateTaskSelect = (typeKey) => {
     // Coding flows aren't handled by the overlay yet — extend this when ready.
-    if (typeKey === 'coding_dsa' || typeKey === 'coding_scenario') {
-      console.log('Create task selected (not yet implemented):', typeKey);
-      return;
-    }
+    // Coding types are disabled in the menu; this is belt and braces.
+    if (typeKey === 'coding_dsa' || typeKey === 'coding_scenario') return;
     setCreateOverlay({ open: true, type: typeKey });
   };
 
@@ -443,6 +442,9 @@ export default function TaskLibraryPage() {
       difficulty: meta?.difficulty || 'medium',
       seniority: meta?.role || 'mid',
       domain: meta?.domain || '',
+      // Distinguishes uploaded questions from ones authored by hand, so My
+      // Library can group them later.
+      origin: meta?.entryMode === 'manual' ? 'library' : 'import',
     };
 
     setBusyId('overlay');
@@ -451,8 +453,11 @@ export default function TaskLibraryPage() {
       await Promise.all(questions.map(q => createMyLibraryItem({
         ...base,
         content_type: contentType,
-        title: (meta?.title?.trim() || q.question || 'Untitled task').slice(0, 255),
-        [contentType]: buildTypeData(contentType, q),
+        // Each row becomes its own question, so it is titled from its own
+        // prompt. This used to prefer a single form field, which gave every
+        // question in the batch the same name.
+        title: (q.question || 'Untitled question').slice(0, 255),
+        [contentType]: buildLibraryTypeData(contentType, q),
       })));
       flash(`Saved ${questions.length} task${questions.length === 1 ? '' : 's'} to My Library.`);
       setActiveTab('my');
@@ -497,7 +502,17 @@ export default function TaskLibraryPage() {
   };
 
   const handleDelete = async (task) => {
-    if (!window.confirm(`Remove "${task.title}" from My Library? This won't affect any assessment it's already attached to.`)) {
+    // The original copy promised "This won't affect any assessment it's already
+    // attached to" — the opposite of the truth, since the item was soft deleted
+    // and every assessment referencing it then scored candidates against a
+    // question it could no longer serve. The server now archives instead, so
+    // that promise finally holds and this can simply state it.
+    const usageCount = task.usage_count ?? 0;
+    const inUseNote = usageCount > 0
+      ? ` ${usageCount} assessment${usageCount === 1 ? '' : 's'} using it will keep working.`
+      : '';
+
+    if (!window.confirm(`Remove "${task.title}" from My Library?${inUseNote}`)) {
       return;
     }
     setBusyId(task.id);
@@ -506,7 +521,7 @@ export default function TaskLibraryPage() {
       setAllTasks(prev => prev.filter(t => t.id !== task.id));
       flash('Task removed from My Library.');
     } catch (err) {
-      setError(err?.message || 'Could not remove this task.');
+      setError(err?.response?.data?.message || err?.message || 'Could not remove this task.');
     } finally {
       setBusyId(null);
     }
@@ -562,7 +577,7 @@ export default function TaskLibraryPage() {
               <div>
                 <h1 className="text-[22px] font-bold text-text-primary font-display leading-tight">Task Library</h1>
                 <p className="text-[13px] text-text-secondary mt-0.5">
-                  {allTasks.length} question sets · Browse and add to assessments
+                  {totalTasks} question sets · Browse and add to assessments
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -642,10 +657,23 @@ export default function TaskLibraryPage() {
                   </SelectContent>
                 </Select>
 
-                <button className="h-9 w-9 flex items-center justify-center rounded-lg border border-border-default text-text-muted hover:text-text-primary hover:bg-surface-muted transition-colors duration-150">
+                {/* The four selects above are the filters. These two were
+                    decorative — no handler, no state — so they now say so
+                    rather than looking clickable. */}
+                <button
+                  type="button"
+                  disabled
+                  title="Advanced filters aren't available yet."
+                  className="h-9 w-9 flex items-center justify-center rounded-lg border border-border-default text-text-muted opacity-40 cursor-not-allowed"
+                >
                   <SlidersHorizontal className="w-4 h-4" />
                 </button>
-                <button className="h-9 w-9 flex items-center justify-center rounded-lg border border-border-default text-text-muted hover:text-text-primary hover:bg-surface-muted transition-colors duration-150">
+                <button
+                  type="button"
+                  disabled
+                  title="Sorting isn't available yet."
+                  className="h-9 w-9 flex items-center justify-center rounded-lg border border-border-default text-text-muted opacity-40 cursor-not-allowed"
+                >
                   <ArrowUpDown className="w-4 h-4" />
                 </button>
               </div>

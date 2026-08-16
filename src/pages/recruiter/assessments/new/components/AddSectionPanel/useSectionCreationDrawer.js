@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { getAdaptiveFocusAreas, getLibraryTasks } from '../../api/assessmentBuilderApi';
+import { createMyLibraryItem } from '../../../../../../api/recruiter/taskLibrary';
+import {
+  EDIT_INTENT,
+  isLockedError,
+  resolveEditIntent,
+  saveLibraryEdit,
+} from '../../../../../../hooks/useLibraryFork';
+import { buildLibraryTypeData } from '../../../../../../lib/libraryTypeData.js';
 import { SECTION_TYPE_CONFIG } from '../../constants/sectionTypeConfig';
 import {
   ADAPTIVE_DEFAULT_TIMER,
@@ -53,6 +61,21 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   const [adaptiveAvoidTopics, setAdaptiveAvoidTopics] = useState('');
   const [adaptiveFocusAreaOptions, setAdaptiveFocusAreaOptions] = useState([]);
   const [adaptiveCatalogAvailable, setAdaptiveCatalogAvailable] = useState(true);
+
+  // 'library' browses existing questions, 'manual' writes a new one. The Figma
+  // toggle for this shipped with no handler on either button, so the library
+  // half of the MCQ overlay was unreachable.
+  const [questionMode, setQuestionMode] = useState('library');
+  const [selectedLibraryItem, setSelectedLibraryItem] = useState(null);
+  // Set while the manual form is editing an existing library question rather
+  // than authoring a new one.
+  const [editingLibraryItem, setEditingLibraryItem] = useState(null);
+  // Set when editing an item other assessments use — the recruiter picks
+  // between a copy and editing everywhere before the form opens.
+  const [editScope, setEditScope] = useState(null);
+  const [createOverlay, setCreateOverlay] = useState({ open: false, type: 'mcq' });
+  // Bumped to make the picker refetch after an edit or a create lands.
+  const [libraryRefreshToken, setLibraryRefreshToken] = useState(0);
 
   // Role and level come from the assessment, not the section — one requisition,
   // one role. Both are needed to ask the catalog what is actually scoreable.
@@ -123,6 +146,13 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     setAdaptiveQuestionMax(null);
     setAdaptiveMustAsk('');
     setAdaptiveAvoidTopics('');
+    // Library state was never reset, so closing the drawer mid-edit and
+    // reopening it landed on the manual form still holding the previous
+    // question — and saving would have written it back over that question.
+    setQuestionMode('library');
+    setSelectedLibraryItem(null);
+    setEditingLibraryItem(null);
+    setEditScope(null);
   };
 
   const closeDrawer = () => {
@@ -190,9 +220,9 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
       language: codingFilters.language || undefined,
       difficulty: codingFilters.difficulty === 'adaptive' ? undefined : codingFilters.difficulty,
     })
-      .then(res => {
+      .then(tasks => {
         if (cancelled) return;
-        setLibraryTasks(res.data || res || []);
+        setLibraryTasks(tasks);
       })
       .catch(error => {
         if (cancelled) return;
@@ -281,6 +311,258 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     }
   };
 
+  /**
+   * Edit a library question from inside the builder.
+   *
+   * Loads it into the manual form and remembers what it was forked from. The
+   * fork decision itself lives in `useLibraryFork` and is applied on save, so
+   * the builder and the standalone library page cannot drift apart on it.
+   */
+  const handleEditLibraryItem = (item, { isMyLibrary } = {}) => {
+    const intent = resolveEditIntent(item, { isMyLibrary });
+    if (intent.kind === EDIT_INTENT.BLOCKED) {
+      toast.error(intent.reason);
+      return;
+    }
+
+    // An item other assessments already use is the one case where the choice is
+    // genuinely the recruiter's: a copy leaves them alone, editing in place
+    // rewrites all of them. Defaulting silently either way is the wrong call, so
+    // ask — and default the button to the safe option.
+    if (intent.kind === EDIT_INTENT.CONFIRM_FORK) {
+      setEditScope({ item, isMyLibrary, usageCount: intent.usageCount, reason: intent.reason });
+      return;
+    }
+
+    if (intent.reason) toast.info(intent.reason);
+    beginEditing(item, isMyLibrary, 'copy');
+  };
+
+  /** Load a question into the manual form, remembering what it was forked from.
+   *
+   * Per content type: the manual forms differ, so loading only the MCQ fields
+   * (as this did) meant clicking Edit on a ranking or free-text question opened
+   * an empty MCQ form — and saving it would have overwritten the question with
+   * whatever was left in the MCQ state.
+   */
+  const beginEditing = (item, isMyLibrary, mode) => {
+    const typeData = item.type_data || {};
+    setEditingLibraryItem({ item, isMyLibrary, mode });
+    setQuestionPrompt(typeData.prompt || '');
+
+    if (item.content_type === 'ranking') {
+      const items = (typeData.items || []).map(entry => ({
+        id: entry.id || crypto.randomUUID(),
+        text: entry.text || '',
+      }));
+      setRankingItems(items.length >= 2 ? items : createInitialRankingItems());
+    } else if (item.content_type === 'free_text') {
+      setFreeTextAnswer(typeData.sample_answer || '');
+      setGradingHints(typeData.grading_hints || '');
+      setWordLimit(typeData.word_limit ?? 50);
+    } else {
+      setPollType(typeData.selection_mode === 'multi' ? 'multi' : 'single');
+      setShuffleOptions(Boolean(typeData.shuffle_options));
+      setOptions((typeData.options || []).map(option => ({
+        id: option.id || crypto.randomUUID(),
+        text: option.text || '',
+        is_correct: Boolean(option.is_correct),
+      })));
+    }
+
+    setQuestionMode('manual');
+  };
+
+  /** The `type_data` payload for whichever type the drawer is authoring. */
+  const buildEditPayload = (contentType) => {
+    if (contentType === 'ranking') {
+      return {
+        ranking: {
+          prompt: questionPrompt.trim(),
+          scoring_mode: 'weighted_partial',
+          items: rankingItems
+            .map(item => ({ text: item.text.trim() }))
+            .filter(item => item.text),
+        },
+      };
+    }
+
+    if (contentType === 'free_text') {
+      return {
+        free_text: {
+          prompt: questionPrompt.trim(),
+          sample_answer: freeTextAnswer.trim(),
+          grading_hints: gradingHints.trim(),
+          word_limit: Number(wordLimit) || null,
+        },
+      };
+    }
+
+    return {
+      mcq: {
+        prompt: questionPrompt.trim(),
+        selection_mode: pollType === 'single' ? 'single' : 'multi',
+        shuffle_options: shuffleOptions,
+        options: options.map(option => ({
+          text: option.text.trim(),
+          is_correct: option.is_correct,
+        })),
+      },
+    };
+  };
+
+  /**
+   * Save questions authored or imported through CreateTaskOverlay.
+   *
+   * Same path the standalone library page uses — one item per question, straight
+   * into My Library — so a question created here is indistinguishable from one
+   * created there.
+   */
+  const handleSaveCreateOverlay = async (selectedQuestions, meta) => {
+    const questions = selectedQuestions || [];
+    if (!questions.length) return;
+
+    const contentType = meta?.taskType || 'mcq';
+    try {
+      await Promise.all(questions.map(question => createMyLibraryItem({
+        content_type: contentType,
+        title: (question.question || 'Untitled question').slice(0, 255),
+        // Inherited from the assessment — the builder hides these fields
+        // because the section already answers them.
+        difficulty: meta?.difficulty || 'medium',
+        seniority: assessmentSeniority || 'mid',
+        domain: assessmentRoleFamily || '',
+        origin: meta?.entryMode === 'manual' ? 'builder' : 'import',
+        [contentType]: buildLibraryTypeData(contentType, question),
+      })));
+
+      toast.success(`Saved ${questions.length} question${questions.length === 1 ? '' : 's'} to My Library.`);
+      setCreateOverlay(current => ({ ...current, open: false }));
+      setLibraryRefreshToken(token => token + 1);
+    } catch (error) {
+      toast.error(error?.message || 'Could not save to My Library.');
+    }
+  };
+
+  /** Persist an in-builder edit, forking first when the rules require it. */
+  const handleSaveLibraryEdit = async () => {
+    if (!editingLibraryItem) return;
+    const { item, isMyLibrary, mode } = editingLibraryItem;
+
+    try {
+      const result = await saveLibraryEdit(
+        item,
+        buildEditPayload(item.content_type),
+        { isMyLibrary, mode },
+      );
+
+      toast.success(
+        result.forked
+          ? 'Saved a copy to My Library. The original is unchanged.'
+          : 'Question updated everywhere it is used.',
+      );
+      setEditingLibraryItem(null);
+      // Select whatever we actually wrote — a fork is a different row than the
+      // one that was clicked.
+      setSelectedLibraryItem(result.item || null);
+      setLibraryRefreshToken(token => token + 1);
+      setQuestionMode('library');
+    } catch (error) {
+      toast.error(
+        isLockedError(error)
+          ? 'That question is locked by a published assessment. Make a copy to edit it.'
+          : (error?.message || 'Could not save the question.'),
+      );
+    }
+  };
+
+  /** Commit a question into the section, either as a new section or an added item. */
+  const commitQuestion = (question, fallbackSectionName) => {
+    if (targetSectionId) {
+      if (!guardQuestionBudget()) return;
+      dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
+    } else {
+      if (!guardSectionBudget(sectionTimer)) return;
+      dispatch({
+        type: ACTIONS.ADD_SECTION,
+        payload: {
+          name: sectionName.trim() || fallbackSectionName,
+          type: question.type,
+          timer_minutes: Number(sectionTimer),
+          ai_level_override: null,
+          items: [question],
+        },
+      });
+    }
+    closeDrawer();
+  };
+
+  /**
+   * Add a question that already exists in a library.
+   *
+   * `libraryItemId` tells the publish sync to attach the existing AssessmentItem
+   * rather than create a new question — picking from the library must not mint a
+   * duplicate row every time it's used.
+   *
+   * The type-specific half fills in whatever the left panel's editor for that
+   * type reads, so a picked question renders identically to a hand-authored one.
+   */
+  const handleAddFromLibrary = () => {
+    if (!selectedLibraryItem) return;
+
+    const typeData = selectedLibraryItem.type_data || {};
+    const contentType = selectedLibraryItem.content_type || drawerType;
+    const base = {
+      id: crypto.randomUUID(),
+      libraryItemId: selectedLibraryItem.id,
+      backendItemId: null,
+      points: Number(points),
+      override_timer_minutes: null,
+      published: false,
+      locked: Boolean(selectedLibraryItem.is_locked),
+      prompt: typeData.prompt || selectedLibraryItem.title || '',
+    };
+
+    if (contentType === 'ranking') {
+      commitQuestion({
+        ...base,
+        type: 'ranking',
+        backendRankingId: null,
+        items: (typeData.items || []).map(entry => ({
+          id: entry.id || crypto.randomUUID(),
+          text: entry.text || '',
+        })),
+      }, 'Ranking Section');
+      return;
+    }
+
+    if (contentType === 'free_text') {
+      commitQuestion({
+        ...base,
+        type: 'free_text',
+        backendFreeTextId: null,
+        answer: typeData.sample_answer || '',
+        word_limit: typeData.word_limit ?? null,
+        grading_hints: typeData.grading_hints || '',
+      }, 'Free Text Section');
+      return;
+    }
+
+    commitQuestion({
+      ...base,
+      type: 'mcq',
+      backendMcqId: null,
+      selection_mode: typeData.selection_mode || 'single',
+      shuffle_options: Boolean(typeData.shuffle_options),
+      show_explanation_after: false,
+      options: (typeData.options || []).map(option => ({
+        id: option.id,
+        text: option.text,
+        is_correct: option.is_correct,
+      })),
+    }, 'MCQ Section');
+  };
+
   const handleCreateMcq = () => {
     const normalizedOptions = options.map((option, index) => ({
       id: option.id,
@@ -308,29 +590,17 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
           options: finalOptions,
     };
 
-    if (targetSectionId) {
-      if (!guardQuestionBudget()) return;
-      dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
-    } else {
-      if (!guardSectionBudget(sectionTimer)) return;
-      dispatch({
-        type: ACTIONS.ADD_SECTION,
-        payload: {
-          name: sectionName.trim() || 'MCQ Section',
-          type: 'mcq',
-          timer_minutes: Number(sectionTimer),
-          ai_level_override: null,
-          items: [question],
-        },
-      });
-    }
-    closeDrawer();
+    commitQuestion(question, 'MCQ Section');
   };
 
   const handleCreateCoding = () => {
-    // Fall back to the task the list actually highlights, not index 0 — those
-    // disagreed, so accepting the visible default published a different task.
-    const task = selectedTask || codingTasks[DEFAULT_CODING_TASK_INDEX] || null;
+    // No implicit fallback. Defaulting to the first task meant a recruiter who
+    // never picked one silently shipped whatever happened to be at the top.
+    const task = selectedTask;
+    if (!task) {
+      toast.error('Pick a task from the library first.');
+      return;
+    }
     const question = {
           id: crypto.randomUUID(),
           type: 'coding',
@@ -415,7 +685,9 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
           published: false,
           locked: false,
           prompt: questionPrompt.trim(),
-          grading_hints: gradingHints.trim(),
+          // No grading_hints: ranking is scored deterministically against
+          // correct_rank, there is no column to store a hint in, and the field
+          // was silently dropped by buildLibraryPayload anyway.
           items: normalizedItems,
     };
 
@@ -546,7 +818,13 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
       step: drawerStep,
       type: drawerType,
       close: closeDrawer,
-      continueToQuestion: () => setDrawerStep('question'),
+      // Check the time budget here, not at Add. Reporting it only on submit
+      // meant filling in a whole question before being told the section
+      // doesn't fit in the assessment's remaining minutes.
+      continueToQuestion: () => {
+        if (!targetSectionId && !guardSectionBudget(sectionTimer)) return;
+        setDrawerStep('question');
+      },
     },
     form: {
       sectionName,
@@ -609,10 +887,33 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
       adaptiveFocusAreaOptions,
       adaptiveCatalogAvailable,
       assessmentRoleFamily,
+      questionMode,
+      setQuestionMode,
+      selectedLibraryItem,
+      setSelectedLibraryItem,
+      editingLibraryItem,
+      editScope,
+      createOverlay,
+      libraryRefreshToken,
+      refreshLibrary: () => setLibraryRefreshToken(token => token + 1),
     },
     actions: {
       addSection: handleAddSection,
       createMcq: handleCreateMcq,
+      addFromLibrary: handleAddFromLibrary,
+      editLibraryItem: handleEditLibraryItem,
+      saveLibraryEdit: handleSaveLibraryEdit,
+      resolveEditScope: (mode) => {
+        if (!editScope) return;
+        beginEditing(editScope.item, editScope.isMyLibrary, mode);
+        setEditScope(null);
+      },
+      cancelEditScope: () => setEditScope(null),
+      // The overlay authors questions of the section's own type — opening it
+      // from a ranking section used to hand back MCQs.
+      openCreateOverlay: () => setCreateOverlay({ open: true, type: drawerType }),
+      closeCreateOverlay: () => setCreateOverlay(current => ({ ...current, open: false })),
+      saveCreateOverlay: handleSaveCreateOverlay,
       createCoding: handleCreateCoding,
       createFreeText: handleCreateFreeText,
       createRanking: handleCreateRanking,

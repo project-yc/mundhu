@@ -4,8 +4,11 @@ import {
   IconBrain,
   IconChevronRight,
   IconClock,
+  IconArrowsSort,
   IconCode,
   IconListCheck,
+  IconMessages,
+  IconWriting,
 } from '@tabler/icons-react'
 import {
   getAssessmentOverview,
@@ -33,11 +36,30 @@ const AI_LEVEL_LABELS = {
   none: 'No AI assistance',
 }
 
+// The backend resolves each section's real content_type; only `mcq` and
+// `technical_task` had entries here, so the `|| SECTION_CONFIG.mcq` fallback
+// below labelled every ranking and free-text section "MCQ" on the one screen a
+// candidate sees before starting.
 const SECTION_CONFIG = {
   mcq: {
     label: 'MCQ',
     Icon: IconListCheck,
     badgeClass: 'bg-brand-tint text-brand-deep border border-brand-border',
+  },
+  ranking: {
+    label: 'Ranking',
+    Icon: IconArrowsSort,
+    badgeClass: 'bg-info-bg text-info border border-info-border',
+  },
+  free_text: {
+    label: 'Free text',
+    Icon: IconWriting,
+    badgeClass: 'bg-success-bg text-success border border-success-border',
+  },
+  adaptive_interview: {
+    label: 'Interview',
+    Icon: IconMessages,
+    badgeClass: 'bg-surface-muted text-text-secondary border border-border-default',
   },
   technical_task: {
     label: 'Coding',

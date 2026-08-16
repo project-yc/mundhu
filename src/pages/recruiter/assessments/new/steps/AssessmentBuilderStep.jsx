@@ -1,6 +1,7 @@
 import { useAssessmentBuilder } from '../context/AssessmentBuilderContext';
 import { LeftPanel } from '../components/LeftPanel/LeftPanel';
 import { AddSectionPanel } from '../components/AddSectionPanel';
+import { BuilderActionsFooter } from '../components/BuilderActionsFooter';
 import { CodingEditor } from '../components/editors/CodingEditor';
 import { McqEditor } from '../components/editors/McqEditor';
 import { FreeTextEditor } from '../components/editors/FreeTextEditor';
@@ -28,11 +29,13 @@ function RightPanel() {
     );
   }
 
-  // No active section
+  // Nothing selected — show the section picker rather than a dead-end message.
+  // A resumed draft lands here, and "Select a section from the left panel" gave
+  // the recruiter nothing to act on.
   if (!activeSection) {
     return (
-      <div className="flex items-center justify-center h-full text-[13px] text-text-muted">
-        Select a section or question from the left panel.
+      <div className="flex-1 overflow-y-auto">
+        <AddSectionPanel />
       </div>
     );
   }
@@ -73,9 +76,13 @@ function RightPanel() {
 
 export function AssessmentBuilderStep() {
   return (
-    <div className="flex-1 flex overflow-hidden h-full">
-      <LeftPanel />
-      <RightPanel />
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <LeftPanel />
+        <RightPanel />
+      </div>
+      {/* Outside RightPanel on purpose — these must survive selecting a question. */}
+      <BuilderActionsFooter />
     </div>
   );
 }

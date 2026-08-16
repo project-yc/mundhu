@@ -37,10 +37,14 @@ export default function AssessmentsListPage() {
     [navigate],
   );
 
-  // The builder has no resume/edit flow for an existing draft yet — this
-  // opens a fresh builder rather than silently doing nothing.
+  // Resumes the draft rather than opening a blank builder, which is what this
+  // did before `builder-state` was wired up for hydration.
   const handleEdit = useCallback(
-    () => navigate('/recruiter/assessments/new'),
+    (assessment) => {
+      const id = assessment?.id ?? assessment;
+      if (!id) return;
+      navigate(`/recruiter/assessments/${id}/edit`);
+    },
     [navigate],
   );
 

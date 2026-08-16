@@ -133,7 +133,16 @@ function ScoreOverview({ report, sections }) {
     .map(type => {
       const section = sectionMap.get(type) || (type === 'technical_task' ? sectionMap.get('coding') : null);
       if (!section) return null;
-      return { type, section, percent: getScorePercent(section), points: section.score ?? 0 };
+      // `max_score`, not `score`: the label reads "X% of N pts", so N is what
+      // the section was worth, not what the candidate earned. Using `score`
+      // rendered "50% of 5 pts" for a 5-of-10 result, and was invisible for any
+      // section scored in full — where the two numbers happen to be equal.
+      return {
+        type,
+        section,
+        percent: getScorePercent(section),
+        points: section.max_score ?? section.points ?? 0,
+      };
     })
     .filter(Boolean);
 

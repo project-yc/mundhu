@@ -30,27 +30,40 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '../ui/select.jsx';
 import { Badge } from '../ui/badge.jsx';
+import { inspectQuestionFile, parseQuestionFile } from '../../api/recruiter/taskLibrary.js';
 
 // ─── type-specific config ──────────────────────────────────────────────────
+// The accepted formats are the ones actually parsed. They once promised .docx
+// and .pdf while the generator ignored the file entirely and returned hardcoded
+// samples; now a spreadsheet or a Word table routes through the same column
+// mapping a CSV does, and prose documents are read directly.
+const ACCEPTED_FILE_TYPES = '.csv,.tsv,.xlsx,.xlsm,.docx,.pdf';
+
 const TYPE_CONFIG = {
   mcq: {
     label: 'MCQ',
-    sectionLabel: 'MCQ section',
-    dropHint: 'Drop a .csv, .docx or .pdf',
-    columnsHint: 'Columns: question, option_a–d, correct',
+    dropHint: 'Drop a question bank',
+    columnsHint: '.csv .xlsx .docx .pdf — you confirm the columns next',
   },
   ranking: {
     label: 'Ranking',
-    sectionLabel: 'Ranking section',
-    dropHint: 'Drop a .csv, .docx or .pdf',
-    columnsHint: 'Columns: question, item_1–n, correct_order',
+    dropHint: 'Drop a question bank',
+    columnsHint: '.csv .xlsx .docx .pdf — you confirm the columns next',
   },
   free_text: {
     label: 'Free Text',
-    sectionLabel: 'Free text section',
-    dropHint: 'Drop a .csv, .docx or .pdf',
-    columnsHint: 'Columns: question, guideline / model answer',
+    dropHint: 'Drop a question bank',
+    columnsHint: '.csv .xlsx .docx .pdf — you confirm the columns next',
   },
+};
+
+// Fallback labels for the mapping panel. The server sends `mapping_labels` with
+// every inspection; these only cover the window before it arrives.
+const DEFAULT_MAPPING_LABELS = {
+  prompt: 'Question text',
+  options: 'Answer options',
+  correct: 'Correct answer',
+  explanation: 'Explanation (optional)',
 };
 
 const DIFFICULTIES = [
@@ -59,33 +72,38 @@ const DIFFICULTIES = [
   { value: 'hard', label: 'Hard' },
 ];
 
-// ─── mock generation (replace with your real API call) ────────────────────
-function mockGenerate(type, count = 5) {
-  if (type === 'mcq') {
-    return Array.from({ length: count }, (_, i) => ({
-      id: `gen-${Date.now()}-${i}`,
-      question: `Sample generated MCQ question #${i + 1} — what is the correct behavior here?`,
-      options: [
-        { text: 'Option A description', is_correct: i % 4 === 0 },
-        { text: 'Option B description', is_correct: i % 4 === 1 },
-        { text: 'Option C description', is_correct: i % 4 === 2 },
-        { text: 'Option D description', is_correct: i % 4 === 3 },
-      ],
-    }));
-  }
+/**
+ * A blank question of the given type.
+ *
+ * Manual entry reuses the review stage's existing per-type editors rather than
+ * introducing a second set of forms — you get an empty question opened in edit
+ * mode, and "Add another" appends more.
+ */
+function blankQuestion(type) {
+  const base = { id: crypto.randomUUID(), question: '' };
+
   if (type === 'ranking') {
-    return Array.from({ length: count }, (_, i) => ({
-      id: `gen-${Date.now()}-${i}`,
-      question: `Sample generated ranking question #${i + 1} — order the steps correctly.`,
-      items: ['First step in the process', 'Second step in the process', 'Third step in the process', 'Fourth step in the process'],
-    }));
+    return { ...base, items: ['', '', ''] };
   }
-  // free_text
-  return Array.from({ length: count }, (_, i) => ({
-    id: `gen-${Date.now()}-${i}`,
-    question: `Sample generated free-text prompt #${i + 1} — explain your approach.`,
-    guideline: 'Model answer should mention trade-offs, complexity, and a concrete example.',
-  }));
+  if (type === 'free_text') {
+    // Two fields, not one. `sample_answer` is the model answer and
+    // `grading_hints` is advice to the grader — free_text_ai_scoring puts them
+    // in separate blocks. They used to be a single "Model answer / guideline"
+    // box that was saved as grading_hints, so no model answer ever existed.
+    return { ...base, sample_answer: '', grading_hints: '' };
+  }
+  return {
+    ...base,
+    options: [
+      { text: '', is_correct: true },
+      { text: '', is_correct: false },
+    ],
+  };
+}
+
+/** A question the user started but left empty — not worth saving. */
+function isBlankQuestion(question) {
+  return !(question.question || '').trim();
 }
 
 // ─── small building blocks ─────────────────────────────────────────────────
@@ -117,6 +135,26 @@ function FieldLabel({ children }) {
   return <label className="text-[13px] font-bold text-text-primary mb-2 block">{children}</label>;
 }
 
+/** One column picker in the mapping step. */
+function MappingField({ label, value, columns, onChange, allowNone = false }) {
+  return (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <Select value={value || '__none__'} onValueChange={v => onChange(v === '__none__' ? '' : v)}>
+        <SelectTrigger className="h-10 text-[13px]">
+          <SelectValue placeholder="Select a column" />
+        </SelectTrigger>
+        <SelectContent>
+          {allowNone && <SelectItem value="__none__">None</SelectItem>}
+          {columns.map(column => (
+            <SelectItem key={column} value={column}>{column}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 // ─── question review cards (per type) ──────────────────────────────────────
 function QuestionCardShell({
   index, question, selected, onToggleSelect, detailMode, onToggleView, onToggleEdit, children,
@@ -138,7 +176,11 @@ function QuestionCardShell({
           <div className="flex items-center gap-2 mb-0.5">
             <span className="text-[11px] font-bold text-text-muted">Q{index + 1}</span>
           </div>
-          <p className="text-[14px] font-semibold text-text-primary leading-snug">{question.question}</p>
+          <p className={`text-[14px] font-semibold leading-snug ${
+            question.question ? 'text-text-primary' : 'text-text-muted italic'
+          }`}>
+            {question.question || 'Untitled — open the pencil to write this question'}
+          </p>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <button
@@ -288,12 +330,21 @@ function FreeTextDetail({ question, editing, onChange }) {
           rows={2}
         />
         <div>
-          <span className="text-[11px] font-bold text-text-muted mb-1 block">Model answer / guideline</span>
+          <span className="text-[11px] font-bold text-text-muted mb-1 block">Model answer</span>
           <textarea
-            value={question.guideline}
-            onChange={e => onChange({ ...question, guideline: e.target.value })}
+            value={question.sample_answer || ''}
+            onChange={e => onChange({ ...question, sample_answer: e.target.value })}
             className="w-full text-[13px] rounded-lg border border-border-subtle px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-brand/30"
             rows={3}
+          />
+        </div>
+        <div>
+          <span className="text-[11px] font-bold text-text-muted mb-1 block">Grading hints</span>
+          <textarea
+            value={question.grading_hints || ''}
+            onChange={e => onChange({ ...question, grading_hints: e.target.value })}
+            className="w-full text-[13px] rounded-lg border border-border-subtle px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-brand/30"
+            rows={2}
           />
         </div>
       </div>
@@ -301,9 +352,21 @@ function FreeTextDetail({ question, editing, onChange }) {
   }
 
   return (
-    <div className="rounded-lg bg-info/10 border border-info/20 px-3 py-2.5">
-      <span className="text-[11px] font-bold text-info block mb-0.5">Model answer / guideline</span>
-      <p className="text-[13px] text-text-secondary italic leading-snug">{question.guideline}</p>
+    <div className="space-y-2">
+      <div className="rounded-lg bg-info/10 border border-info/20 px-3 py-2.5">
+        <span className="text-[11px] font-bold text-info block mb-0.5">Model answer</span>
+        <p className="text-[13px] text-text-secondary italic leading-snug">
+          {question.sample_answer || '—'}
+        </p>
+      </div>
+      {question.grading_hints && (
+        <div className="rounded-lg bg-surface-muted border border-border-subtle px-3 py-2.5">
+          <span className="text-[11px] font-bold text-text-muted block mb-0.5">Grading hints</span>
+          <p className="text-[13px] text-text-secondary italic leading-snug">
+            {question.grading_hints}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -315,46 +378,142 @@ function DetailRenderer({ type, ...props }) {
 }
 
 // ─── main component ─────────────────────────────────────────────────────────
+/**
+ * @param inheritsMetadata  When true (the assessment builder), domain/role/
+ *   difficulty are hidden because the section already carries them — the panel
+ *   becomes upload → confirm columns → review. The standalone library shows them
+ *   as tags applied to the whole batch.
+ */
 export default function CreateTaskOverlay({
   open, onOpenChange, taskType, domainOptions = [], roleOptions = [], onSave,
+  inheritsMetadata = false,
 }) {
-  const [stage, setStage] = useState('form'); // 'form' | 'generating' | 'review'
+  // 'mapping' sits where the fake "generating" delay used to: a wrong column
+  // mapping is wrong for every row, so it is confirmed once, before parsing,
+  // rather than discovered while reviewing forty broken questions.
+  const [stage, setStage] = useState('form'); // 'form' | 'generating' | 'mapping' | 'review'
   const [form, setForm] = useState({ title: '', domain: '', role: '', difficulty: 'easy' });
   const [dragOver, setDragOver] = useState(false);
-  const [fileName, setFileName] = useState('');
+  // Holds the File itself — `parse` re-sends it with the confirmed mapping.
+  const [fileName, setFileName] = useState(null);
+  // 'upload' parses a question bank; 'manual' authors questions by hand. Both
+  // land in the same review stage and save through the same path.
+  const [entryMode, setEntryMode] = useState('upload');
+  const [inspection, setInspection] = useState(null);
+  const [mapping, setMapping] = useState(null);
+  const [warnings, setWarnings] = useState([]);
+  const [importError, setImportError] = useState('');
+  // 'mapping' (columns confirmed by a human), 'structural' (read by pattern) or
+  // 'ai' (a model segmented it and every string was checked back against the
+  // source). Shown in review so the reviewer knows how hard to look.
+  const [parseSource, setParseSource] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [detail, setDetail] = useState({ id: null, mode: null }); // mode: 'view' | 'edit'
   const fileInputRef = useRef(null);
 
   const config = TYPE_CONFIG[taskType] || TYPE_CONFIG.mcq;
+  // The server names the columns per type, so the panel does not carry a copy
+  // of the mapping rules that could drift from the parser's.
+  const mappingLabels = inspection?.mapping_labels || DEFAULT_MAPPING_LABELS;
 
   const resetAll = useCallback(() => {
     setStage('form');
+    setEntryMode('upload');
     setForm({ title: '', domain: '', role: '', difficulty: 'easy' });
-    setFileName('');
+    setFileName(null);
+    setInspection(null);
+    setMapping(null);
+    setWarnings([]);
+    setImportError('');
     setQuestions([]);
     setSelectedIds(new Set());
     setDetail({ id: null, mode: null });
-  }, []);
+    setParseSource(null);
+    // Setters are stable, but the React Compiler wants them declared.
+  }, [
+    setStage, setEntryMode, setForm, setFileName, setInspection, setMapping,
+    setWarnings, setImportError, setQuestions, setSelectedIds, setDetail,
+    setParseSource,
+  ]);
+
+  /** Start authoring by hand: one blank question, opened in edit mode. */
+  const startManualEntry = useCallback(() => {
+    const question = blankQuestion(taskType);
+    setQuestions([question]);
+    setSelectedIds(new Set([question.id]));
+    setWarnings([]);
+    setImportError('');
+    setDetail({ id: question.id, mode: 'edit' });
+    setStage('review');
+  }, [taskType]);
+
+  /** Append another blank question while authoring. */
+  const addManualQuestion = useCallback(() => {
+    const question = blankQuestion(taskType);
+    setQuestions(prev => [...prev, question]);
+    setSelectedIds(prev => new Set([...prev, question.id]));
+    setDetail({ id: question.id, mode: 'edit' });
+  }, [taskType]);
 
   const handleOpenChange = (next) => {
     onOpenChange(next);
     if (!next) setTimeout(resetAll, 200); // wait for close animation
   };
 
-  const startGeneration = useCallback((file) => {
-    setFileName(file.name);
+  /**
+   * Upload -> mapping -> review.
+   *
+   * This used to keep `file.name`, drop the file, and hand back five hardcoded
+   * samples that `onSave` then wrote to My Library as real rows. The file is now
+   * actually read: the server proposes a column mapping from the headers, the
+   * user confirms or corrects it, and only then is every row parsed.
+   */
+  const acceptParsed = useCallback((data) => {
+    const parsed = (data.questions || []).map(q => ({ ...q, id: q.id || crypto.randomUUID() }));
+    setQuestions(parsed);
+    setSelectedIds(new Set(parsed.map(q => q.id)));
+    setWarnings(data.warnings || []);
+    setParseSource(data.parse_source || null);
+    setStage('review');
+  }, [setQuestions, setSelectedIds, setWarnings, setParseSource, setStage]);
+
+  const startGeneration = useCallback(async (file) => {
+    setFileName(file);
+    setImportError('');
     setStage('generating');
-    // TODO: replace with a real upload + AI generation API call.
-    // e.g. const res = await generateQuestions({ file, type: taskType, ...form });
-    setTimeout(() => {
-      const generated = mockGenerate(taskType, 5);
-      setQuestions(generated);
-      setSelectedIds(new Set(generated.map(q => q.id)));
-      setStage('review');
-    }, 1400);
-  }, [taskType]);
+    try {
+      const res = await inspectQuestionFile(file, taskType);
+      const data = res?.data ?? res;
+      setInspection(data);
+      // A spreadsheet or a Word table has columns to confirm. A prose .docx or
+      // .pdf does not — inspect has already read the questions out of it, so
+      // there is nothing to map and review is the next human step either way.
+      if (data.needs_mapping === false) {
+        acceptParsed(data);
+        return;
+      }
+      setMapping(data.mapping);
+      setStage('mapping');
+    } catch (err) {
+      setImportError(err?.response?.data?.message || err?.message || 'Could not read that file.');
+      setStage('form');
+    }
+  }, [taskType, acceptParsed, setFileName, setImportError, setStage, setInspection, setMapping]);
+
+  /** Parse every row through the confirmed mapping. */
+  const runParse = useCallback(async () => {
+    if (!fileName) return;
+    setImportError('');
+    setStage('generating');
+    try {
+      const res = await parseQuestionFile(fileName, mapping, taskType);
+      acceptParsed(res?.data ?? res);
+    } catch (err) {
+      setImportError(err?.response?.data?.message || err?.message || 'Could not parse that file.');
+      setStage('mapping');
+    }
+  }, [fileName, mapping, taskType, acceptParsed]);
 
   const handleFileInput = (e) => {
     const file = e.target.files?.[0];
@@ -392,9 +551,17 @@ export default function CreateTaskOverlay({
     setDetail(prev => (prev.id === id && prev.mode === 'edit' ? { id: null, mode: null } : { id, mode: 'edit' }));
   };
 
+  // A question started and left empty is dropped rather than saved as an
+  // untitled row — easy to do when adding several by hand.
+  const savableQuestions = questions.filter(
+    q => selectedIds.has(q.id) && !isBlankQuestion(q),
+  );
+
   const handleSave = () => {
-    const selected = questions.filter(q => selectedIds.has(q.id));
-    onSave?.(selected, { ...form, taskType });
+    if (!savableQuestions.length) return;
+    // `entryMode` travels with the batch so the caller can record provenance
+    // honestly — hand-written questions were being tagged as imports.
+    onSave?.(savableQuestions, { ...form, taskType, entryMode });
     handleOpenChange(false);
   };
 
@@ -426,19 +593,15 @@ export default function CreateTaskOverlay({
           {/* ── Stage 1: form ───────────────────────────────────────── */}
           {stage === 'form' && (
             <div className="space-y-5 animate-in fade-in-0 duration-200">
-              <div>
-                <FieldLabel>Section title</FieldLabel>
-                <div className="relative">
-                  <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
-                  <Input
-                    value={form.title}
-                    onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                    placeholder="e.g. Backend Engineer"
-                    className="pl-9 h-11 text-[14px]"
-                  />
-                </div>
-              </div>
-
+              {/*
+                No "Section title" field. Every row of the upload becomes its own
+                library question, titled from its own prompt — a single title box
+                gave all of them the same name. The fields below are tags applied
+                across the batch, and they're hidden inside the assessment
+                builder, where the section already carries them.
+              */}
+              {!inheritsMetadata && (
+              <>
               <div>
                 <FieldLabel>Select Domain</FieldLabel>
                 <Select value={form.domain} onValueChange={v => setForm(f => ({ ...f, domain: v }))}>
@@ -475,12 +638,58 @@ export default function CreateTaskOverlay({
                   onChange={v => setForm(f => ({ ...f, difficulty: v }))}
                 />
               </div>
+              </>
+              )}
 
               <div>
-                <FieldLabel>Upload questions</FieldLabel>
+                <FieldLabel>Add questions</FieldLabel>
+
+                {/* Same choice the assessment builder offers: bring a bank, or
+                    write one. Both end up in the same review stage. */}
+                <div className="grid h-10 grid-cols-2 rounded-full border border-border-default bg-surface-muted p-[3px] mb-3">
+                  {[
+                    { key: 'upload', label: 'Upload file' },
+                    { key: 'manual', label: 'Enter manually' },
+                  ].map(opt => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setEntryMode(opt.key)}
+                      aria-pressed={entryMode === opt.key}
+                      className={`rounded-full text-[13px] transition-colors duration-150 ${
+                        entryMode === opt.key
+                          ? 'border border-border-subtle bg-surface font-semibold text-text-primary shadow-sm'
+                          : 'font-medium text-text-muted hover:text-text-secondary'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                {entryMode === 'manual' ? (
+                  <div className="rounded-xl border border-border-default bg-surface-muted/40 px-6 py-8 text-center">
+                    <p className="text-[14px] font-bold text-text-primary">
+                      Write your own {config.label} questions
+                    </p>
+                    <p className="text-[12px] text-text-muted mt-1">
+                      Add them one at a time, then review before saving.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 px-4 text-[13px] mt-3"
+                      onClick={startManualEntry}
+                    >
+                      Start writing
+                    </Button>
+                  </div>
+                ) : (
+                <>
                 <div className="rounded-lg bg-warning/10 border border-warning/25 px-3.5 py-2.5 mb-3">
                   <p className="text-[13px] text-warning font-medium">
-                    Any material can be uploaded and AI will generate questions.
+                    Upload an existing question bank. Your answer keys are used as written.
                   </p>
                 </div>
 
@@ -511,11 +720,13 @@ export default function CreateTaskOverlay({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv,.docx,.pdf"
+                    accept={ACCEPTED_FILE_TYPES}
                     className="hidden"
                     onChange={handleFileInput}
                   />
                 </div>
+                </>
+                )}
               </div>
             </div>
           )}
@@ -525,8 +736,108 @@ export default function CreateTaskOverlay({
             <div className="flex flex-col items-center justify-center gap-4 py-24 animate-in fade-in-0 duration-200">
               <Loader2 className="w-7 h-7 text-brand animate-spin" />
               <div className="text-center">
-                <p className="text-[14px] font-bold text-text-primary">Generating questions…</p>
-                <p className="text-[12px] text-text-muted mt-1">Reading {fileName || 'your file'} and drafting {config.label.toLowerCase()} questions</p>
+                <p className="text-[14px] font-bold text-text-primary">Reading your file…</p>
+                <p className="text-[12px] text-text-muted mt-1">{fileName?.name || 'Upload'}</p>
+              </div>
+            </div>
+          )}
+
+          {/* ── Stage 2b: confirm the column mapping ────────────────── */}
+          {stage === 'mapping' && inspection && (
+            <div className="space-y-5 animate-in fade-in-0 duration-200">
+              <div>
+                <p className="text-[14px] font-bold text-text-primary">
+                  Check the columns
+                </p>
+                <p className="text-[12px] text-text-muted mt-1">
+                  {inspection.row_count} row{inspection.row_count === 1 ? '' : 's'} in {fileName?.name}.
+                  {inspection.mapping_source === 'heuristic'
+                    ? ' Matched by column name — worth a quick look.'
+                    : ' Inferred from your headers.'}
+                  {inspection.note ? ` ${inspection.note}` : ''}
+                </p>
+              </div>
+
+              {importError && (
+                <p className="text-[13px] text-error">{importError}</p>
+              )}
+
+              <MappingField
+                label={mappingLabels.prompt}
+                value={mapping?.prompt || ''}
+                columns={inspection.columns}
+                onChange={v => setMapping(m => ({ ...m, prompt: v || null }))}
+              />
+
+              {/* Free text has no choices, so the server sends a null label and
+                  the picker is not shown at all. Ranking reuses it — the chips
+                  are the items, and the order they are picked in is the order
+                  they were written in the file. */}
+              {mappingLabels.options && (
+                <div>
+                  <FieldLabel>{mappingLabels.options}</FieldLabel>
+                  <div className="flex flex-wrap gap-2">
+                    {inspection.columns.map(column => {
+                      const active = (mapping?.options || []).includes(column);
+                      return (
+                        <button
+                          key={column}
+                          type="button"
+                          onClick={() => setMapping(m => ({
+                            ...m,
+                            options: active
+                              ? m.options.filter(c => c !== column)
+                              : [...(m.options || []), column],
+                          }))}
+                          className={`h-8 px-3 rounded-full border text-[13px] transition-colors duration-150 ${
+                            active
+                              ? 'border-brand bg-brand-tint/40 text-text-primary font-semibold'
+                              : 'border-border-default text-text-secondary hover:bg-surface-muted'
+                          }`}
+                        >
+                          {column}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <MappingField
+                label={mappingLabels.correct}
+                value={mapping?.correct || ''}
+                columns={inspection.columns}
+                onChange={v => setMapping(m => ({ ...m, correct: v || null }))}
+                allowNone
+              />
+
+              <MappingField
+                label={mappingLabels.explanation}
+                value={mapping?.explanation || ''}
+                columns={inspection.columns}
+                onChange={v => setMapping(m => ({ ...m, explanation: v || null }))}
+                allowNone
+              />
+
+              <div className="rounded-lg border border-border-default overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead className="bg-surface-muted">
+                    <tr>
+                      {inspection.columns.map(c => (
+                        <th key={c} className="px-3 py-2 text-left font-semibold text-text-secondary whitespace-nowrap">{c}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inspection.sample_rows.map((row, i) => (
+                      <tr key={i} className="border-t border-border-subtle">
+                        {inspection.columns.map(c => (
+                          <td key={c} className="px-3 py-2 text-text-secondary whitespace-nowrap max-w-[180px] truncate">{row[c]}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -534,6 +845,39 @@ export default function CreateTaskOverlay({
           {/* ── Stage 3: review ─────────────────────────────────────── */}
           {stage === 'review' && (
             <div className="space-y-4 animate-in fade-in-0 duration-200">
+              {/* How the questions were read. `ai` means a model cut the
+                  document into questions and labelled the parts — every string
+                  it returned was checked back against the source and the answer
+                  key was resolved from the marker the document itself states,
+                  but it still deserves a closer read than a confirmed mapping. */}
+              {parseSource === 'ai' && (
+                <div className="rounded-lg border border-warning/25 bg-warning/10 px-3 py-2.5">
+                  <p className="text-[12px] font-medium text-warning">
+                    This document had no clear structure, so its questions were
+                    located by AI. Every prompt, option and answer key was matched
+                    back to the file — nothing was written for you — but check
+                    them before saving.
+                  </p>
+                </div>
+              )}
+              {parseSource === 'structural' && (
+                <p className="text-[12px] text-text-muted">
+                  Read directly from the document&apos;s numbering and answer lines.
+                </p>
+              )}
+
+              {warnings.length > 0 && (
+                <div className="rounded-lg border border-border-default bg-surface-muted/60 px-3 py-2.5">
+                  <p className="text-[12px] font-semibold text-text-primary">
+                    {warnings.length} skipped — nothing is ever guessed
+                  </p>
+                  <ul className="mt-1 space-y-0.5">
+                    {warnings.slice(0, 5).map((w, i) => (
+                      <li key={i} className="text-[12px] text-text-secondary">{w}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2.5 cursor-pointer select-none">
                   <input
@@ -570,6 +914,17 @@ export default function CreateTaskOverlay({
                   </QuestionCardShell>
                 ))}
               </div>
+
+              {entryMode === 'manual' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 w-full text-[13px]"
+                  onClick={addManualQuestion}
+                >
+                  + Add another question
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -582,14 +937,32 @@ export default function CreateTaskOverlay({
           >
             Cancel
           </Button>
-          <Button
-            variant="cta"
-            className="h-10 px-5 transition-transform duration-150 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
-            disabled={stage === 'review' ? selectedIds.size === 0 : stage !== 'review'}
-            onClick={handleSave}
-          >
-            {stage === 'review' ? `Save ${selectedIds.size ? selectedIds.size : ''} to task library` : 'Save to task library'}
-          </Button>
+          {stage === 'mapping' ? (
+            <Button
+              variant="cta"
+              className="h-10 px-5 transition-transform duration-150 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+              // Free text has no option columns, so "did you pick two?" is the
+              // wrong gate for it — a question column is the whole requirement.
+              disabled={
+                !mapping?.prompt
+                || (mappingLabels.options && (mapping?.options || []).length < 2)
+              }
+              onClick={runParse}
+            >
+              Read {inspection?.row_count || 0} question{inspection?.row_count === 1 ? '' : 's'}
+            </Button>
+          ) : (
+            <Button
+              variant="cta"
+              className="h-10 px-5 transition-transform duration-150 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+              disabled={stage !== 'review' || savableQuestions.length === 0}
+              onClick={handleSave}
+            >
+              {stage === 'review' && savableQuestions.length
+                ? `Save ${savableQuestions.length} to task library`
+                : 'Save to task library'}
+            </Button>
+          )}
         </SheetFooter>
       </SheetContent>
     </Sheet>
