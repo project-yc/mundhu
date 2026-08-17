@@ -160,19 +160,47 @@
    Accent (#4988C4) / Surface (#BDE8F5)
    ═══════════════════════════════════════════════════════ */
 
-/* ── Ask-anything animated gradient border ─────────────── */
-.ask-gradient-border {
-  background: linear-gradient(
-    90deg,
-    #FF5F6D, #FFC371, #4ADE80, #38BDF8, #A78BFA, #FF5F6D
-  );
-  background-size: 300% 100%;
-  animation: askGradientShift 6s linear infinite;
+/* ── Ask-anything bar ──────────────────────────────────────
+   .ask-shell is the 1px padding wrapper whose background *is* the bar's
+   border. It holds perfectly still at rest — the sweep exists only while an
+   answer is actually streaming, so the bar never animates for its own sake.
+   ─────────────────────────────────────────────────────── */
+.ask-shell {
+  background: var(--color-border);
+  transition: background-color 150ms ease-out, box-shadow 150ms ease-out;
 }
 
-@keyframes askGradientShift {
-  0%   { background-position: 0% 50%; }
-  100% { background-position: 300% 50%; }
+.ask-shell:focus-within {
+  background: var(--color-brand-border);
+  box-shadow: 0 0 0 3px var(--color-ember-wash);
+}
+
+.ask-shell[data-streaming='true'] {
+  background: linear-gradient(
+    90deg,
+    var(--color-border)      0%,
+    var(--color-brand)      35%,
+    var(--color-ember-soft) 50%,
+    var(--color-brand)      65%,
+    var(--color-border)    100%
+  );
+  background-size: 250% 100%;
+  animation: askShellSweep 1.6s linear infinite;
+}
+
+@keyframes askShellSweep {
+  from { background-position: 150% 50%; }
+  to   { background-position: -50% 50%; }
+}
+
+/* Live-recording ring on the mic — motion tied to an active capture. */
+.ask-mic-live {
+  animation: askMicPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes askMicPulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-ember-edge); }
+  50%      { box-shadow: 0 0 0 4px transparent; }
 }
 
 @layer base {
@@ -493,6 +521,8 @@
 @media (prefers-reduced-motion: reduce) {
   .timer-urgent,
   .autosave-pulse,
+  .ask-shell,
+  .ask-mic-live,
   .ember-sweep,
   .cand-section-item,
   .lp-aurora,
