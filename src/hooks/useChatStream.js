@@ -24,6 +24,16 @@ export function useChatStream() {
     setError(null);
   }, []);
 
+  /**
+   * Abort an in-flight request but keep whatever was already streamed — the
+   * read loop below treats an AbortError as a silent exit, so the partial
+   * answer survives and only the status needs settling.
+   */
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+    setStatus((current) => (current === 'loading' || current === 'streaming' ? 'done' : current));
+  }, []);
+
   const ask = useCallback(async (question) => {
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -111,5 +121,5 @@ export function useChatStream() {
     }
   }, []);
 
-  return { status, answer, error, ask, reset };
+  return { status, answer, error, ask, stop, reset };
 }
