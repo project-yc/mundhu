@@ -6,21 +6,12 @@ import {
   IconClock,
   IconArrowsSort,
   IconCode,
+  IconHelpCircle,
   IconListCheck,
   IconMessages,
   IconWriting,
 } from '@tabler/icons-react'
-import {
-  getAssessmentOverview,
-  saveMcqSession,
-  startMcqAssessment,
-} from '../../api/candidate/assessmentSession'
-import {
-  buildCandidateCompletionRoute,
-  buildCandidateSectionRoute,
-  clearCandidateRuntimeState,
-  saveCandidateRuntimeState,
-} from '../../api/candidate/runtime'
+import { getAssessmentOverview } from '../../api/candidate/assessmentSession'
 import { saveCandidateBranding } from '../../theme/CandidateThemeProvider.jsx'
 import {
   CandidateCenteredErrorState,
@@ -36,10 +27,12 @@ const AI_LEVEL_LABELS = {
   none: 'No AI assistance',
 }
 
-// The backend resolves each section's real content_type; only `mcq` and
-// `technical_task` had entries here, so the `|| SECTION_CONFIG.mcq` fallback
-// below labelled every ranking and free-text section "MCQ" on the one screen a
-// candidate sees before starting.
+const UNKNOWN_SECTION_CONFIG = {
+  label: 'Section',
+  Icon: IconHelpCircle,
+  badgeClass: 'bg-surface-muted text-text-secondary border border-border-default',
+}
+
 const SECTION_CONFIG = {
   mcq: {
     label: 'MCQ',
@@ -74,7 +67,6 @@ export default function AssessmentLandingPage() {
 
   const [overview, setOverview] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -88,43 +80,8 @@ export default function AssessmentLandingPage() {
       .finally(() => setLoading(false))
   }, [token])
 
-  const handleStart = async () => {
-    setStarting(true)
-    setError('')
-    try {
-      const data = await startMcqAssessment(token)
-      saveMcqSession({
-        token,
-        instanceToken: data.instance_token,
-        instanceId: data.instance_id,
-        sections: data.sections || [],
-        candidateName: overview?.candidate_name,
-        assessmentName: overview?.assessment_name,
-      })
-
-      if (data.next_action === 'assessment_complete') {
-        clearCandidateRuntimeState()
-        navigate(
-          data.frontend_route || data.completion_route || buildCandidateCompletionRoute(data.assessment_instance_id || data.instance_id),
-          { replace: true },
-        )
-        return
-      }
-
-      if (data.next_action === 'open_section' || data.next_action === 'launch_coding') {
-        const runtime = saveCandidateRuntimeState(data)
-        navigate(
-          data.frontend_route || buildCandidateSectionRoute(data.assessment_instance_id || data.instance_id, data.section_id),
-          { replace: true, state: { runtime } },
-        )
-        return
-      }
-
-      navigate(`/assessment/${token}/mcq/0`, { replace: true })
-    } catch (e) {
-      setError(e.message || 'Failed to start assessment')
-      setStarting(false)
-    }
+  const handleStart = () => {
+    navigate(`/assessment/${token}/terms`, { state: { overview } })
   }
 
   if (loading) {
@@ -182,7 +139,7 @@ export default function AssessmentLandingPage() {
             </div>
             <ul className="bg-surface divide-y divide-border-default cand-section-list">
               {sections.map((sec, i) => {
-                const cfg = SECTION_CONFIG[sec.content_type] || SECTION_CONFIG.mcq
+                const cfg = SECTION_CONFIG[sec.content_type] || UNKNOWN_SECTION_CONFIG
                 const Icon = cfg.Icon
                 return (
                   <li
@@ -238,15 +195,9 @@ export default function AssessmentLandingPage() {
 
       {error ? <CandidateErrorBanner>{error}</CandidateErrorBanner> : null}
 
-      <CandidatePrimaryButton onClick={handleStart} disabled={starting}>
-        {starting ? (
-          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin opacity-60" />
-        ) : (
-          <>
-            Begin Assessment
-            <IconChevronRight size={16} />
-          </>
-        )}
+      <CandidatePrimaryButton onClick={handleStart}>
+        Begin Assessment
+        <IconChevronRight size={16} />
       </CandidatePrimaryButton>
 
     </CandidatePageShell>
