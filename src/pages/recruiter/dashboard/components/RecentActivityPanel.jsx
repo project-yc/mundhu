@@ -9,12 +9,27 @@ const TAG_COLORS = {
 };
 const DEFAULT_TAG_COLOR = '#707F93';
 
-const AVATAR_COLORS = ['#FFB320', '#FB8E2C', '#5D6EF6', '#E02281', '#359200'];
+// [from, to] gradient stops per avatar — same hues as AVATAR_COLORS used to be,
+// just with a paired shade so the avatar reads as a soft badge, not a flat dot.
+const AVATAR_GRADIENTS = [
+  ['#FFC24D', '#FF9800'],
+  ['#FDA85C', '#F0730F'],
+  ['#7C89FF', '#4453E8'],
+  ['#F0479E', '#C41368'],
+  ['#5FBF3A', '#28810A'],
+];
 
-function avatarColorFor(name) {
+function avatarGradientFor(name) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+  return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
+}
+
+function initialsFor(name) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
 function formatActivityTime(isoStr) {
@@ -37,24 +52,26 @@ function TagBadge({ tag }) {
   if (!tag) return null;
   const color = TAG_COLORS[tag.toLowerCase()] ?? DEFAULT_TAG_COLOR;
   return (
-    <span className="inline-flex items-center gap-[3px]">
-      <span className="w-3 h-3 rounded-lg flex-shrink-0" style={{ backgroundColor: color }} />
-      <span className="text-[11px]" style={{ color }}>#{tag}</span>
+    <span
+      className="inline-flex items-center rounded-full px-2 py-[2px] text-[10px] font-semibold capitalize"
+      style={{ backgroundColor: `${color}1F`, color }}
+    >
+      {tag}
     </span>
   );
 }
 
 function ActivityItem({ item, isLast }) {
   const userName = item.user?.name ?? 'Someone';
-  const initial = userName.charAt(0).toUpperCase();
+  const [from, to] = avatarGradientFor(userName);
 
   return (
     <div className={`flex gap-2 py-2.5 ${isLast ? '' : 'border-b'}`} style={{ borderColor: '#F7F7F7' }}>
       <span
-        className="w-[26px] h-[26px] rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-semibold text-white"
-        style={{ backgroundColor: avatarColorFor(userName) }}
+        className="w-[28px] h-[28px] rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-white ring-2 ring-white shadow-sm"
+        style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
       >
-        {initial}
+        {initialsFor(userName)}
       </span>
       <div className="flex-1 min-w-0">
         <p className="text-[12px] leading-[1.4]">
@@ -62,11 +79,11 @@ function ActivityItem({ item, isLast }) {
           <span style={{ color: '#959595' }}>{item.action ?? 'updated'} </span>
           <span className="text-black">{item.description ?? ''}</span>
         </p>
-        <div className="flex items-center gap-1.5 mt-1">
+        <div className="flex items-center gap-1.5 mt-1.5">
           <span className="text-[11px]" style={{ color: '#B0B0B0' }}>
             {formatActivityTime(item.created_at)}
           </span>
-          {item.tag && <span style={{ color: '#B0B0B0' }}>•</span>}
+          {item.tag && <span style={{ color: '#D8D8D8' }}>•</span>}
           <TagBadge tag={item.tag} />
         </div>
       </div>
