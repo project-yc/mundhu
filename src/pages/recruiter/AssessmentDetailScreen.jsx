@@ -2,12 +2,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Loader, AlertCircle, Users, Copy, CheckCircle,
-  ExternalLink, FileText, Search, Clock, Code, Terminal, Globe,
+  ArrowLeft, Loader, AlertCircle, Users, CheckCircle,
+  FileText, Search, Clock, Code, Terminal, Globe,
   Calendar, ChevronRight, UserPlus, ChevronDown, ChevronUp,
-  ListChecks, Settings2, Cpu, BookOpen, Layers,
+  ListChecks, Settings2, Cpu, BookOpen, Layers, RefreshCw, Ban,
 } from 'lucide-react';
-import { getAssessmentById, getAssessmentCandidates } from '../../api/recruiter/assessment.jsx';
+import {
+  getAssessmentById, getAssessmentCandidates,
+  resendCandidateInvite, revokeCandidateInvite,
+} from '../../api/recruiter/assessment.jsx';
 import { CandidateStatusBadge } from './dashboard/shared/StatusBadge.jsx';
 import { formatDate, formatDateTime, getInitials, copyToClipboard } from './dashboard/shared/utils.js';
 
@@ -21,31 +24,75 @@ const DIFFICULTY_COLORS = {
 };
 const SELECTION_MODE_LABELS = { single: 'Single choice', multi: 'Multi choice' };
 
-// ─── Invite link display ──────────────────────────────────────────────────────
-function InviteLinkCell({ link }) {
+// ─── Invite actions: resend / revoke ───────────────────────────────────────────
+// The raw invite token is never persisted server-side (only its hash is), so
+// there's nothing to display or copy after the initial send — Resend fetches
+// a freshly rotated link and copies it once; the old link is invalidated the
+// moment resend succeeds. See InviteCandidateService.resend_invite (backend).
+function InviteActionsCell({ candidate, onUpdated }) {
+  const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
-  if (!link) return <span className="text-[11px] text-text-muted italic">Link unavailable</span>;
+  const [error, setError] = useState('');
 
-  const handleCopy = () => {
-    copyToClipboard(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const canResend = candidate.status === 'Invited';
+  const canRevoke = candidate.status === 'Invited' || candidate.status === 'In Progress';
+
+  if (!canResend && !canRevoke) {
+    return <span className="text-[11px] text-text-muted italic">No actions available</span>;
+  }
+
+  const handleResend = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const res = await resendCandidateInvite(candidate.id);
+      const data = res.data || res;
+      if (data.invite_link) {
+        copyToClipboard(data.invite_link);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      }
+      onUpdated?.();
+    } catch (err) {
+      setError(err.message || 'Failed to resend invite');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRevoke = async () => {
+    if (!window.confirm(`Revoke the invite for ${candidate.candidate_email}? Their link will stop working immediately.`)) {
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await revokeCandidateInvite(candidate.id);
+      onUpdated?.();
+    } catch (err) {
+      setError(err.message || 'Failed to revoke invite');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <div className="flex items-center gap-2 min-w-0">
-      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-surface border border-border-default rounded-lg min-w-0 flex-1 max-w-[280px]">
-        <span className="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0" />
-        <span className="text-[11px] text-text-secondary font-mono truncate flex-1">{link}</span>
-      </div>
-      <button onClick={handleCopy} title="Copy invite link"
-        className="p-1.5 rounded-md transition-all duration-150 flex-shrink-0 hover:bg-surface-muted">
-        {copied ? <CheckCircle className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5 text-text-muted hover:text-brand" />}
-      </button>
-      <a href={link} target="_blank" rel="noopener noreferrer" title="Open invite link"
-        className="p-1.5 rounded-md text-text-muted hover:text-brand hover:bg-surface-muted transition-all duration-150 flex-shrink-0">
-        <ExternalLink className="w-3.5 h-3.5" />
-      </a>
+    <div className="flex items-center gap-2 flex-wrap">
+      {canResend && (
+        <button onClick={handleResend} disabled={busy} title="Resend invite (generates a new link)"
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-surface border border-border-default rounded-lg text-[11px] font-medium text-text-secondary hover:text-brand hover:border-brand-border transition-all duration-150 disabled:opacity-50">
+          {copied ? <CheckCircle className="w-3 h-3 text-success" /> : <RefreshCw className={`w-3 h-3 ${busy ? 'animate-spin' : ''}`} />}
+          {copied ? 'Link copied' : 'Resend'}
+        </button>
+      )}
+      {canRevoke && (
+        <button onClick={handleRevoke} disabled={busy} title="Revoke invite"
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-surface border border-border-default rounded-lg text-[11px] font-medium text-text-secondary hover:text-error hover:border-error-border transition-all duration-150 disabled:opacity-50">
+          <Ban className="w-3 h-3" />
+          Revoke
+        </button>
+      )}
+      {error && <span className="text-[11px] text-error">{error}</span>}
     </div>
   );
 }
@@ -346,7 +393,7 @@ function CandidateFunnelCard({ candidates, isReady, navigate, id }) {
 }
 
 // ─── Candidate card row ───────────────────────────────────────────────────────
-function CandidateCard({ candidate, assessmentId, onViewReport }) {
+function CandidateCard({ candidate, assessmentId, onViewReport, onCandidateUpdated }) {
   return (
     <div className="px-6 py-4 hover:bg-surface transition-colors duration-100 group">
       <div className="flex items-start gap-4">
@@ -365,7 +412,7 @@ function CandidateCard({ candidate, assessmentId, onViewReport }) {
             <span className="flex items-center gap-1 text-[11px] text-text-muted">
               <Calendar className="w-3 h-3" />Invited {formatDate(candidate.invited_at)}
             </span>
-            {candidate.expires_at && candidate.status !== 'Submitted' && (
+            {candidate.expires_at && candidate.status !== 'Submitted' && candidate.status !== 'Revoked' && (
               <span className="flex items-center gap-1 text-[11px] text-text-muted">
                 <Clock className="w-3 h-3" />Expires {formatDateTime(candidate.expires_at)}
               </span>
@@ -376,7 +423,7 @@ function CandidateCard({ candidate, assessmentId, onViewReport }) {
               </span>
             )}
           </div>
-          <InviteLinkCell link={candidate.invite_link} />
+          <InviteActionsCell candidate={candidate} onUpdated={onCandidateUpdated} />
         </div>
         {candidate.status === 'Submitted' && candidate.session_id && (
           <button onClick={() => onViewReport(candidate.session_id)}
@@ -402,6 +449,14 @@ export default function AssessmentDetailScreen() {
   const [filter, setFilter]           = useState('all');
   const [search, setSearch]           = useState('');
 
+  const refreshCandidates = () => {
+    setCandLoading(true);
+    return getAssessmentCandidates(id)
+      .then(res => { const data = res.data || res; setCandidates(data.candidates || []); })
+      .catch(() => setCandidates([]))
+      .finally(() => setCandLoading(false));
+  };
+
   useEffect(() => {
     setAssLoading(true);
     getAssessmentById(id)
@@ -409,11 +464,8 @@ export default function AssessmentDetailScreen() {
       .catch(err => setError(err.message || 'Failed to load assessment.'))
       .finally(() => setAssLoading(false));
 
-    setCandLoading(true);
-    getAssessmentCandidates(id)
-      .then(res => { const data = res.data || res; setCandidates(data.candidates || []); })
-      .catch(() => setCandidates([]))
-      .finally(() => setCandLoading(false));
+    refreshCandidates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const filtered = useMemo(() => candidates.filter(c => {
@@ -430,6 +482,7 @@ export default function AssessmentDetailScreen() {
     'In Progress':  candidates.filter(c => c.status === 'In Progress').length,
     Submitted:      candidates.filter(c => c.status === 'Submitted').length,
     Expired:        candidates.filter(c => c.status === 'Expired').length,
+    Revoked:        candidates.filter(c => c.status === 'Revoked').length,
   }), [candidates]);
 
   const isReady = assessment?.status === 'published';
@@ -564,6 +617,7 @@ export default function AssessmentDetailScreen() {
             { key: 'In Progress', label: 'Active',    count: counts['In Progress'] },
             { key: 'Submitted',   label: 'Submitted', count: counts['Submitted'] },
             { key: 'Expired',     label: 'Expired',   count: counts['Expired'] },
+            { key: 'Revoked',     label: 'Revoked',   count: counts['Revoked'] },
           ].filter(t => t.key === 'all' || t.count > 0).map(({ key, label, count }) => (
             <button key={key} onClick={() => setFilter(key)}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all duration-150 whitespace-nowrap ${
@@ -594,7 +648,7 @@ export default function AssessmentDetailScreen() {
         ) : (
           <div className="divide-y divide-border-subtle">
             {filtered.map(candidate => (
-              <CandidateCard key={candidate.id} candidate={candidate} assessmentId={id} onViewReport={handleViewReport} />
+              <CandidateCard key={candidate.id} candidate={candidate} assessmentId={id} onViewReport={handleViewReport} onCandidateUpdated={refreshCandidates} />
             ))}
           </div>
         )}
