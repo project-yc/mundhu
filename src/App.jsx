@@ -15,12 +15,12 @@ import ReportDetailScreen from './pages/recruiter/ReportDetailScreen'
 import InviteScreen from './pages/recruiter/invite'
 import TeamInviteScreen from './pages/recruiter/invite/TeamInviteScreen'
 import InviteCandidate from './pages/recruiter/InviteCandidate'
-import VerifyCandidateInvite from './pages/recruiter/VerifyCandidateInvite'
+import InviteRedirect from './pages/candidate/InviteRedirect'
 import CandidateAssessmentCompletePage from './pages/candidate/CandidateAssessmentCompletePage'
 import CandidateSectionRuntimePage from './pages/candidate/CandidateSectionRuntimePage'
 import AssessmentLandingPage from './pages/candidate/AssessmentLandingPage'
+import AssessmentTermsPage from './pages/candidate/AssessmentTermsPage'
 import McqSectionPage from './pages/candidate/McqSectionPage'
-import AssessmentCompletionPage from './pages/candidate/AssessmentCompletionPage'
 import ExamPreview from './pages/candidate/__ExamPreview'
 import OnboardingPage from './pages/recruiter/onboarding/OnboardingPage'
 import AssessmentBuilderPage from './pages/recruiter/assessments/new/AssessmentBuilderPage'
@@ -341,12 +341,12 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        <Route path="/invite/:token" element={<VerifyCandidateInvite />} />
+        <Route path="/invite/:token" element={<InviteRedirect />} />
         <Route path="/candidate/assessment/:instanceId/sections/:sectionId" element={<CandidateSectionRuntimePage />} />
         <Route path="/candidate/assessment/:instanceId/complete" element={<CandidateAssessmentCompletePage />} />
         <Route path="/assessment/:token" element={<AssessmentLandingPage />} />
+        <Route path="/assessment/:token/terms" element={<AssessmentTermsPage />} />
         <Route path="/assessment/:token/mcq/:sectionIndex" element={<McqSectionPage />} />
-        <Route path="/assessment/:token/complete" element={<AssessmentCompletionPage />} />
         {/* Dev-only preview harness — must not ship as a public route. */}
         {import.meta.env.DEV && (
           <Route path="/__exam-preview" element={<ExamPreview />} />
