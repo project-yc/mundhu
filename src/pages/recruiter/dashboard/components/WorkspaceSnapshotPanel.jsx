@@ -44,6 +44,21 @@ function arcPath(cx, cy, r, startDeg, sweepDeg) {
 function RadialChart({ total, snap }) {
   return (
     <svg viewBox="0 0 200 195" className="w-full max-w-[210px] mx-auto">
+      {/* Track rings — always drawn full, in each ring's own true (undiluted)
+          color, so the chart reads as "complete" even when counts are 0 or 1.
+          Thinner than the value arc, which sits on top in the same color at
+          full strokeWidth — proportion still reads via the extra thickness. */}
+      {RINGS.map((ring, i) => (
+        <path
+          key={`track-${i}`}
+          d={arcPath(CX, CY, ring.r, ring.startDeg, END_DEG - ring.startDeg)}
+          fill="none"
+          stroke={ring.color}
+          strokeWidth={Math.max(ring.strokeWidth - 6, 2.5)}
+          strokeLinecap="round"
+        />
+      ))}
+
       {/* Colored arcs — length is proportional to each count's share of the total */}
       {RINGS.map((ring, i) => {
         const value = Number(snap?.[ring.key] ?? 0);
