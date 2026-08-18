@@ -5,6 +5,7 @@ export const STATUS_CONFIG = {
   'In Progress': { color: '#D97706', bg: '#FFFBEB', border: '#FCD34D', label: 'Active' },
   'Submitted':   { color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC', label: 'Submitted' },
   'Expired':     { color: '#64748B', bg: '#F1F5F9', border: '#E2E8F0', label: 'Expired' },
+  'Revoked':     { color: '#DC2626', bg: '#FEF2F2', border: '#FCA5A5', label: 'Revoked' },
 };
 
 export function CandidateStatusBadge({ status }) {
