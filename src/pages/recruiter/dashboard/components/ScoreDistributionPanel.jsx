@@ -25,12 +25,14 @@ import {
 // Figma cluster exactly. Bubble SIZE never changes — only the number inside
 // is dynamic. This keeps the chart looking balanced even when every bucket
 // is 0 or has very low counts (a shrinking-radius chart looked broken then).
+// Each bubble now shades from `from` (light) to `to` (deep) for a cleaner,
+// less "shiny ball" look than the old radial gradient.
 const BUBBLES = [
-  { cx: 105, cy: 69,  r: 68, color: '#F07613', highlight: '#FAA34A', shadow: '#C05A0A' }, // largest, top-center
-  { cx: 37,  cy: 76,  r: 37, color: '#FB8E2C', highlight: '#FDB65E', shadow: '#D46E18' }, // mid-left
-  { cx: 55,  cy: 132, r: 48, color: '#FFB320', highlight: '#FFCC5E', shadow: '#D98F00' }, // bottom-left
-  { cx: 126, cy: 132, r: 42, color: '#ED7910', highlight: '#F59D3E', shadow: '#BF5F08' }, // bottom-right
-  { cx: 166, cy: 97,  r: 28, color: '#FFBB33', highlight: '#FFD06E', shadow: '#D98F1A' }, // small, right
+  { cx: 105, cy: 69,  r: 68, from: '#FF9A45', to: '#E8630A' }, // largest, top-center
+  { cx: 37,  cy: 76,  r: 37, from: '#FFAE5C', to: '#EF7A16' }, // mid-left
+  { cx: 55,  cy: 132, r: 48, from: '#FFC768', to: '#F0980A' }, // bottom-left
+  { cx: 126, cy: 132, r: 42, from: '#FF9E52', to: '#DE640A' }, // bottom-right
+  { cx: 166, cy: 97,  r: 28, from: '#FFCE7A', to: '#EFA020' }, // small, right
 ];
 
 function BubbleChart({ buckets, loading }) {
@@ -54,19 +56,30 @@ function BubbleChart({ buckets, loading }) {
     <svg viewBox="0 0 200 182" className="w-full h-full" style={{ overflow: 'visible' }}>
       <defs>
         {BUBBLES.map((b, i) => (
-          <radialGradient key={`grad-${i}`} id={`bubble3d-${i}`} cx="40%" cy="35%" r="75%">
-            <stop offset="0%" stopColor={b.highlight} />
-            <stop offset="100%" stopColor={b.color} />
+          <radialGradient key={`grad-${i}`} id={`bubble3d-${i}`} cx="38%" cy="32%" r="80%">
+            <stop offset="0%" stopColor={b.from} />
+            <stop offset="100%" stopColor={b.to} />
           </radialGradient>
         ))}
+        <filter id="bubbleShadow" x="-60%" y="-60%" width="220%" height="220%">
+          <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#B4530A" floodOpacity="0.22" />
+        </filter>
       </defs>
       {BUBBLES.map((bubble, i) => {
         const count = buckets[i]?.count ?? 0;
         const fontSize = bubble.r > 45 ? 18 : bubble.r > 32 ? 15 : 12;
 
         return (
-          <g key={buckets[i]?.range ?? i}>
-            <circle cx={bubble.cx} cy={bubble.cy} r={bubble.r} fill={`url(#bubble3d-${i})`} stroke="#fff" strokeWidth="1.5" />
+          <g key={buckets[i]?.range ?? i} filter="url(#bubbleShadow)">
+            <circle
+              cx={bubble.cx}
+              cy={bubble.cy}
+              r={bubble.r}
+              fill={`url(#bubble3d-${i})`}
+              stroke="#FFF"
+              strokeWidth="1.5"
+              strokeOpacity="0.9"
+            />
             <text
               x={bubble.cx}
               y={bubble.cy}
