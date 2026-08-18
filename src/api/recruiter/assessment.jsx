@@ -162,6 +162,19 @@ export const getAssessmentCandidates = async (assessmentId) => {
   return authAxios.get(`/api/v1/recruiter/assessment/${assessmentId}/candidates`);
 };
 
+// Rotates the candidate's invite token (invalidating the old link) and
+// re-sends the invite email. Only valid while status is still 'Invited'.
+export const resendCandidateInvite = async (instanceId, expiresInHours) => {
+  return authAxios.post(`/api/v1/recruiter/candidates/${instanceId}/resend`, {
+    ...(expiresInHours ? { expires_in_hours: expiresInHours } : {}),
+  });
+};
+
+// Invalidates a pending/in-progress invite so its link stops resolving.
+export const revokeCandidateInvite = async (instanceId) => {
+  return authAxios.post(`/api/v1/recruiter/candidates/${instanceId}/revoke`);
+};
+
 // Canonical definition lives in ./reports.js — re-exported for CandidatesScreen.
 export const getCandidatesWithReports = listCandidateReports;
 
