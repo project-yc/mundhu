@@ -6,6 +6,7 @@ import {
   loadMcqSession,
 } from '../../api/candidate/assessmentSession'
 import CandidateMcqSectionExperience from '../../components/candidate/CandidateMcqSectionExperience'
+import { CandidateCenteredErrorState } from '../../components/candidate/CandidateSectionScaffold'
 
 // ─── Main page component ──────────────────────────────────────────
 
@@ -20,7 +21,12 @@ export default function McqSectionPage() {
     [session, sectionIndex],
   )
   if (!session || !section || Number.isNaN(sectionIndex)) {
-    return null
+    return (
+      <CandidateCenteredErrorState
+        title="Session expired"
+        message="Your assessment session could not be found. This can happen after a refresh or a long period of inactivity — please use your original invite link to restart."
+      />
+    )
   }
 
   const handleSubmitResult = async (result) => {
