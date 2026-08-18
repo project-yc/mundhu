@@ -127,7 +127,13 @@ function AssessmentItem({ assessment, isExpanded, onToggle }) {
   );
 }
 
-export default function ActiveAssessmentsPanel({ onCreateNew }) {
+// Statuses considered "active" for this panel. The backend marks a live
+// assessment as `published` (not `active` — that enum value exists but isn't
+// actually set anywhere), so both must be matched or published assessments
+// never show up here.
+const ACTIVE_STATUSES = ['active', 'published', 'draft'];
+
+export default function ActiveAssessmentsPanel({ onCreateNew, onSeeAll }) {
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState('');
@@ -136,9 +142,9 @@ export default function ActiveAssessmentsPanel({ onCreateNew }) {
   const fetchAssessments = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getDashboardAssessments({ page: 1, pageSize: 7 });
+      const res = await getDashboardAssessments({ page: 1, pageSize: 4 });
       const items = res?.data?.items ?? res?.items ?? res?.data ?? [];
-      const active = items.filter(a => a.status === 'active' || a.status === 'draft');
+      const active = items.filter(a => ACTIVE_STATUSES.includes(a.status));
       setAssessments(active);
       // Only auto-expand the first item on initial load
       setExpandedId(prev => prev ?? active[0]?.id ?? null);
@@ -182,13 +188,14 @@ export default function ActiveAssessmentsPanel({ onCreateNew }) {
             </div>
           ) : (
             <div className="space-y-3">
-              {assessments.map(a => (
-                <AssessmentItem
-                  key={a.id}
-                  assessment={a}
-                  isExpanded={expandedId === a.id}
-                  onToggle={() => toggle(a.id)}
-                />
+              {assessments.map((a, i) => (
+                <div key={a.id} className={i === 3 ? 'hidden xl:block' : undefined}>
+                  <AssessmentItem
+                    assessment={a}
+                    isExpanded={expandedId === a.id}
+                    onToggle={() => toggle(a.id)}
+                  />
+                </div>
               ))}
             </div>
           )}
@@ -204,6 +211,13 @@ export default function ActiveAssessmentsPanel({ onCreateNew }) {
             onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--color-assessment-accent)')}
           >
             Create new assessment
+          </button>
+          <button
+            onClick={onSeeAll}
+            className="w-full text-center py-2 text-[12px] font-medium transition-colors hover:text-black"
+            style={{ color: '#8A93A0' }}
+          >
+            See all assessments
           </button>
         </div>
       </div>
