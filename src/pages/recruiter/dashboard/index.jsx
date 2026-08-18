@@ -71,6 +71,7 @@ export default function RecruiterDashboard() {
             <div className="flex-[3] min-w-0 flex">
               <ActiveAssessmentsPanel
                 onCreateNew={() => navigate('/recruiter/assessments/new')}
+                onSeeAll={() => navigate('/recruiter/assessments')}
               />
             </div>
 
