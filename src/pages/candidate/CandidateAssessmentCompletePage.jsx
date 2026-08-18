@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useParams } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { CandidateCenteredLoadingState, CandidateCompletionScreen } from '../../components/candidate/CandidateSectionScaffold'
 
 const POST_SUBMIT_TRANSITION_MS = 1200
 
 export default function CandidateAssessmentCompletePage() {
-  const { instanceId } = useParams()
   const location = useLocation()
-  const completionState = location.state || {}
   const [showSubmittingTransition, setShowSubmittingTransition] = useState(() => {
     const searchParams = new URLSearchParams(location.search)
     return (
@@ -37,14 +35,6 @@ export default function CandidateAssessmentCompletePage() {
   }
 
   return (
-    <CandidateCompletionScreen
-      message="Your responses have been submitted successfully. The hiring team can continue reviewing your progress while grading finishes in the background."
-      details={(
-        <div className="bg-surface-muted border border-border-default rounded-xl px-6 py-5 text-text-muted text-sm leading-relaxed text-left space-y-1">
-          <p>Assessment instance: <span className="text-text-primary font-mono">{completionState.assessmentInstanceId || instanceId}</span></p>
-          <p>Last section: <span className="text-text-primary font-mono">{completionState.sectionId || 'n/a'}</span></p>
-        </div>
-      )}
-    />
+    <CandidateCompletionScreen message="Your responses have been submitted successfully. The hiring team can continue reviewing your progress while grading finishes in the background." />
   )
 }
