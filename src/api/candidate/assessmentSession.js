@@ -51,11 +51,11 @@ export const getAssessmentOverview = (token) =>
     body: JSON.stringify({ token }),
   })
 
-export const startMcqAssessment = (token) =>
+export const startMcqAssessment = (token, extra = {}) =>
   request('/api/v1/sessions/start-mcq', {
     method: 'POST',
     headers: JSON_HEADERS,
-    body: JSON.stringify({ token }),
+    body: JSON.stringify({ token, ...extra }),
   })
 
 export const syncTimer = (instanceId, instanceToken, payload) =>
