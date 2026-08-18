@@ -64,14 +64,19 @@ function TagBadge({ tag }) {
 function ActivityItem({ item, isLast }) {
   const userName = item.user?.name ?? 'Someone';
   const [from, to] = avatarGradientFor(userName);
+  const [imgFailed, setImgFailed] = useState(false);
+  const avatarUrl = item.user?.avatar_url;
+  const showImage = avatarUrl && !imgFailed;
 
   return (
     <div className={`flex gap-2 py-2.5 ${isLast ? '' : 'border-b'}`} style={{ borderColor: '#F7F7F7' }}>
       <span
-        className="w-[28px] h-[28px] rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-white ring-2 ring-white shadow-sm"
-        style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
+        className="w-[28px] h-[28px] rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-white ring-2 ring-white shadow-sm overflow-hidden"
+        style={showImage ? undefined : { background: `linear-gradient(135deg, ${from}, ${to})` }}
       >
-        {initialsFor(userName)}
+        {showImage
+          ? <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" onError={() => setImgFailed(true)} />
+          : initialsFor(userName)}
       </span>
       <div className="flex-1 min-w-0">
         <p className="text-[12px] leading-[1.4]">
