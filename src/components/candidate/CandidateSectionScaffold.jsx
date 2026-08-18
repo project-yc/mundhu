@@ -168,6 +168,7 @@ export function CandidateSectionIntroScreen({
   onAction,
   actionDisabled = false,
   maxWidth = 'max-w-lg',
+  consent,
 }) {
   return (
     <CandidatePageShell maxWidth={maxWidth}>
@@ -204,6 +205,18 @@ export function CandidateSectionIntroScreen({
             ))}
           </ul>
         </div>
+      ) : null}
+
+      {consent ? (
+        <label className="flex items-start gap-3 rounded-xl border border-border-default bg-surface-muted px-4 py-3.5 text-sm text-text-secondary cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={consent.checked}
+            onChange={(e) => consent.onChange(e.target.checked)}
+            className="mt-0.5 w-4 h-4 shrink-0 rounded border-border-strong accent-brand cursor-pointer"
+          />
+          <span>{consent.label}</span>
+        </label>
       ) : null}
 
       {error ? <CandidateErrorBanner>{error}</CandidateErrorBanner> : null}
