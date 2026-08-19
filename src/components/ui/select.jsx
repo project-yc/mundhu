@@ -11,7 +11,10 @@ const SelectTrigger = React.forwardRef(({ className, children, ...props }, ref) 
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-border-default bg-surface px-3 py-2 text-[13px] text-text-primary shadow-sm ring-offset-surface placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand/25 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1',
+      // No colored ring on open/focus — outline suppressed unconditionally
+      // (not just `focus:`) so no browser-default outline can show through,
+      // and the only visible change on interaction is the border darkening.
+      'flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-border-default bg-surface px-3 py-2 text-[13px] text-text-primary shadow-sm outline-none placeholder:text-text-muted focus:border-border-strong disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1',
       className,
     )}
     {...props}
@@ -62,7 +65,13 @@ const SelectItem = React.forwardRef(({ className, children, ...props }, ref) => 
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-[13px] outline-none focus:bg-surface-muted focus:text-text-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      // `data-[highlighted]` rather than `focus:` — Radix marks the
+      // pointer/keyboard-active option with this attribute regardless of
+      // whether real DOM focus lands on it, so `focus:` styling missed mouse
+      // hover and left the browser's own (blue) default showing through.
+      // Text stays text-primary (near-black) rather than the brand tint, both
+      // at rest and highlighted.
+      'relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-[13px] text-text-primary outline-none data-[highlighted]:bg-surface-muted data-[highlighted]:text-text-primary data-[state=checked]:font-semibold data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}
     {...props}
