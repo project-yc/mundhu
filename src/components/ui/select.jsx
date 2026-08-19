@@ -11,10 +11,14 @@ const SelectTrigger = React.forwardRef(({ className, children, ...props }, ref) 
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      // No colored ring on open/focus — outline suppressed unconditionally
-      // (not just `focus:`) so no browser-default outline can show through,
-      // and the only visible change on interaction is the border darkening.
-      'flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-border-default bg-surface px-3 py-2 text-[13px] text-text-primary shadow-sm outline-none placeholder:text-text-muted focus:border-border-strong disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1',
+      // No colored ring or outline on open/focus. `!outline-none` (important)
+      // because src/index.css has a global `*:focus-visible { outline: 2px
+      // solid var(--color-brand) }` rule — same specificity as a plain
+      // `outline-none` utility and declared later in the stylesheet, so on
+      // keyboard focus it was winning the cascade and drawing an orange ring
+      // straight through the unqualified override. The only visible change on
+      // interaction is the border darkening.
+      'flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-border-default bg-surface px-3 py-2 text-[13px] text-text-primary shadow-sm !outline-none placeholder:text-text-muted focus:border-border-strong disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1',
       className,
     )}
     {...props}
@@ -32,7 +36,9 @@ const SelectContent = React.forwardRef(({ className, children, position = 'poppe
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-lg border border-border-default bg-surface text-text-primary shadow-md data-[state=open]:animate-fadeIn data-[state=closed]:animate-fadeOut',
+        // The popper itself is a Radix focus-scope root and can pick up the
+        // same global focus-visible ring as the trigger/items.
+        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-lg border border-border-default bg-surface !outline-none text-text-primary shadow-md data-[state=open]:animate-fadeIn data-[state=closed]:animate-fadeOut',
         position === 'popper' && 'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
         className,
       )}
@@ -72,7 +78,10 @@ const SelectItem = React.forwardRef(({ className, children, ...props }, ref) => 
       // Highlighted option is solid black with white text (design reference),
       // not a tinted hover — the selected-but-idle item just goes bold with
       // its checkmark, same as everywhere else in this file.
-      'relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-[13px] text-text-primary outline-none data-[state=checked]:font-semibold data-[highlighted]:bg-black data-[highlighted]:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      // Same `!outline-none` reasoning as SelectTrigger — items get real
+      // keyboard focus via Radix's roving tabindex, which would otherwise
+      // pick up the global orange focus-visible ring.
+      'relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-[13px] text-text-primary !outline-none data-[state=checked]:font-semibold data-[highlighted]:bg-black data-[highlighted]:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}
     {...props}
