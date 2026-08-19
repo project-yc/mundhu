@@ -45,7 +45,7 @@ export default function RecruiterDashboard() {
             onCreateAssessment={() => navigate('/recruiter/assessments/new')}
             onInviteTeam={() => navigate('/recruiter/invite')}
             onOpenLibrary={() => navigate('/recruiter/task-library')}
-            onBrowseTemplates={() => navigate('/recruiter/assessments/new')}
+            onBrowseTemplates={() => navigate('/recruiter/templates')}
             // Opens in its own tab so the recruiter keeps their place in the
             // dashboard, and so the page is easy to forward to a colleague.
             onSeeHowItWorks={() => window.open('/product/adaptive-interview', '_blank', 'noopener,noreferrer')}
