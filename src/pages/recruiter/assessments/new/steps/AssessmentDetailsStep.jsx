@@ -1,9 +1,12 @@
-import { useState } from 'react';
-import { FileText, Briefcase, CalendarIcon } from 'lucide-react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { FileText, Briefcase, CalendarIcon, LayoutTemplate, X } from 'lucide-react';
 import { format, startOfToday, isBefore } from 'date-fns';
 import assessmentCard from '../../../../../assets/recruiter/images/assessmentCard.png';
 import { useAssessmentBuilder } from '../context/AssessmentBuilderContext';
-import { createAssessment } from '../api/assessmentBuilderApi';
+import { createAssessment, getBuilderState } from '../api/assessmentBuilderApi';
+import { hydrateBuilderState } from '../context/hydrateBuilderState';
+import { getPreset, instantiatePreset } from '../../../../../api/recruiter/presets';
 import { cn } from '../../../../../lib/utils';
 import { Popover, PopoverTrigger, PopoverContent } from '../../../../../components/ui/popover';
 import { Calendar } from '../../../../../components/ui/calendar';
@@ -22,6 +25,20 @@ const SELECT_TRIGGER_FOCUS = 'focus:ring-black/15 focus:border-black';
 const SELECT_ITEM_FOCUS = 'data-[highlighted]:bg-black data-[highlighted]:text-white';
 
 const DURATION_OPTIONS = [30, 45, 60, 90, 120];
+
+/**
+ * The duration choices, guaranteed to contain `current`.
+ *
+ * Templates set their own duration — a two-round backend screen is 75 minutes,
+ * which is not one of the five round numbers on this form. Rendering the fixed
+ * list alone left the Select blank for those: the value was still in state and
+ * would have submitted correctly, but the recruiter saw an empty control and
+ * had no way back to it after touching the dropdown.
+ */
+function durationOptions(current) {
+  if (!current || DURATION_OPTIONS.includes(current)) return DURATION_OPTIONS;
+  return [...DURATION_OPTIONS, current].sort((a, b) => a - b);
+}
 const DEFAULT_DURATION = 45;
 // Sent to the backend as `config_json.seniority`; values must match TaskSeniority.
 // These previously shipped display labels ("Junior Level") as the values, which
@@ -111,25 +128,84 @@ function Field({ label, children, className = '' }) {
   );
 }
 
-function IconInput({ icon, className, ...props }) {
+const IconInput = forwardRef(function IconInput({ icon, className, ...props }, ref) {
   const Icon = icon;
   return (
     <div className="relative">
       <Icon className="absolute left-[13px] top-1/2 -translate-y-1/2 w-[15px] h-[15px] text-text-muted pointer-events-none z-10" strokeWidth={1.8} />
       <Input
+        ref={ref}
         className={cn('h-[40px] pl-[38px] pr-4 rounded-[8px] border-border-strong', FIELD_FOCUS, className)}
         {...props}
       />
     </div>
   );
-}
+});
 
 export function AssessmentDetailsStep({ onCancel }) {
   const { state, dispatch, ACTIONS } = useAssessmentBuilder();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [savedAsDraft, setSavedAsDraft] = useState(false);
   const [expiryOpen, setExpiryOpen] = useState(false);
+
+  // `?template=<id>` — the recruiter picked one in the gallery. The template
+  // supplies defaults for every field on this form; nothing here is locked.
+  const templateId = searchParams.get('template');
+  const [template, setTemplate] = useState(null);
+  const [templateLoading, setTemplateLoading] = useState(Boolean(templateId));
+  const nameInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!templateId) {
+      setTemplate(null);
+      setTemplateLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setTemplateLoading(true);
+
+    getPreset(templateId)
+      .then(preset => {
+        if (cancelled || !preset) return;
+        setTemplate(preset);
+        dispatch({
+          type: ACTIONS.SET_DETAILS,
+          payload: {
+            name: preset.suggested_name || preset.name || '',
+            description: preset.description || '',
+            role: preset.target_role || '',
+            seniority: preset.seniority || DEFAULT_SENIORITY,
+            domain: preset.domain || DEFAULT_DOMAIN,
+            duration_minutes: preset.duration_minutes ?? DEFAULT_DURATION,
+          },
+        });
+        // The name is the field most likely to change — it arrives as the
+        // template's shelf label ("Senior Backend Engineer"), and the recruiter
+        // wants their own requisition name. Selecting it means one keystroke
+        // replaces it instead of needing a clear first.
+        requestAnimationFrame(() => nameInputRef.current?.select());
+      })
+      .catch(err => {
+        if (!cancelled) setError(err?.message || 'Could not load that template.');
+      })
+      .finally(() => {
+        if (!cancelled) setTemplateLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [templateId, dispatch, ACTIONS]);
+
+  const clearTemplate = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('template');
+    next.set('from', 'scratch');
+    setSearchParams(next, { replace: true });
+    setTemplate(null);
+  };
 
   const durationValue = state.duration_minutes ?? DEFAULT_DURATION;
   const seniorityValue = state.seniority || DEFAULT_SENIORITY;
@@ -163,20 +239,42 @@ export function AssessmentDetailsStep({ onCancel }) {
     }
     setCreating(true);
     setError('');
+
+    const details = {
+      name: state.name,
+      description: state.description,
+      duration_minutes: durationValue,
+      config_json: {
+        role: state.role || '',
+        seniority: seniorityValue,
+        // `domain` (not `role`) is the key the adaptive interview config reads
+        // as its role_family fallback.
+        domain: domainValue,
+      },
+      expiry_datetime: state.expiry_datetime || undefined,
+    };
+
     try {
-      const res = await createAssessment({
-        name: state.name,
-        description: state.description,
-        duration_minutes: durationValue,
-        config_json: {
-          role: state.role || '',
-          seniority: seniorityValue,
-          // `domain` (not `role`) is the key the adaptive interview config reads
-          // as its role_family fallback.
-          domain: domainValue,
-        },
-        expiry_datetime: state.expiry_datetime || undefined,
-      });
+      // Both paths return `{ id }` and both leave the recruiter on step 2. The
+      // difference is what step 2 opens onto: an empty canvas, or the template's
+      // sections already built out and ready to edit.
+      if (templateId) {
+        const res = await instantiatePreset(templateId, details);
+        const assessmentId = res.id || res.data?.id;
+
+        // Read the tree back rather than reconstructing it from the template's
+        // preview: the preview deliberately omits prompts and answer keys, and
+        // the builder needs both. `hydrateBuilderState` is the same mapping the
+        // resume-a-draft path uses, and it lands on step 2 itself.
+        const stateRes = await getBuilderState(assessmentId);
+        dispatch({
+          type: ACTIONS.HYDRATE,
+          payload: hydrateBuilderState(stateRes?.data ?? stateRes),
+        });
+        return;
+      }
+
+      const res = await createAssessment(details);
       dispatch({
         type: ACTIONS.SET_DETAILS,
         payload: {
@@ -228,9 +326,44 @@ export function AssessmentDetailsStep({ onCancel }) {
               </p>
             </div>
 
+            {templateId && (
+              <div className="mt-[18px] flex items-center gap-[10px] rounded-[8px] border border-border-subtle bg-page px-[14px] py-[10px]">
+                <LayoutTemplate className="h-[15px] w-[15px] shrink-0 text-text-secondary" strokeWidth={1.8} />
+                <p className="min-w-0 flex-1 text-[13px] leading-[18px] text-text-secondary">
+                  {templateLoading ? (
+                    'Loading template…'
+                  ) : (
+                    <>
+                      Starting from{' '}
+                      <span className="font-semibold text-text-primary">
+                        {template?.name || 'a template'}
+                      </span>
+                      . These fields are prefilled — change anything you like.
+                    </>
+                  )}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/recruiter/templates')}
+                  className="shrink-0 text-[13px] font-medium text-text-secondary hover:text-text-primary"
+                >
+                  Change
+                </button>
+                <button
+                  type="button"
+                  onClick={clearTemplate}
+                  title="Start from scratch instead"
+                  className="shrink-0 rounded-[6px] p-[3px] text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
+                >
+                  <X className="h-[14px] w-[14px]" strokeWidth={2} />
+                </button>
+              </div>
+            )}
+
             <div className="mt-[30px] grid grid-cols-1 lg:grid-cols-2 gap-x-[18px] gap-y-[22px]">
               <Field label="Assessment name">
                 <IconInput
+                  ref={nameInputRef}
                   icon={FileText}
                   value={state.name}
                   onChange={e => dispatch({ type: ACTIONS.SET_DETAILS, payload: { name: e.target.value } })}
@@ -302,7 +435,7 @@ export function AssessmentDetailsStep({ onCancel }) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {DURATION_OPTIONS.map(minutes => (
+                    {durationOptions(durationValue).map(minutes => (
                       <SelectItem key={minutes} value={String(minutes)} className={cn('text-[14px]', SELECT_ITEM_FOCUS)}>
                         {minutes}m
                       </SelectItem>
