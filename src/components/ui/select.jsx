@@ -69,9 +69,10 @@ const SelectItem = React.forwardRef(({ className, children, ...props }, ref) => 
       // pointer/keyboard-active option with this attribute regardless of
       // whether real DOM focus lands on it, so `focus:` styling missed mouse
       // hover and left the browser's own (blue) default showing through.
-      // Text stays text-primary (near-black) rather than the brand tint, both
-      // at rest and highlighted.
-      'relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-[13px] text-text-primary outline-none data-[highlighted]:bg-surface-muted data-[highlighted]:text-text-primary data-[state=checked]:font-semibold data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      // Highlighted option is solid black with white text (design reference),
+      // not a tinted hover — the selected-but-idle item just goes bold with
+      // its checkmark, same as everywhere else in this file.
+      'relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-[13px] text-text-primary outline-none data-[state=checked]:font-semibold data-[highlighted]:bg-black data-[highlighted]:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}
     {...props}
