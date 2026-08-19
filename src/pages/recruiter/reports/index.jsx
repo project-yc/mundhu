@@ -8,7 +8,7 @@ import { useAssessmentOptions } from './hooks/useAssessmentOptions';
 import { useReportsTable } from './hooks/useReportsTable';
 import { ReportsHeader } from './components/ReportsHeader';
 import { ReportsFilterBar } from './components/ReportsFilterBar';
-import { ReportsMetricsGrid } from './components/ReportsMetricsGrid';
+import { ReportsStatStrip } from './components/ReportsStatStrip';
 import { ReportsTable } from './components/ReportsTable';
 import { ReportsPagination } from './components/ReportsPagination';
 
@@ -87,7 +87,7 @@ export default function ReportsPage() {
             </div>
 
             <div className="mt-[17px]">
-              <ReportsMetricsGrid metrics={metrics} loading={isLoading} />
+              <ReportsStatStrip metrics={metrics} loading={isLoading} />
             </div>
 
             {/* Figma keeps the pagination strip inside the table's bordered
