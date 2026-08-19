@@ -28,8 +28,10 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminLayout from './pages/admin/AdminLayout'
 import AdminAssessmentsPage from './pages/admin/AdminAssessmentsPage'
 import AdminLibraryPage from './pages/admin/AdminLibraryPage'
+import AdminPresetsPage from './pages/admin/AdminPresetsPage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import TaskLibraryPage from './pages/recruiter/TaskLibraryPage'
+import TemplatesPage from './pages/recruiter/templates'
 // Code-split: pulls CodeMirror + the markdown renderer out of the main bundle.
 // This route always opens in its own tab, so the extra fetch costs nothing elsewhere.
 const TaskCodeViewPage = lazy(() => import('./pages/recruiter/TaskCodeViewPage'))
@@ -124,6 +126,14 @@ function App() {
               <AdminLayout><AdminLibraryPage /></AdminLayout>
             </AdminRoute>
           } 
+        />
+        <Route
+          path="/admin/templates"
+          element={
+            <AdminRoute>
+              <AdminLayout><AdminPresetsPage /></AdminLayout>
+            </AdminRoute>
+          }
         />
         <Route 
           path="/" 
@@ -258,6 +268,14 @@ function App() {
               <RecruiterLayout><TaskLibraryPage /></RecruiterLayout>
             </ProtectedRoute>
           } 
+        />
+        <Route
+          path="/recruiter/templates"
+          element={
+            <ProtectedRoute requiredRole="RECRUITER">
+              <RecruiterLayout><TemplatesPage /></RecruiterLayout>
+            </ProtectedRoute>
+          }
         />
         {/* Full-bleed code view — opened in its own tab, so no RecruiterLayout chrome. */}
         <Route
