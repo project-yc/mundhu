@@ -1,100 +1,166 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { listAssessments } from '../../../../api/recruiter/reports';
-import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from '../constants/assessmentsConfig';
+import { listAssessmentsPage } from '../../../../api/recruiter/assessments';
 import {
-  deriveAssessmentMetrics,
-  filterAssessments,
-  normalizeAssessmentRows,
-  normalizeList,
-} from '../utils/assessmentRows';
+  DEFAULT_ORDER,
+  DEFAULT_PAGE_SIZE,
+  DEFAULT_SORT,
+  SEARCH_DEBOUNCE_MS,
+} from '../constants/assessmentsConfig';
+import { normalizeAssessmentRows } from '../utils/assessmentRows';
 
-// Server caps page_size at 50 (core/utils/pagination.py); assessment counts
-// per org are small enough that this covers "all of them" in one request.
-const FETCH_ALL_PAGE_SIZE = 50;
 const EMPTY_ROWS = [];
+const EMPTY_SUMMARY = {
+  total: 0,
+  live: 0,
+  draft: 0,
+  closed: 0,
+  invited_total: 0,
+  submitted_total: 0,
+  ending_soon: 0,
+  with_candidates: 0,
+  avg_completion_rate: null,
+};
+
+const EMPTY_RESULT = { rows: EMPTY_ROWS, total: 0, totalPages: 1 };
 
 /**
- * Owns assessment fetching, search and client-side pagination for the
- * Assessments list screen. Same shape as reports/hooks/useReportsTable.js —
+ * Owns fetching for the Assessments list screen. Search, status filtering,
+ * sorting and pagination are all server-side — this hook only holds the query
+ * state and hands it to the API. Page size is fixed (DEFAULT_PAGE_SIZE); there
+ * is no control for it in the UI by design.
+ *
+ * Keeps the house staleness pattern (shared with reports/hooks/useReportsTable):
  * fetched state is tagged with a `version` counter so `loading`/`error` are
- * derived rather than set synchronously inside the effect, and `refetch`
- * (used after Duplicate) just bumps the counter to re-run the effect.
+ * derived rather than set synchronously inside the effect, and `refetch` (used
+ * after Duplicate) just bumps the counter.
  */
 export function useAssessmentsTable() {
   const [version, setVersion] = useState(0);
-  const [result, setResult] = useState({ version: -1, data: EMPTY_ROWS });
+  const [result, setResult] = useState({ version: -1, data: EMPTY_RESULT });
   const [failure, setFailure] = useState({ version: -1, message: '' });
 
-  const [search, setSearch] = useState('');
+  const [search, setSearchState] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [status, setStatusState] = useState('all');
+  const [sort, setSort] = useState(DEFAULT_SORT);
+  const [order, setOrder] = useState(DEFAULT_ORDER);
   const [page, setPageState] = useState(1);
-  const [pageSize, setPageSizeState] = useState(DEFAULT_PAGE_SIZE);
 
-  const isCurrent = result.version === version;
-  const assessments = isCurrent ? result.data : EMPTY_ROWS;
-  const error = failure.version === version ? failure.message : '';
-  const loading = !isCurrent && !error;
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    listAssessments({ pageSize: FETCH_ALL_PAGE_SIZE, signal: controller.signal })
-      .then(payload => {
-        if (controller.signal.aborted) return;
-        setResult({ version, data: normalizeAssessmentRows(normalizeList(payload)) });
-      })
-      .catch(err => {
-        if (controller.signal.aborted) return;
-        setFailure({ version, message: err?.message || 'Failed to load assessments.' });
-      });
-
-    return () => controller.abort();
-  }, [version]);
+  // Held separately from `result` because the summary is org-wide and filter
+  // independent: blanking the stat strip on every keystroke would make it
+  // flicker for data that did not change.
+  const [summary, setSummary] = useState(EMPTY_SUMMARY);
+  const [summaryLoaded, setSummaryLoaded] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [search]);
 
-  const metrics = useMemo(() => deriveAssessmentMetrics(assessments), [assessments]);
+  // Every query input is a dependency, so any change refires the request. The
+  // version counter is bumped alongside so `loading` flips while it is in
+  // flight rather than showing the previous page's rows as settled.
+  const queryKey = `${version}|${debouncedSearch}|${status}|${sort}|${order}|${page}`;
 
-  const filtered = useMemo(
-    () => filterAssessments(assessments, debouncedSearch),
-    [assessments, debouncedSearch],
+  useEffect(() => {
+    const controller = new AbortController();
+
+    listAssessmentsPage({
+      page,
+      pageSize: DEFAULT_PAGE_SIZE,
+      search: debouncedSearch,
+      status: status === 'all' ? '' : status,
+      sort,
+      order,
+      signal: controller.signal,
+    })
+      .then(payload => {
+        if (controller.signal.aborted) return;
+        setResult({
+          version: queryKey,
+          data: {
+            rows: normalizeAssessmentRows(payload.items),
+            total: payload.total,
+            totalPages: payload.totalPages,
+          },
+        });
+        setSummary(payload.summary);
+        setSummaryLoaded(true);
+      })
+      .catch(err => {
+        if (controller.signal.aborted) return;
+        setFailure({ version: queryKey, message: err?.message || 'Failed to load assessments.' });
+      });
+
+    return () => controller.abort();
+    // queryKey encodes every input; listing it alone keeps the effect honest.
+  }, [queryKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isCurrent = result.version === queryKey;
+  const error = failure.version === queryKey ? failure.message : '';
+  const loading = !isCurrent && !error;
+  const data = isCurrent ? result.data : EMPTY_RESULT;
+
+  const summaryLoading = !summaryLoaded && !error;
+
+  const offset = (page - 1) * DEFAULT_PAGE_SIZE;
+
+  // Any change to what is being queried invalidates the current page number.
+  const resetPage = useCallback(setter => value => {
+    setter(value);
+    setPageState(1);
+  }, []);
+
+  const setSearch = useMemo(() => resetPage(setSearchState), [resetPage]);
+  const setStatus = useMemo(() => resetPage(setStatusState), [resetPage]);
+
+  /** Clicking a sorted column flips direction; a new column starts descending. */
+  const toggleSort = useCallback(
+    nextSort => {
+      if (!nextSort) return;
+      if (nextSort === sort) {
+        setOrder(current => (current === 'desc' ? 'asc' : 'desc'));
+      } else {
+        setSort(nextSort);
+        setOrder('desc');
+      }
+      setPageState(1);
+    },
+    [sort],
   );
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const offset = (currentPage - 1) * pageSize;
-
-  const rows = useMemo(
-    () => filtered.slice(offset, offset + pageSize),
-    [filtered, offset, pageSize],
-  );
-
-  const setPage = useCallback(next => setPageState(next), []);
-
-  const setSearchAndResetPage = useCallback(value => {
-    setSearch(value);
+  const clearFilters = useCallback(() => {
+    setSearchState('');
+    setStatusState('all');
     setPageState(1);
   }, []);
 
   const refetch = useCallback(() => setVersion(v => v + 1), []);
 
   return {
-    rows,
-    metrics,
+    rows: data.rows,
+    summary,
+    summaryLoading,
     loading,
     error,
+
     search,
-    setSearch: setSearchAndResetPage,
-    totalCount: filtered.length,
+    setSearch,
+    status,
+    setStatus,
+    sort,
+    order,
+    toggleSort,
+    clearFilters,
+    filtersActive: Boolean(search.trim()) || status !== 'all',
+
+    totalCount: data.total,
     offset,
-    page: currentPage,
-    setPage,
-    totalPages,
-    pageSize,
-    setPageSize: setPageSizeState,
+    page,
+    setPage: setPageState,
+    totalPages: data.totalPages,
+    pageSize: DEFAULT_PAGE_SIZE,
+
     refetch,
   };
 }
