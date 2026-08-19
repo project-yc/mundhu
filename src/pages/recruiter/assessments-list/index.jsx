@@ -1,4 +1,4 @@
-// Recruiter Assessments — all assessments for the org, table + metric cards.
+// Recruiter Assessments — all assessments for the org, table + stat strip.
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
@@ -6,8 +6,8 @@ import { TooltipProvider } from '../../../components/ui/tooltip';
 import { AskAnythingBar } from '../../../components/recruiter/AskAnythingBar.jsx';
 import { createAssessment } from '../../../api/recruiter/assessment.jsx';
 import { useAssessmentsTable } from './hooks/useAssessmentsTable';
-import { AssessmentsHeader } from './components/AssessmentsHeader';
-import { AssessmentsMetricsGrid } from './components/AssessmentsMetricsGrid';
+import { AssessmentsToolbar } from './components/AssessmentsToolbar';
+import { AssessmentsStatStrip } from './components/AssessmentsStatStrip';
 import { AssessmentsTable } from './components/AssessmentsTable';
 import { AssessmentsPagination } from './components/AssessmentsPagination';
 
@@ -18,11 +18,19 @@ export default function AssessmentsListPage() {
 
   const {
     rows,
-    metrics,
+    summary,
+    summaryLoading,
     loading,
     error,
     search,
     setSearch,
+    status,
+    setStatus,
+    sort,
+    order,
+    toggleSort,
+    clearFilters,
+    filtersActive,
     totalCount,
     offset,
     page,
@@ -82,30 +90,40 @@ export default function AssessmentsListPage() {
         <AskAnythingBar />
 
         <div className="min-h-0 flex-1 p-3 pt-0">
-          <section className="min-h-[calc(100vh-76px)] rounded-[10px] border border-border-subtle bg-surface px-[39px] pb-[24px] pt-[42px]">
-            <AssessmentsHeader search={search} onSearchChange={setSearch} onCreate={handleCreate} />
+          <section className="min-h-[calc(100vh-76px)] rounded-[10px] border border-border-subtle bg-surface px-[28px] pb-[24px] pt-[28px]">
+            <AssessmentsToolbar
+              search={search}
+              onSearchChange={setSearch}
+              status={status}
+              onStatusChange={setStatus}
+              onCreate={handleCreate}
+            />
 
             {errorMessage && (
               <div
                 role="alert"
-                className="mt-[22px] flex items-center gap-3 rounded-[8px] border border-error-border bg-error-bg px-4 py-3"
+                className="mt-[16px] flex items-center gap-3 rounded-[8px] border border-error-border bg-error-bg px-4 py-3"
               >
                 <AlertCircle className="h-[17px] w-[17px] flex-shrink-0 text-error" />
                 <p className="text-[13px] leading-[18px] text-error">{errorMessage}</p>
               </div>
             )}
 
-            <div className="mt-[17px]">
-              <AssessmentsMetricsGrid metrics={metrics} loading={loading} />
+            <div className="mt-[16px]">
+              <AssessmentsStatStrip summary={summary} loading={summaryLoading} />
             </div>
 
-            <div className="mt-[17px] overflow-hidden rounded-[10px] border border-border-subtle bg-surface">
+            <div className="mt-[16px] overflow-hidden rounded-[10px] border border-border-subtle bg-surface">
               <AssessmentsTable
                 rows={rows}
                 loading={loading}
-                searching={Boolean(search.trim())}
+                filtersActive={filtersActive}
+                onClearFilters={clearFilters}
                 offset={offset}
                 pageSize={pageSize}
+                sort={sort}
+                order={order}
+                onSort={toggleSort}
                 onView={handleView}
                 onEdit={handleEdit}
                 onDuplicate={handleDuplicate}
