@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Layers, Plus, Search, RefreshCw, Loader, AlertCircle,
   CheckCircle, ChevronDown, ChevronRight, Clock, Tag,
-  Pencil, Trash2, X, GitBranch, MessageSquare, Zap, ZapOff, Sparkles,
+  Pencil, Trash2, X, GitBranch, MessageSquare, Zap, ZapOff, Sparkles, LayoutTemplate,
 } from 'lucide-react';
 import {
   getAllAssessments,
@@ -13,6 +13,7 @@ import {
   updateTask,
   verifyGitSource,
 } from '../../api/recruiter/assessment';
+import { createPresetFromAssessment } from '../../api/admin/presets';
 
 const GITHUB_REPO_RE = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/;
 
@@ -307,7 +308,108 @@ function TaskModal({ mode, assessments, initialData, onClose, onSaved }) {
 }
 
 // ── Assessment row ────────────────────────────────────────────────────────────
-function AssessmentRow({ assessment, onAddTask, onEditTask }) {
+// Promoting an assessment is how a template gets its questions: the admin builds
+// the assessment in the recruiter builder they already have, then lifts it onto
+// the shelf. The duration, config and section tree all come across from the
+// assessment — this form only collects the catalogue metadata an assessment has
+// no field for.
+function PromoteToTemplateModal({ assessment, onClose, onPromoted }) {
+  const [form, setForm] = useState({
+    name: assessment.name || '',
+    target_role: '',
+    summary: '',
+    difficulty: 'medium',
+    seniority: assessment.config_json?.seniority || 'mid',
+    skills: '',
+    tags: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState('');
+
+  const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
+  const splitList = v => v.split(',').map(x => x.trim()).filter(Boolean);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) { setError('A template name is required.'); return; }
+    setSaving(true); setError('');
+    try {
+      const preset = await createPresetFromAssessment({
+        assessment_id: assessment.id,
+        name: form.name.trim(),
+        target_role: form.target_role.trim(),
+        summary: form.summary.trim(),
+        difficulty: form.difficulty,
+        seniority: form.seniority,
+        skills: splitList(form.skills),
+        tags: splitList(form.tags),
+      });
+      onPromoted(preset);
+    } catch (err) {
+      setError(err.message || 'Could not promote this assessment.');
+    } finally { setSaving(false); }
+  };
+
+  const inputCls = 'w-full px-3 py-2 bg-page border border-border-default rounded-lg text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-[520px] max-h-[88vh] overflow-y-auto bg-surface border border-border-default rounded-2xl p-6">
+        <h2 className="text-[16px] font-bold text-text-primary font-display">Promote to template</h2>
+        <p className="text-[12px] text-text-secondary mt-1">
+          Copies this assessment onto the platform shelf. It is created as a draft —
+          publish it from the Templates page when it is ready.
+        </p>
+
+        <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2">
+            <Field label="Template name">
+              <input className={inputCls} value={form.name} onChange={e => set('name', e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Target role">
+            <input className={inputCls} value={form.target_role} onChange={e => set('target_role', e.target.value)} placeholder="Backend Engineer" />
+          </Field>
+          <Field label="Difficulty">
+            <select className={inputCls} value={form.difficulty} onChange={e => set('difficulty', e.target.value)}>
+              <option value="easy">easy</option>
+              <option value="medium">medium</option>
+              <option value="hard">hard</option>
+            </select>
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label="Summary">
+              <input className={inputCls} value={form.summary} onChange={e => set('summary', e.target.value)} placeholder="One line, shown on the gallery card." />
+            </Field>
+          </div>
+          <Field label="Skills covered">
+            <input className={inputCls} value={form.skills} onChange={e => set('skills', e.target.value)} placeholder="REST APIs, Postgres" />
+          </Field>
+          <Field label="Tags">
+            <input className={inputCls} value={form.tags} onChange={e => set('tags', e.target.value)} placeholder="python, api" />
+          </Field>
+        </div>
+
+        {error && (
+          <p className="mt-4 flex items-center gap-2 px-4 py-3 bg-error-bg border border-error-border rounded-xl text-[13px] text-error">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
+          </p>
+        )}
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-[13px] font-semibold text-text-secondary border border-border-default rounded-xl hover:bg-surface-muted transition-all">
+            Cancel
+          </button>
+          <button type="submit" disabled={saving} className="px-4 py-2 bg-brand text-on-brand text-[13px] font-semibold rounded-xl hover:bg-brand-hover disabled:opacity-50 transition-all">
+            {saving ? 'Promoting...' : 'Promote'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function AssessmentRow({ assessment, onAddTask, onEditTask, onPromote }) {
   const [open, setOpen] = useState(false);
   const tasks = assessment.tasks || [];
 
@@ -370,13 +472,20 @@ function AssessmentRow({ assessment, onAddTask, onEditTask }) {
               ))}
             </div>
           )}
-          <div className="px-5 py-3">
+          <div className="px-5 py-3 flex items-center gap-2">
             <button
               type="button"
               onClick={() => onAddTask(assessment.id)}
               className="inline-flex items-center gap-2 px-3 py-2 text-[12px] font-semibold text-brand border border-brand-border/40 bg-brand-tint rounded-lg hover:bg-brand-tint/80 transition-all"
             >
               <Plus className="w-3.5 h-3.5" />Add Task
+            </button>
+            <button
+              type="button"
+              onClick={() => onPromote(assessment)}
+              className="inline-flex items-center gap-2 px-3 py-2 text-[12px] font-semibold text-text-secondary border border-border-default rounded-lg hover:bg-surface-muted hover:text-text-primary transition-all"
+            >
+              <LayoutTemplate className="w-3.5 h-3.5" />Promote to template
             </button>
           </div>
         </div>
@@ -394,6 +503,7 @@ export default function AdminAssessmentsPage() {
   const [search, setSearch]           = useState('');
   const [showCreate, setShowCreate]   = useState(false);
   const [taskModal, setTaskModal]     = useState(null); // { mode: 'create'|'edit', assessmentId?, data? }
+  const [promoting, setPromoting]     = useState(null); // the assessment being promoted to a template
 
   useEffect(() => {
     const load = async () => {
@@ -501,6 +611,7 @@ export default function AdminAssessmentsPage() {
                 assessment={a}
                 onAddTask={(aid) => setTaskModal({ mode: 'create', data: { assessment_id: aid } })}
                 onEditTask={openEditTask}
+                onPromote={setPromoting}
               />
             ))}
           </div>
@@ -511,6 +622,14 @@ export default function AdminAssessmentsPage() {
         <CreateAssessmentModal
           onClose={() => setShowCreate(false)}
           onCreated={(a) => { setAssessments(p => [a, ...p]); setShowCreate(false); toast('Assessment created.'); }}
+        />
+      )}
+
+      {promoting && (
+        <PromoteToTemplateModal
+          assessment={promoting}
+          onClose={() => setPromoting(null)}
+          onPromoted={() => { setPromoting(null); toast('Template created as a draft - publish it from Templates.'); }}
         />
       )}
 
