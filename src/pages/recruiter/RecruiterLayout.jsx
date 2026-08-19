@@ -31,7 +31,7 @@ const NAV_GROUPS = [
     label: 'Library',
     items: [
       { to: '/recruiter/task-library', icon: ListChecks, label: 'Task library' },
-      { icon: Library, label: 'Templates', type: 'button' },
+      { to: '/recruiter/templates', icon: Library, label: 'Templates' },
     ],
   },
   {
