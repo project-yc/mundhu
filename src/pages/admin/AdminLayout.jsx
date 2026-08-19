@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../auth/authContext';
 import {
-  ShieldCheck, LayoutDashboard, Layers, Library,
+  ShieldCheck, LayoutDashboard, Layers, LayoutTemplate, Library,
   LogOut, ChevronLeft, ChevronRight, Menu, X,
 } from 'lucide-react';
 import { RecruiterThemeProvider } from '../../theme/RecruiterThemeProvider.jsx';
@@ -14,6 +14,7 @@ const NAV = [
   { to: '/admin',             icon: LayoutDashboard, label: 'Overview',    end: true },
   { to: '/admin/assessments', icon: Layers,          label: 'Assessments'           },
   { to: '/admin/library',     icon: Library,         label: 'Task Library'          },
+  { to: '/admin/templates',   icon: LayoutTemplate,  label: 'Templates'             },
 ];
 
 function LayoutShell({ children }) {
