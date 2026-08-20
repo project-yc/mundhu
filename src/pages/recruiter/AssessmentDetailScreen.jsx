@@ -1,28 +1,91 @@
 // AssessmentDetailScreen — full-page view for a single assessment + its candidates
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+// Redesigned against Figma (TruDev Designs — "assessment_id", node 1368:10384).
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Loader, AlertCircle, Users, CheckCircle,
-  FileText, Search, Clock, Code, Terminal, Globe,
-  Calendar, ChevronRight, UserPlus, ChevronDown, ChevronUp,
-  ListChecks, Settings2, Cpu, BookOpen, Layers, RefreshCw, Ban,
+  Activity, AlertCircle, Ban, BookOpen, Calendar, CheckCircle, ChevronDown,
+  Clock, Code, Download, FileCheck2, Gauge, Globe, ListChecks,
+  Loader, MoreHorizontal, Percent, RefreshCw, Search, Share2,
+  Terminal, TrendingDown, TrendingUp, UserPlus, Users,
 } from 'lucide-react';
+
 import {
-  getAssessmentById, getAssessmentCandidates,
+  getAssessmentById, getAssessmentCandidates, getCandidatesWithReports,
   resendCandidateInvite, revokeCandidateInvite,
 } from '../../api/recruiter/assessment.jsx';
+import { normalizeReportRows, REPORT_STATE } from '../../api/recruiter/reports';
+import { extractCandidates } from './reports/utils/reportRows';
+import { formatDate as formatLongDate } from './assessments-list/utils/assessmentRows';
+import { formatDate as formatShortDate, formatScore } from './reports/utils/reportRows';
+import { StatusBadge as AssessmentStatusBadge } from './assessments-list/components/StatusBadge';
+import { IdentityCell } from './reports/components/IdentityCell';
+import { ReportStatusCell } from './reports/components/ReportStatusCell';
+import { ScoreGauge } from './report-detail/components/ScoreGauge';
 import { CandidateStatusBadge } from './dashboard/shared/StatusBadge.jsx';
-import { formatDate, formatDateTime, getInitials, copyToClipboard } from './dashboard/shared/utils.js';
+import { formatDate as formatRelativeDate, formatDateTime, copyToClipboard } from './dashboard/shared/utils.js';
+
+import { Button } from '../../components/ui/button';
+import { Card, CardFooter } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { Input } from '../../components/ui/input';
+import { Skeleton } from '../../components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
+import {
+  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList,
+  BreadcrumbPage, BreadcrumbSeparator,
+} from '../../components/ui/breadcrumb';
+import { cn } from '../../lib/utils';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-const AI_LEVEL_LABELS = { full: 'Full AI', partial: 'Partial AI', none: 'No AI', limited: 'Limited AI' };
-const DIFFICULTY_COLORS = {
-  Easy:   'bg-success-bg text-success border-success-border',
-  Medium: 'bg-warning-bg text-warning border-warning-border',
-  Hard:   'bg-error-bg text-error border-error-border',
-  Mid:    'bg-warning-bg text-warning border-warning-border',
+const AI_LEVEL_LABELS = { full: 'Full AI', partial: 'Partial AI', none: 'No AI', limited: 'Limited AI', chat_only: 'Chat only', inline_completions: 'Inline completions' };
+
+const CONTENT_TYPE_LABELS = {
+  mcq: 'MCQ',
+  coding: 'Coding',
+  technical_task: 'Coding',
+  free_text: 'Free Text',
+  ranking: 'Ranking',
+  adaptive_interview: 'AI Adaptive',
 };
-const SELECTION_MODE_LABELS = { single: 'Single choice', multi: 'Multi choice' };
+
+// A cycling accent ramp for section identity — Figma gives each accordion row
+// and its matching breakdown row a distinct colour with no semantic meaning
+// tied to the section's content type, so a plain index-based cycle here is
+// more honest than inventing a type→colour mapping the rest of the app doesn't have.
+const SECTION_ACCENTS = [
+  { bar: 'bg-indigo-500', chip: 'border-indigo-200 bg-indigo-50 text-indigo-600' },
+  { bar: 'bg-pink-500', chip: 'border-pink-200 bg-pink-50 text-pink-600' },
+  { bar: 'bg-violet-500', chip: 'border-violet-200 bg-violet-50 text-violet-600' },
+  { bar: 'bg-emerald-500', chip: 'border-emerald-200 bg-emerald-50 text-emerald-600' },
+  { bar: 'bg-amber-500', chip: 'border-amber-200 bg-amber-50 text-amber-600' },
+];
+
+const DIFFICULTY_STYLES = {
+  easy: 'border-success-border bg-success-bg text-success',
+  medium: 'border-warning-border bg-warning-bg text-warning',
+  mid: 'border-warning-border bg-warning-bg text-warning',
+  hard: 'border-error-border bg-error-bg text-error',
+  difficult: 'border-error-border bg-error-bg text-error',
+};
+
+function getItemDifficulty(item) {
+  return item.difficulty || item.mcq?.difficulty || item.task?.difficulty || null;
+}
+
+function difficultyBadgeClass(value) {
+  return DIFFICULTY_STYLES[String(value).toLowerCase()] || 'border-border-default bg-surface-muted text-text-secondary';
+}
+
+const STATUS_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'Invited', label: 'Invited' },
+  { key: 'In Progress', label: 'Active' },
+  { key: 'Submitted', label: 'Submitted' },
+  { key: 'Expired', label: 'Expired' },
+  { key: 'Revoked', label: 'Revoked' },
+];
 
 // ─── Invite actions: resend / revoke ───────────────────────────────────────────
 // The raw invite token is never persisted server-side (only its hash is), so
@@ -38,7 +101,7 @@ function InviteActionsCell({ candidate, onUpdated }) {
   const canRevoke = candidate.status === 'Invited' || candidate.status === 'In Progress';
 
   if (!canResend && !canRevoke) {
-    return <span className="text-[11px] text-text-muted italic">No actions available</span>;
+    return <span className="text-[11px] italic text-text-muted">No actions</span>;
   }
 
   const handleResend = async () => {
@@ -77,18 +140,18 @@ function InviteActionsCell({ candidate, onUpdated }) {
   };
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex flex-wrap items-center gap-1.5">
       {canResend && (
         <button onClick={handleResend} disabled={busy} title="Resend invite (generates a new link)"
-          className="flex items-center gap-1.5 px-2.5 py-1 bg-surface border border-border-default rounded-lg text-[11px] font-medium text-text-secondary hover:text-brand hover:border-brand-border transition-all duration-150 disabled:opacity-50">
-          {copied ? <CheckCircle className="w-3 h-3 text-success" /> : <RefreshCw className={`w-3 h-3 ${busy ? 'animate-spin' : ''}`} />}
-          {copied ? 'Link copied' : 'Resend'}
+          className="flex items-center gap-1.5 rounded-lg border border-border-default bg-surface px-2.5 py-1 text-[11px] font-medium text-text-secondary transition-all duration-150 hover:border-brand-border hover:text-brand disabled:opacity-50">
+          {copied ? <CheckCircle className="h-3 w-3 text-success" /> : <RefreshCw className={cn('h-3 w-3', busy && 'animate-spin')} />}
+          {copied ? 'Copied' : 'Resend'}
         </button>
       )}
       {canRevoke && (
         <button onClick={handleRevoke} disabled={busy} title="Revoke invite"
-          className="flex items-center gap-1.5 px-2.5 py-1 bg-surface border border-border-default rounded-lg text-[11px] font-medium text-text-secondary hover:text-error hover:border-error-border transition-all duration-150 disabled:opacity-50">
-          <Ban className="w-3 h-3" />
+          className="flex items-center gap-1.5 rounded-lg border border-border-default bg-surface px-2.5 py-1 text-[11px] font-medium text-text-secondary transition-all duration-150 hover:border-error-border hover:text-error disabled:opacity-50">
+          <Ban className="h-3 w-3" />
           Revoke
         </button>
       )}
@@ -97,342 +160,216 @@ function InviteActionsCell({ candidate, onUpdated }) {
   );
 }
 
-// ─── Option row (single question option) ─────────────────────────────────────
-function OptionRow({ option, selectionMode, index }) {
-  const isCorrect = option.is_correct;
+// ─── Small stat tile used for the 4 invite cards ──────────────────────────────
+function InviteStatCard({ icon, iconClass, label, value, detail, loading }) {
+  const Icon = icon;
   return (
-    <div className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg border transition-colors ${
-      isCorrect
-        ? 'bg-success-bg border-success-border'
-        : 'bg-page border-border-subtle'
-    }`}>
-      {/* Radio / checkbox indicator */}
-      {selectionMode === 'single' ? (
-        <div className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-          isCorrect ? 'border-success' : 'border-border-strong'
-        }`}>
-          {isCorrect && <div className="w-1.5 h-1.5 rounded-full bg-success" />}
+    <Card className="flex flex-col overflow-hidden p-0">
+      <div className="flex items-start justify-between gap-2 px-3.5 pt-3.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={cn('flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full', iconClass)}>
+            <Icon className="h-3 w-3" strokeWidth={2.4} />
+          </span>
+          <span className="truncate text-[13px] font-semibold text-text-secondary">{label}</span>
         </div>
-      ) : (
-        <div className={`w-3.5 h-3.5 rounded-[3px] border-2 flex-shrink-0 flex items-center justify-center ${
-          isCorrect ? 'border-success bg-success' : 'border-border-strong'
-        }`}>
-          {isCorrect && (
-            <svg viewBox="0 0 10 8" className="w-2 h-1.5 fill-none stroke-white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 4l2.5 2.5L9 1" />
-            </svg>
-          )}
-        </div>
-      )}
-
-      {/* Option label */}
-      <span className={`text-[13px] flex-1 leading-snug ${isCorrect ? 'text-success font-medium' : 'text-text-secondary'}`}>
-        {option.text || <span className="italic text-text-muted">Empty option</span>}
-      </span>
-
-      {/* Correct badge */}
-      {isCorrect && (
-        <span className="flex-shrink-0 text-[10px] font-bold tracking-wide text-success bg-success-bg border border-success-border px-1.5 py-0.5 rounded">
-          CORRECT
-        </span>
-      )}
-    </div>
+        <MoreHorizontal aria-hidden="true" className="h-4 w-4 flex-shrink-0 text-text-faint" />
+      </div>
+      <div className="px-3.5 pb-2.5 pt-2">
+        {loading ? (
+          <Skeleton className="h-[28px] w-14" />
+        ) : (
+          <p className="text-[25px] font-bold leading-[29px] text-text-primary">{value}</p>
+        )}
+      </div>
+      <CardFooter className="h-9 flex-shrink-0 justify-start border-border-subtle bg-surface-hover px-3.5 py-0 text-[11px] font-medium text-text-secondary">
+        {detail}
+      </CardFooter>
+    </Card>
   );
 }
 
-// ─── Single MCQ question card ─────────────────────────────────────────────────
-function McqQuestionCard({ item, index }) {
-  const mcq = item.mcq;
-  if (!mcq) return null;
-
+// ─── Small stat tile used for the "Candidate's performance" row ──────────────
+function MiniStat({ icon, iconClass, label, value, loading }) {
+  const Icon = icon;
   return (
-    <div className="rounded-xl border border-border-default bg-surface overflow-hidden">
-      {/* Question header */}
-      <div className="px-4 py-3 border-b border-border-subtle flex items-start gap-3">
-        <span className="w-6 h-6 rounded-md bg-brand-tint border border-brand-border text-brand text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
-          {index + 1}
-        </span>
-        <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-text-primary leading-snug">
-            {mcq.prompt || <span className="italic text-text-muted">No prompt</span>}
-          </p>
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface-muted border border-border-subtle text-text-secondary">
-              {SELECTION_MODE_LABELS[mcq.selection_mode] || mcq.selection_mode}
-            </span>
-            {mcq.shuffle_options && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface-muted border border-border-subtle text-text-secondary">
-                Shuffled
-              </span>
-            )}
-            {mcq.show_explanation_after && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface-muted border border-border-subtle text-text-secondary">
-                Shows explanation
-              </span>
-            )}
-            {item.points > 0 && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-tint border border-brand-border text-brand ml-auto">
-                {item.points} pts
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Options */}
-      <div className="px-4 py-3 space-y-2">
-        {mcq.options.length > 0 ? (
-          mcq.options.map((opt, oi) => (
-            <OptionRow key={opt.id || oi} option={opt} selectionMode={mcq.selection_mode} index={oi} />
-          ))
+    <div className="flex items-center gap-3 rounded-[10px] border border-border-subtle bg-surface px-3.5 py-3">
+      <span className={cn('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[9px]', iconClass)}>
+        <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-[12px] font-medium text-text-secondary">{label}</p>
+        {loading ? (
+          <Skeleton className="mt-1 h-[18px] w-10" />
         ) : (
-          <p className="text-[12px] text-text-muted italic py-2">No options added.</p>
+          <p className="text-[17px] font-bold leading-[20px] text-text-primary">{value}</p>
         )}
       </div>
     </div>
   );
 }
 
-// ─── Non-MCQ item fallback ────────────────────────────────────────────────────
-function CodingItemCard({ item, index }) {
+// ─── Overall Assessment Score card ────────────────────────────────────────────
+function OverallScoreCard({ assessment, sections, totalQuestions, gradedScores }) {
+  const hasGraded = gradedScores.length > 0;
+  const averageScore = hasGraded ? Math.round(gradedScores.reduce((a, b) => a + b, 0) / gradedScores.length) : null;
+
+  const description = !hasGraded
+    ? 'No graded submissions yet — invite candidates to start collecting signal.'
+    : averageScore >= 80
+      ? 'Excellent completion quality with strong candidate signal across sections.'
+      : averageScore >= 60
+        ? 'Strong completion quality with meaningful candidate signal across each section.'
+        : averageScore >= 40
+          ? 'Moderate signal so far — a few sections show gaps worth reviewing.'
+          : 'Limited signal so far — scores are trending low across sections.';
+
+  const questionTypes = useMemo(() => {
+    const set = new Set();
+    sections.forEach(section => section.items.forEach(item => {
+      const type = item.mcq ? 'mcq' : (item.content_type || 'coding');
+      set.add(CONTENT_TYPE_LABELS[type] || type);
+    }));
+    return Array.from(set);
+  }, [sections]);
+
   return (
-    <div className="rounded-xl border border-border-default bg-surface px-4 py-3 flex items-center gap-3">
-      <span className="w-6 h-6 rounded-md bg-brand-tint border border-brand-border text-brand text-[11px] font-bold flex items-center justify-center flex-shrink-0">
-        {index + 1}
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-semibold text-text-primary truncate">{item.title || 'Untitled task'}</p>
-        <span className="text-[11px] text-text-muted capitalize">{item.content_type?.replace('_', ' ')}</span>
+    <Card className="flex flex-col justify-between p-5">
+      <div className="flex items-start justify-between gap-6">
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-bold text-text-primary">Overall Assessment Score</p>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-text-secondary">{description}</p>
+
+          <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-text-muted">Total Sections</p>
+              <p className="mt-1 text-[14px] font-semibold text-text-primary">{String(sections.length).padStart(2, '0')} sections</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-text-muted">Total Questions</p>
+              <p className="mt-1 text-[14px] font-semibold text-text-primary">{totalQuestions}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-text-muted">Estimated Duration</p>
+              <p className="mt-1 text-[14px] font-semibold text-text-primary">
+                {assessment?.duration_minutes ? `${assessment.duration_minutes} mins` : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-text-muted">Question Types</p>
+              <p className="mt-1 truncate text-[14px] font-semibold text-text-primary">
+                {questionTypes.length ? questionTypes.join(' • ') : '—'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <ScoreGauge value={averageScore} />
       </div>
-      {item.points > 0 && (
-        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-tint border border-brand-border text-brand">
-          {item.points} pts
-        </span>
-      )}
-    </div>
+
+      <div className="mt-5 border-t border-border-subtle pt-3">
+        <p className="text-[12px] text-text-muted">
+          {hasGraded
+            ? `Based on ${gradedScores.length} graded submission${gradedScores.length !== 1 ? 's' : ''}.`
+            : 'Scores appear here once candidates submit and reports are generated.'}
+        </p>
+      </div>
+    </Card>
   );
 }
 
-// ─── Section accordion ────────────────────────────────────────────────────────
-function SectionAccordion({ section, defaultOpen = true }) {
+// ─── Assessment Questions accordion ───────────────────────────────────────────
+function SectionRow({ section, accent, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen);
   const qCount = section.items.length;
 
   return (
-    <div className="rounded-xl border border-border-default overflow-hidden">
-      {/* Section header */}
+    <div className="overflow-hidden rounded-[10px] border border-border-default">
       <button
+        type="button"
         onClick={() => setOpen(p => !p)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 bg-surface hover:bg-surface-hover transition-colors text-left"
+        className="flex w-full items-center gap-3 py-3 pl-0 pr-4 text-left transition-colors hover:bg-surface-hover"
+        aria-expanded={open}
       >
-        <div className="w-7 h-7 rounded-lg bg-brand-tint border border-brand-border flex items-center justify-center flex-shrink-0">
-          <ListChecks className="w-3.5 h-3.5 text-brand" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-bold text-text-primary">{section.name}</p>
-          <div className="flex items-center gap-2 mt-0.5">
-            {section.timer_minutes && (
-              <span className="flex items-center gap-1 text-[11px] text-text-muted">
-                <Clock className="w-3 h-3" />{section.timer_minutes}m timer
-              </span>
-            )}
-            <span className="text-[11px] text-text-muted">
-              {qCount} question{qCount !== 1 ? 's' : ''}
-            </span>
-          </div>
-        </div>
-        {open
-          ? <ChevronUp className="w-4 h-4 text-text-muted flex-shrink-0" />
-          : <ChevronDown className="w-4 h-4 text-text-muted flex-shrink-0" />
-        }
+        <span className={cn('h-6 w-1 flex-shrink-0 rounded-r-full', accent.bar)} />
+        <ChevronDown className={cn('h-3.5 w-3.5 flex-shrink-0 text-text-muted transition-transform duration-150', open && '-rotate-180')} />
+        <span className="text-[13px] font-bold text-text-primary">{section.name}</span>
+        <span className="flex h-5 min-w-[20px] flex-shrink-0 items-center justify-center rounded-full bg-surface-muted px-1.5 text-[11px] font-bold text-text-secondary">
+          {qCount}
+        </span>
+        {section.timer_minutes && (
+          <span className="ml-auto flex flex-shrink-0 items-center gap-1 text-[11px] text-text-muted">
+            <Clock className="h-3 w-3" />{section.timer_minutes}m
+          </span>
+        )}
       </button>
 
-      {/* Questions */}
       {open && (
-        <div className="border-t border-border-subtle bg-page px-4 py-4 space-y-3">
-          {section.items.length === 0 ? (
-            <p className="text-[12px] text-text-muted italic py-2 text-center">No questions in this section.</p>
+        <div className="divide-y divide-border-subtle border-t border-border-subtle bg-page">
+          {qCount === 0 ? (
+            <p className="px-4 py-4 text-center text-[12px] italic text-text-muted">No questions in this section.</p>
           ) : (
-            section.items.map((item, idx) =>
-              item.mcq
-                ? <McqQuestionCard key={item.id} item={item} index={idx} />
-                : <CodingItemCard key={item.id} item={item} index={idx} />
-            )
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Configuration card ───────────────────────────────────────────────────────
-function ConfigCard({ assessment }) {
-  const cfg = assessment?.config_json || {};
-  const caps = cfg.capabilities || {};
-
-  const capabilityDefs = [
-    { key: 'terminal',  label: 'Terminal',  icon: Terminal },
-    { key: 'run_code',  label: 'Run Code',  icon: Code },
-    { key: 'internet',  label: 'Internet',  icon: Globe },
-  ];
-
-  return (
-    <div className="rounded-xl border border-border-default bg-surface p-5 space-y-4">
-      <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em] flex items-center gap-1.5">
-        <Settings2 className="w-3 h-3" /> Configuration
-      </p>
-
-      {/* Description */}
-      {assessment?.description && (
-        <p className="text-[13px] text-text-secondary leading-relaxed">
-          {assessment.description}
-        </p>
-      )}
-      {!assessment?.description && (
-        <p className="text-[12px] italic text-text-muted">No description provided.</p>
-      )}
-
-      <div className="h-px bg-border-subtle" />
-
-      {/* Role + Seniority + Difficulty row */}
-      <div className="space-y-2.5">
-        {cfg.role && (
-          <div>
-            <p className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.12em] mb-1">Role</p>
-            <p className="text-[13px] font-semibold text-text-primary">{cfg.role}</p>
-          </div>
-        )}
-        <div className="flex flex-wrap gap-2">
-          {cfg.seniority && (
-            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-surface-muted border border-border-subtle text-text-secondary">
-              {cfg.seniority}
-            </span>
-          )}
-          {cfg.difficulty && (
-            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border ${DIFFICULTY_COLORS[cfg.difficulty] || 'bg-surface-muted border-border-subtle text-text-secondary'}`}>
-              {cfg.difficulty}
-            </span>
-          )}
-          {cfg.ai_level && (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-brand-tint border border-brand-border text-brand">
-              <Cpu className="w-3 h-3" />
-              {AI_LEVEL_LABELS[cfg.ai_level] || cfg.ai_level}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Capabilities */}
-      <div>
-        <p className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.12em] mb-2">Capabilities</p>
-        <div className="flex flex-wrap gap-2">
-          {capabilityDefs.map(({ key, label, icon: Icon }) => {
-            const enabled = !!caps[key];
-            return (
-              <span key={key} className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg border ${
-                enabled
-                  ? 'bg-success-bg border-success-border text-success'
-                  : 'bg-surface-muted border-border-subtle text-text-muted line-through'
-              }`}>
-                <Icon className="w-3 h-3" />
-                {label}
-              </span>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Candidate funnel card ────────────────────────────────────────────────────
-function CandidateFunnelCard({ candidates, isReady, navigate, id }) {
-  return (
-    <div className="rounded-xl border border-border-default bg-surface p-5">
-      <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.14em] mb-4 flex items-center gap-1.5">
-        <Users className="w-3 h-3" /> Candidate Funnel
-      </p>
-      {candidates.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-6 text-center">
-          <Users className="w-8 h-8 text-text-faint mb-3" />
-          <p className="text-[13px] text-text-muted">No candidates invited yet.</p>
-          {isReady && (
-            <button onClick={() => navigate(`/recruiter/invite/candidates?assessmentId=${id}`)}
-              className="mt-3 text-[12px] text-brand hover:underline">
-              Send first invite →
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {[
-            { label: 'Invited',     color: '#22D3EE', count: candidates.filter(c => c.status === 'Invited').length },
-            { label: 'Active',      color: '#D97706', count: candidates.filter(c => c.status === 'In Progress').length },
-            { label: 'Submitted',   color: '#16A34A', count: candidates.filter(c => c.status === 'Submitted').length },
-            { label: 'Expired',     color: '#64748B', count: candidates.filter(c => c.status === 'Expired').length },
-          ].map(({ label, color, count }) => {
-            const pct = candidates.length > 0 ? Math.round((count / candidates.length) * 100) : 0;
-            return (
-              <div key={label}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[12px] text-text-secondary">{label}</span>
-                  <span className="text-[12px] font-bold text-text-primary">
-                    {count} <span className="font-normal text-text-secondary">({pct}%)</span>
-                  </span>
+            section.items.map((item, idx) => {
+              const label = item.mcq ? item.mcq.prompt : item.title;
+              const difficulty = getItemDifficulty(item);
+              return (
+                <div key={item.id || idx} className="flex items-center gap-3 px-4 py-2.5">
+                  <p className="min-w-0 flex-1 truncate text-[13px] text-text-primary">
+                    {label || <span className="italic text-text-muted">Untitled question</span>}
+                  </p>
+                  {difficulty && (
+                    <Badge className={cn('flex-shrink-0 capitalize', difficultyBadgeClass(difficulty))}>
+                      {difficulty}
+                    </Badge>
+                  )}
+                  {item.points > 0 && (
+                    <span className="flex-shrink-0 text-[12px] font-medium text-text-secondary">{item.points} pts</span>
+                  )}
+                  <MoreHorizontal aria-hidden="true" className="h-4 w-4 flex-shrink-0 text-text-faint" />
                 </div>
-                <div className="h-1.5 bg-surface-muted rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: color }} />
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Assessment breakdown panel ───────────────────────────────────────────────
+function BreakdownPanel({ sections }) {
+  return (
+    <Card className="flex h-full flex-col p-5">
+      <p className="text-[15px] font-bold text-text-primary">Assessment breakdown</p>
+
+      <div className="mt-4 flex-1 space-y-4">
+        {sections.length === 0 ? (
+          <p className="py-6 text-center text-[12px] italic text-text-muted">No sections to break down yet.</p>
+        ) : (
+          sections.map((section, idx) => {
+            const accent = SECTION_ACCENTS[idx % SECTION_ACCENTS.length];
+            const totalPoints = section.items.reduce((sum, item) => sum + (item.points || 0), 0);
+            return (
+              <div key={section.id}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={cn('truncate rounded-md border px-2 py-0.5 text-[11px] font-semibold', accent.chip)}>
+                    {section.name}
+                  </span>
+                  <span className="flex-shrink-0 text-[11px] font-medium text-text-muted">{section.items.length} question{section.items.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="mt-2 flex items-center gap-4 text-[11px] text-text-muted">
+                  <span>Duration : {section.timer_minutes ? `${section.timer_minutes}m` : '—'}</span>
+                  <span>Points : {totalPoints}</span>
                 </div>
               </div>
             );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Candidate card row ───────────────────────────────────────────────────────
-function CandidateCard({ candidate, assessmentId, onViewReport, onCandidateUpdated }) {
-  return (
-    <div className="px-6 py-4 hover:bg-surface transition-colors duration-100 group">
-      <div className="flex items-start gap-4">
-        <div className="w-9 h-9 rounded-full bg-surface-muted border border-border-default flex items-center justify-center text-[11px] font-bold text-text-secondary flex-shrink-0 font-display">
-          {getInitials(candidate.candidate_name)}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap mb-1.5">
-            <p className="text-[13px] font-semibold text-text-primary truncate">
-              {candidate.candidate_name || 'Unknown Candidate'}
-            </p>
-            <span className="text-[11px] text-text-secondary truncate">{candidate.candidate_email}</span>
-            <CandidateStatusBadge status={candidate.status} />
-          </div>
-          <div className="flex items-center gap-4 mb-2.5 flex-wrap">
-            <span className="flex items-center gap-1 text-[11px] text-text-muted">
-              <Calendar className="w-3 h-3" />Invited {formatDate(candidate.invited_at)}
-            </span>
-            {candidate.expires_at && candidate.status !== 'Submitted' && candidate.status !== 'Revoked' && (
-              <span className="flex items-center gap-1 text-[11px] text-text-muted">
-                <Clock className="w-3 h-3" />Expires {formatDateTime(candidate.expires_at)}
-              </span>
-            )}
-            {candidate.started_at && (
-              <span className="flex items-center gap-1 text-[11px] text-text-muted">
-                Started {formatDate(candidate.started_at)}
-              </span>
-            )}
-          </div>
-          <InviteActionsCell candidate={candidate} onUpdated={onCandidateUpdated} />
-        </div>
-        {candidate.status === 'Submitted' && candidate.session_id && (
-          <button onClick={() => onViewReport(candidate.session_id)}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-brand-tint border border-brand-border text-brand text-[11px] font-semibold rounded-lg hover:bg-brand-tint-light transition-all duration-150">
-            <FileText className="w-3.5 h-3.5" />View Report<ChevronRight className="w-3 h-3" />
-          </button>
+          })
         )}
       </div>
-    </div>
+
+      <div className="mt-4 border-t border-border-subtle pt-3">
+        <p className="text-[12px] text-text-muted">Structure of this assessment by section.</p>
+      </div>
+    </Card>
   );
 }
 
@@ -443,11 +380,13 @@ export default function AssessmentDetailScreen() {
 
   const [assessment, setAssessment]   = useState(null);
   const [candidates, setCandidates]   = useState([]);
+  const [reportMap, setReportMap]     = useState({});
   const [assLoading, setAssLoading]   = useState(true);
   const [candLoading, setCandLoading] = useState(true);
   const [error, setError]             = useState('');
   const [filter, setFilter]           = useState('all');
   const [search, setSearch]           = useState('');
+  const [shareCopied, setShareCopied] = useState(false);
 
   const refreshCandidates = () => {
     setCandLoading(true);
@@ -455,6 +394,20 @@ export default function AssessmentDetailScreen() {
       .then(res => { const data = res.data || res; setCandidates(data.candidates || []); })
       .catch(() => setCandidates([]))
       .finally(() => setCandLoading(false));
+  };
+
+  // Score/report enrichment is additive — if this call fails (or the backend
+  // hasn't rolled it out yet) the table still works, just without a Score
+  // column, rather than breaking the whole screen.
+  const refreshReports = () => {
+    return getCandidatesWithReports(id)
+      .then(res => {
+        const rows = normalizeReportRows(extractCandidates(res));
+        const map = {};
+        rows.forEach(row => { if (row.assessmentInstanceId) map[String(row.assessmentInstanceId)] = row; });
+        setReportMap(map);
+      })
+      .catch(() => setReportMap({}));
   };
 
   useEffect(() => {
@@ -465,6 +418,7 @@ export default function AssessmentDetailScreen() {
       .finally(() => setAssLoading(false));
 
     refreshCandidates();
+    refreshReports();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -485,16 +439,73 @@ export default function AssessmentDetailScreen() {
     Revoked:        candidates.filter(c => c.status === 'Revoked').length,
   }), [candidates]);
 
-  const isReady = assessment?.status === 'published';
+  const gradedScores = useMemo(() => (
+    candidates
+      .filter(c => c.status === 'Submitted')
+      .map(c => reportMap[String(c.id)]?.score)
+      .filter(Number.isFinite)
+  ), [candidates, reportMap]);
+
+  const pendingReviewCount = useMemo(() => (
+    candidates.filter(c => c.status === 'Submitted' && reportMap[String(c.id)]?.state !== REPORT_STATE.READY).length
+  ), [candidates, reportMap]);
+
+  const readyReportCount = counts.Submitted - pendingReviewCount;
+  const completionRate = candidates.length > 0 ? Math.round((counts.Submitted / candidates.length) * 100) : null;
+
+  const status = assessment?.status || 'draft';
+  const canInvite = status === 'published' || status === 'active';
   const sections = assessment?.sections || [];
   const totalQuestions = sections.reduce((acc, s) => acc + s.items.length, 0);
+  const cfg = assessment?.config_json || {};
+  const caps = cfg.capabilities || {};
+  const enabledCapabilities = [
+    caps.terminal && { key: 'terminal', label: 'Terminal', icon: Terminal },
+    caps.run_code && { key: 'run_code', label: 'Run Code', icon: Code },
+    caps.internet && { key: 'internet', label: 'Internet', icon: Globe },
+  ].filter(Boolean);
 
   const handleViewReport = (sessionId) => navigate(`/recruiter/reports/${id}/${sessionId}`);
+
+  const handleShare = () => {
+    copyToClipboard(window.location.href);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2000);
+  };
+
+  const handleDownload = () => {
+    const payload = {
+      assessment: {
+        id: assessment?.id,
+        name: assessment?.name,
+        status,
+        duration_minutes: assessment?.duration_minutes,
+        created_at: assessment?.created_at,
+        expiry_datetime: assessment?.expiry_datetime,
+        sections: sections.length,
+        questions: totalQuestions,
+      },
+      candidates: candidates.map(c => ({
+        name: c.candidate_name,
+        email: c.candidate_email,
+        status: c.status,
+        invited_at: c.invited_at,
+        score: reportMap[String(c.id)]?.score ?? null,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${(assessment?.name || 'assessment').replace(/\s+/g, '-').toLowerCase()}-summary.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (assLoading) {
     return (
       <div className="flex items-center justify-center py-32">
-        <Loader className="w-5 h-5 text-brand animate-spin" />
+        <Loader className="h-5 w-5 animate-spin text-brand" />
       </div>
     );
   }
@@ -502,8 +513,8 @@ export default function AssessmentDetailScreen() {
   if (error) {
     return (
       <div className="p-8">
-        <div className="flex items-center gap-3 px-4 py-3 bg-error-bg border border-error-border rounded-xl">
-          <AlertCircle className="w-4 h-4 text-error flex-shrink-0" />
+        <div className="flex items-center gap-3 rounded-xl border border-error-border bg-error-bg px-4 py-3">
+          <AlertCircle className="h-4 w-4 flex-shrink-0 text-error" />
           <p className="text-[13px] text-error">{error}</p>
         </div>
       </div>
@@ -511,162 +522,298 @@ export default function AssessmentDetailScreen() {
   }
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-[1100px]">
+    <TooltipProvider delayDuration={200}>
+      <div className="max-w-[1160px] space-y-5 p-6 md:p-8">
 
-      {/* ── Back navigation ── */}
-      <button onClick={() => navigate('/recruiter/dashboard')}
-        className="flex items-center gap-2 text-[12px] text-text-secondary hover:text-text-primary transition-colors group">
-        <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-        Back to Assessments
-      </button>
+        {/* ── Breadcrumb ── */}
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/recruiter/assessments">Assessment</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Detailed assessment</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
 
-      {/* ── Assessment header ── */}
-      <div className="flex items-start justify-between gap-6">
-        <div className="min-w-0">
-          <div className="flex items-center gap-3 mb-2 flex-wrap">
-            <h1 className="text-[22px] font-bold text-text-primary tracking-tight font-display">{assessment?.name}</h1>
-            <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md flex-shrink-0 ${
-              isReady
-                ? 'bg-success-bg text-success border border-success-border'
-                : 'bg-warning-bg text-warning border border-warning-border'
-            }`}>
-              <span className={`w-1 h-1 rounded-full ${isReady ? 'bg-[#10B981]' : 'bg-[#F59E0B]'}`} />
-              {isReady ? 'Published' : 'Draft'}
-            </span>
+        {/* ── Assessment header ── */}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-[22px] font-bold tracking-tight text-text-primary font-display">{assessment?.name}</h1>
+              <AssessmentStatusBadge status={status} />
+            </div>
+            <p className="mt-1 text-[12px] text-text-secondary">
+              Created by {assessment?.created_by?.name || 'Unknown'} {formatLongDate(assessment?.created_at)}
+              {assessment?.expiry_datetime && <> • Ends {formatLongDate(assessment.expiry_datetime)}</>}
+            </p>
+
+            {(cfg.role || cfg.seniority || cfg.difficulty || cfg.ai_level || enabledCapabilities.length > 0) && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                {cfg.role && <Badge variant="secondary">{cfg.role}</Badge>}
+                {cfg.seniority && <Badge variant="secondary">{cfg.seniority}</Badge>}
+                {cfg.difficulty && (
+                  <Badge className={difficultyBadgeClass(cfg.difficulty)}>{cfg.difficulty}</Badge>
+                )}
+                {cfg.ai_level && <Badge variant="default">{AI_LEVEL_LABELS[cfg.ai_level] || cfg.ai_level}</Badge>}
+                {enabledCapabilities.map(({ key, label, icon }) => {
+                  const Icon = icon;
+                  return (
+                    <Badge key={key} variant="success" className="inline-flex items-center gap-1">
+                      <Icon className="h-3 w-3" />{label}
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-4 flex-wrap">
-            {assessment?.duration_minutes && (
-              <span className="flex items-center gap-1.5 text-[12px] text-text-secondary">
-                <Clock className="w-3.5 h-3.5" />{assessment.duration_minutes} min
-              </span>
+
+          <div className="flex flex-shrink-0 items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={handleShare} aria-label="Copy link to this assessment">
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{shareCopied ? 'Link copied!' : 'Copy link'}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={handleDownload} aria-label="Download assessment summary">
+                  <Download className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Download summary (JSON)</TooltipContent>
+            </Tooltip>
+            {canInvite && (
+              <Button variant="cta" onClick={() => navigate(`/recruiter/invite/candidates?assessmentId=${id}`)}>
+                <UserPlus className="h-4 w-4" />Invite Candidates
+              </Button>
             )}
-            {assessment?.created_at && (
-              <span className="flex items-center gap-1.5 text-[12px] text-text-secondary">
-                <Calendar className="w-3.5 h-3.5" />Created {formatDate(assessment.created_at)}
-              </span>
-            )}
-            <span className="flex items-center gap-1.5 text-[12px] text-text-secondary">
-              <Layers className="w-3.5 h-3.5" />{sections.length} section{sections.length !== 1 ? 's' : ''} · {totalQuestions} question{totalQuestions !== 1 ? 's' : ''}
-            </span>
-            <span className="flex items-center gap-1.5 text-[12px] text-text-secondary">
-              <Users className="w-3.5 h-3.5" />{candidates.length} candidate{candidates.length !== 1 ? 's' : ''}
-            </span>
           </div>
         </div>
-        {isReady && (
-          <button onClick={() => navigate(`/recruiter/invite/candidates?assessmentId=${id}`)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-brand hover:bg-brand-hover text-on-brand text-[13px] font-bold rounded-xl transition-all duration-150 active:scale-[0.97] flex-shrink-0">
-            <UserPlus className="w-4 h-4" />Invite Candidates
-          </button>
-        )}
-      </div>
 
-      {/* ── Info row: Config + Funnel ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <ConfigCard assessment={assessment} />
-        <CandidateFunnelCard candidates={candidates} isReady={isReady} navigate={navigate} id={id} />
-      </div>
+        {/* ── Score card + invite stat cards ── */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[3fr_2fr]">
+          <OverallScoreCard
+            assessment={assessment}
+            sections={sections}
+            totalQuestions={totalQuestions}
+            gradedScores={gradedScores}
+          />
 
-      {/* ── Assessment Content (sections + questions) ── */}
-      <div className="rounded-xl border border-border-default overflow-hidden">
-        {/* Panel header */}
-        <div className="flex items-center gap-2.5 px-5 py-4 bg-surface border-b border-border-default">
-          <BookOpen className="w-4 h-4 text-brand" />
-          <p className="text-[13px] font-bold text-text-primary">Assessment Content</p>
-          <span className="text-[11px] text-text-secondary px-2 py-0.5 bg-surface-muted rounded-md">
-            {sections.length} section{sections.length !== 1 ? 's' : ''} · {totalQuestions} question{totalQuestions !== 1 ? 's' : ''}
-          </span>
+          <div className="grid grid-cols-2 gap-3">
+            <InviteStatCard
+              icon={UserPlus}
+              iconClass="bg-violet-100 text-violet-600"
+              label="Total Invited"
+              value={candLoading ? '' : candidates.length}
+              detail="Across every invite sent"
+              loading={candLoading}
+            />
+            <InviteStatCard
+              icon={Activity}
+              iconClass="bg-amber-100 text-amber-600"
+              label="In Progress"
+              value={candLoading ? '' : counts['In Progress']}
+              detail="Currently taking the assessment"
+              loading={candLoading}
+            />
+            <InviteStatCard
+              icon={CheckCircle}
+              iconClass="bg-emerald-100 text-emerald-600"
+              label="Submitted"
+              value={candLoading ? '' : counts.Submitted}
+              detail={candLoading ? '' : (pendingReviewCount > 0
+                ? `${pendingReviewCount} report${pendingReviewCount !== 1 ? 's' : ''} awaiting review`
+                : 'All reports ready for review')}
+              loading={candLoading}
+            />
+            <InviteStatCard
+              icon={Ban}
+              iconClass="bg-rose-100 text-rose-600"
+              label="Inactive"
+              value={candLoading ? '' : (counts.Expired + counts.Revoked)}
+              detail="Expired or revoked invites"
+              loading={candLoading}
+            />
+          </div>
         </div>
 
-        <div className="bg-page p-4 space-y-3">
-          {sections.length === 0 ? (
-            <div className="py-10 text-center">
-              <BookOpen className="w-8 h-8 text-text-faint mx-auto mb-3" />
-              <p className="text-[13px] text-text-secondary">No sections in this assessment.</p>
+        {/* ── Assessment Questions + breakdown ── */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[9fr_4fr]">
+          <Card className="p-5">
+            <div className="flex items-center gap-2.5">
+              <BookOpen className="h-4 w-4 text-brand" />
+              <p className="text-[15px] font-bold text-text-primary">Assessment Questions</p>
+              <span className="rounded-md bg-surface-muted px-2 py-0.5 text-[11px] text-text-secondary">
+                {sections.length} section{sections.length !== 1 ? 's' : ''} · {totalQuestions} question{totalQuestions !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {sections.length === 0 ? (
+                <div className="py-10 text-center">
+                  <ListChecks className="mx-auto mb-3 h-8 w-8 text-text-faint" />
+                  <p className="text-[13px] text-text-secondary">No sections in this assessment.</p>
+                </div>
+              ) : (
+                sections.map((section, idx) => (
+                  <SectionRow
+                    key={section.id}
+                    section={section}
+                    accent={SECTION_ACCENTS[idx % SECTION_ACCENTS.length]}
+                    defaultOpen={idx === 0}
+                  />
+                ))
+              )}
+            </div>
+          </Card>
+
+          <BreakdownPanel sections={sections} />
+        </div>
+
+        {/* ── Candidate's performance ── */}
+        <div>
+          <p className="mb-3 text-[15px] font-bold text-text-primary">Candidate's performance</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <MiniStat icon={Gauge} iconClass="bg-sky-100 text-sky-600" label="Average Score"
+              value={gradedScores.length ? Math.round(gradedScores.reduce((a, b) => a + b, 0) / gradedScores.length) : '—'}
+              loading={candLoading} />
+            <MiniStat icon={TrendingUp} iconClass="bg-emerald-100 text-emerald-600" label="Highest Score"
+              value={gradedScores.length ? Math.max(...gradedScores) : '—'}
+              loading={candLoading} />
+            <MiniStat icon={TrendingDown} iconClass="bg-rose-100 text-rose-600" label="Lowest Score"
+              value={gradedScores.length ? Math.min(...gradedScores) : '—'}
+              loading={candLoading} />
+            <MiniStat icon={Percent} iconClass="bg-amber-100 text-amber-600" label="Completion Rate"
+              value={completionRate !== null ? `${completionRate}%` : '—'}
+              loading={candLoading} />
+            <MiniStat icon={FileCheck2} iconClass="bg-violet-100 text-violet-600" label="Reports Ready"
+              value={counts.Submitted > 0 ? `${readyReportCount}/${counts.Submitted}` : '—'}
+              loading={candLoading} />
+          </div>
+        </div>
+
+        {/* ── Candidates table ── */}
+        <Card className="overflow-hidden p-0">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default px-5 py-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-brand" />
+              <p className="text-[13px] font-bold text-text-primary">Candidates</p>
+              <span className="rounded-md bg-surface-muted px-2 py-0.5 text-[11px] text-text-secondary">{candidates.length}</span>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search candidates…"
+                aria-label="Search candidates"
+                className="h-[36px] pl-8 text-[12px]"
+              />
+            </div>
+          </div>
+
+          <Tabs value={filter} onValueChange={setFilter}>
+            <div className="overflow-x-auto border-b border-border-subtle bg-page px-4 py-2">
+              <TabsList className="h-auto bg-transparent p-0">
+                {STATUS_FILTERS.filter(t => t.key === 'all' || counts[t.key] > 0).map(({ key, label }) => (
+                  <TabsTrigger key={key} value={key} className="gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold data-[state=active]:bg-surface-muted data-[state=active]:shadow-none">
+                    {label}
+                    <span className="text-[10px] text-text-muted">{counts[key]}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+          </Tabs>
+
+          {candLoading ? (
+            <div className="flex justify-center py-12"><Loader className="h-4 w-4 animate-spin text-brand" /></div>
+          ) : filtered.length === 0 ? (
+            <div className="py-12 text-center">
+              <Users className="mx-auto mb-3 h-8 w-8 text-text-faint" />
+              <p className="text-[13px] text-text-secondary">
+                {candidates.length === 0 ? 'No candidates invited yet.' : 'No candidates match this filter.'}
+              </p>
+              {candidates.length === 0 && canInvite && (
+                <button onClick={() => navigate(`/recruiter/invite/candidates?assessmentId=${id}`)}
+                  className="mx-auto mt-3 flex items-center gap-1.5 text-[12px] text-brand hover:underline">
+                  <UserPlus className="h-3.5 w-3.5" />Invite candidates →
+                </button>
+              )}
             </div>
           ) : (
-            sections.map((section) => (
-              <SectionAccordion key={section.id} section={section} defaultOpen={true} />
-            ))
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-surface-hover hover:bg-surface-hover">
+                  <TableHead>Candidate</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Score</TableHead>
+                  <TableHead>Report</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map(candidate => {
+                  const reportRow = reportMap[String(candidate.id)];
+                  const isSubmitted = candidate.status === 'Submitted';
+                  return (
+                    <TableRow key={candidate.id}>
+                      <TableCell>
+                        <IdentityCell name={candidate.candidate_name} email={candidate.candidate_email} />
+                      </TableCell>
+                      <TableCell>
+                        <CandidateStatusBadge status={candidate.status} />
+                        <p className="mt-1 flex items-center gap-1 text-[11px] text-text-muted">
+                          <Calendar className="h-3 w-3" />
+                          {candidate.status === 'Invited' && `Invited ${formatRelativeDate(candidate.invited_at)}`}
+                          {candidate.status === 'In Progress' && `Started ${formatRelativeDate(candidate.started_at)}`}
+                          {isSubmitted && `Submitted ${formatShortDate(reportRow?.submittedAt || candidate.started_at)}`}
+                          {(candidate.status === 'Expired' || candidate.status === 'Revoked') && candidate.expires_at && `Expired ${formatDateTime(candidate.expires_at)}`}
+                        </p>
+                      </TableCell>
+                      <TableCell className="font-semibold text-text-primary">
+                        {isSubmitted ? formatScore(reportRow?.score) : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {isSubmitted ? (
+                          <ReportStatusCell
+                            row={{ state: reportRow?.state || REPORT_STATE.PENDING }}
+                            onViewReport={() => handleViewReport(candidate.session_id)}
+                          />
+                        ) : (
+                          <span className="text-[12px] text-text-muted">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <InviteActionsCell candidate={candidate} onUpdated={() => { refreshCandidates(); refreshReports(); }} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
-        </div>
+
+          {!candLoading && candidates.length > 0 && (
+            <div className="flex items-center justify-between border-t border-border-default px-5 py-3">
+              <p className="text-[11px] text-text-muted">{filtered.length} of {candidates.length} candidate{candidates.length !== 1 ? 's' : ''}</p>
+              {canInvite && (
+                <button onClick={() => navigate(`/recruiter/invite/candidates?assessmentId=${id}`)}
+                  className="flex items-center gap-1.5 text-[11px] text-brand hover:underline">
+                  <UserPlus className="h-3 w-3" />Invite more
+                </button>
+              )}
+            </div>
+          )}
+        </Card>
+
       </div>
-
-      {/* ── Candidates ── */}
-      <div className="rounded-xl border border-border-default overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-surface border-b border-border-default">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-brand" />
-            <p className="text-[13px] font-bold text-text-primary">Candidates</p>
-            <span className="text-[11px] text-text-secondary px-2 py-0.5 bg-surface-muted rounded-md">{candidates.length}</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-page border border-border-default rounded-lg w-52 focus-within:border-border-strong transition-colors">
-            <Search className="w-3.5 h-3.5 text-text-secondary flex-shrink-0" />
-            <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search candidates…" aria-label="Search candidates"
-              className="flex-1 bg-transparent text-[12px] text-text-primary placeholder:text-text-muted focus:outline-none" />
-          </div>
-        </div>
-
-        {/* Filter tabs */}
-        <div className="flex items-center gap-0.5 px-4 py-2.5 bg-page border-b border-border-subtle overflow-x-auto">
-          {[
-            { key: 'all',         label: 'All',       count: counts.all },
-            { key: 'Invited',     label: 'Invited',   count: counts['Invited'] },
-            { key: 'In Progress', label: 'Active',    count: counts['In Progress'] },
-            { key: 'Submitted',   label: 'Submitted', count: counts['Submitted'] },
-            { key: 'Expired',     label: 'Expired',   count: counts['Expired'] },
-            { key: 'Revoked',     label: 'Revoked',   count: counts['Revoked'] },
-          ].filter(t => t.key === 'all' || t.count > 0).map(({ key, label, count }) => (
-            <button key={key} onClick={() => setFilter(key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all duration-150 whitespace-nowrap ${
-                filter === key ? 'bg-surface-muted text-text-primary' : 'text-text-secondary hover:text-text-primary'
-              }`}>
-              {label}
-              <span className={`text-[10px] ${filter === key ? 'text-text-secondary' : 'text-text-muted'}`}>{count}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* List */}
-        {candLoading ? (
-          <div className="flex justify-center py-12"><Loader className="w-4 h-4 text-brand animate-spin" /></div>
-        ) : filtered.length === 0 ? (
-          <div className="py-12 text-center">
-            <Users className="w-8 h-8 text-text-faint mx-auto mb-3" />
-            <p className="text-[13px] text-text-secondary">
-              {candidates.length === 0 ? 'No candidates invited yet.' : 'No candidates match this filter.'}
-            </p>
-            {candidates.length === 0 && isReady && (
-              <button onClick={() => navigate(`/recruiter/invite/candidates?assessmentId=${id}`)}
-                className="mt-3 flex items-center gap-1.5 mx-auto text-[12px] text-brand hover:underline">
-                <UserPlus className="w-3.5 h-3.5" />Invite candidates →
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="divide-y divide-border-subtle">
-            {filtered.map(candidate => (
-              <CandidateCard key={candidate.id} candidate={candidate} assessmentId={id} onViewReport={handleViewReport} onCandidateUpdated={refreshCandidates} />
-            ))}
-          </div>
-        )}
-
-        {/* Footer */}
-        {!candLoading && candidates.length > 0 && (
-          <div className="px-6 py-3 bg-surface border-t border-border-default flex items-center justify-between">
-            <p className="text-[11px] text-text-muted">{filtered.length} of {candidates.length} candidate{candidates.length !== 1 ? 's' : ''}</p>
-            {isReady && (
-              <button onClick={() => navigate(`/recruiter/invite/candidates?assessmentId=${id}`)}
-                className="flex items-center gap-1.5 text-[11px] text-brand hover:underline">
-                <UserPlus className="w-3 h-3" />Invite more
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-    </div>
+    </TooltipProvider>
   );
 }
