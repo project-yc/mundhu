@@ -73,6 +73,23 @@ export const ADAPTIVE_PRESET_OPTIONS = [
   { value: 'role_specific', label: 'Role specific', hint: 'Weighted toward role topics over their task' },
 ];
 
+// The two presets that only mean something when a coding task precedes the
+// interview. Both spend part of their question budget on `task_followup` slots.
+//
+// With nothing to follow up on:
+//   - `coding_task_followup` is REFUSED at publish
+//     (`PRESETS_REQUIRING_CODING_TASK` in the backend's publish_validation),
+//     so offering it is offering a config that cannot ship.
+//   - `balanced_technical` is accepted, but the engine rewrites every
+//     unanchored `task_followup` slot to `role_topics`
+//     (`question_generation._planned_roles`), and the resulting slot plan is
+//     byte-identical to `role_specific` at every question count. Two labels for
+//     one behaviour is not a choice, it is a guess the recruiter cannot win.
+//
+// Offered again the moment a coding section is placed before the interview.
+export const CODING_ANCHORED_PRESETS = ['balanced_technical', 'coding_task_followup'];
+export const STANDALONE_PRESET = 'role_specific';
+
 // Offline fallback chips only - the drawer prefers the live catalog from
 // /catalog/focus-areas and uses these two lists solely when it is unreachable.
 //

@@ -108,11 +108,18 @@ export function AdaptiveEditor({ sectionId, item }) {
             </span>
           </Field>
 
-          <Field label="Grounded on">
-            {anchoredToTask
-              ? 'The coding task submitted earlier in this assessment'
-              : 'Nothing — questions stand on their own'}
-          </Field>
+          {/* Only when there is something to be grounded in. The unanchored
+              arm said "Nothing — questions stand on their own", which was the
+              truth; the problem was that the drawer emitted `type: 'coding_task'`
+              unconditionally, so this printed the ANCHORED line on assessments
+              with no coding section anywhere. With the config now honest, an
+              unanchored interview has nothing to report here and a row reading
+              "Nothing" is noise on what is already the common case. */}
+          {anchoredToTask && (
+            <Field label="Grounded on">
+              The coding task submitted earlier in this assessment
+            </Field>
+          )}
 
           {config.role_title && (
             <Field label="Role described to the interviewer">{config.role_title}</Field>

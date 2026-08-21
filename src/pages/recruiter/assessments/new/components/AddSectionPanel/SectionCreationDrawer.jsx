@@ -14,6 +14,7 @@ import {
   ADAPTIVE_AVOID_TOPICS_MAX_TOTAL,
   ADAPTIVE_MUST_ASK_MAX_TOTAL,
   ADAPTIVE_PRESET_OPTIONS,
+  CODING_ANCHORED_PRESETS,
   ADAPTIVE_TIMER_OPTIONS,
   AI_LEVEL_OPTIONS,
   CODING_RUBRIC_DIMENSIONS,
@@ -835,44 +836,57 @@ function AdaptiveQuestionForm({ form, onCancel, onSubmit, submitLabel = 'Add' })
               onChange={event => form.setAdaptivePreset(event.target.value)}
               className="h-[42px] w-full appearance-none rounded-[8px] border border-border-default bg-surface px-[12px] pr-[38px] text-[15px] font-medium text-text-primary outline-none"
             >
-              {ADAPTIVE_PRESET_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
+              {ADAPTIVE_PRESET_OPTIONS.map(option => {
+                // Both coding-anchored presets spend part of the question budget
+                // following up on submitted code. With no coding section before
+                // this one there is none: `coding_task_followup` is refused at
+                // Review & Publish, and `balanced_technical` degrades into an
+                // exact copy of `role_specific`. Offered again as soon as a
+                // coding section is placed ahead of the interview.
+                const unavailable = !form.codingTaskPrecedesInterview
+                  && CODING_ANCHORED_PRESETS.includes(option.value);
+                return (
+                  <option key={option.value} value={option.value} disabled={unavailable}>
+                    {option.label}{unavailable ? ' — needs a coding section first' : ''}
+                  </option>
+                );
+              })}
             </select>
             <ChevronDown className="pointer-events-none absolute right-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
           </div>
           <p className="mt-[6px] text-[13px] leading-[18px] text-text-muted">
             {ADAPTIVE_PRESET_OPTIONS.find(option => option.value === form.adaptivePreset)?.hint}
           </p>
+          {!form.codingTaskPrecedesInterview && (
+            <p className="mt-[6px] text-[13px] leading-[18px] text-text-muted">
+              Two styles are unavailable because no coding section comes before this
+              interview — there would be no submitted code to follow up on. Add one
+              earlier in the assessment to use them.
+            </p>
+          )}
         </div>
 
-        <div className="mt-[22px]">
-          <label className="block text-[15px] font-semibold leading-none text-text-primary">
-            Grounded on
-          </label>
-          <div className="relative mt-[10px]">
-            {/* "Nothing — standalone interview" was removed: a standalone
-                interview is authored by choosing the Role specific style, not by
-                detaching the anchor. Two controls expressing the same intent is
-                what let a recruiter pick Role specific and still ship a config
-                claiming a coding task. The anchor now always points at the most
-                recent coding section, and resolves to nothing on its own when
-                there is none. */}
-            <select
-              value={form.adaptiveAnchorId}
-              onChange={event => form.setAdaptiveAnchorId(event.target.value)}
-              className="h-[42px] w-full appearance-none rounded-[8px] border border-border-default bg-surface px-[12px] pr-[38px] text-[15px] font-medium text-text-primary outline-none"
-            >
-              <option value="">Most recent coding section</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
+        {/* Shown only when a coding section actually precedes the interview.
+            This was a <select> with exactly ONE option ("Most recent coding
+            section") and no way to choose anything else — a control that could
+            not be operated, offered on assessments with no coding section at
+            all, asking the recruiter to ground the interview in something that
+            does not exist. It is a statement of fact, so it renders as one, and
+            only when the fact holds. */}
+        {form.codingTaskPrecedesInterview && (
+          <div className="mt-[22px]">
+            <label className="block text-[15px] font-semibold leading-none text-text-primary">
+              Grounded on
+            </label>
+            <p className="mt-[10px] flex h-[42px] items-center rounded-[8px] border border-border-default bg-surface-muted px-[12px] text-[15px] font-medium text-text-primary">
+              The most recent coding section before this one
+            </p>
+            <p className="mt-[6px] text-[13px] leading-[18px] text-text-muted">
+              Follow-up questions reference the candidate&apos;s submitted code and test
+              results.
+            </p>
           </div>
-          <p className="mt-[6px] text-[13px] leading-[18px] text-text-muted">
-            Follow-up questions reference the candidate&apos;s submitted code and test
-            results. With no coding section before this one, the interview runs
-            standalone — choose the Role specific style for that.
-          </p>
-        </div>
+        )}
 
         <div className="mt-[22px]">
           <label className="block text-[15px] font-semibold leading-none text-text-primary">
@@ -894,11 +908,20 @@ function AdaptiveQuestionForm({ form, onCancel, onSubmit, submitLabel = 'Add' })
             Roughly <span className="font-semibold text-text-secondary">{derivedMax} question{derivedMax === 1 ? '' : 's'}</span>
             {' '}at this length. The interview ends after the last question or when time runs out.
           </p>
+          {/* Advice, not a failure. Nothing here blocks Save — only an EMPTY
+              focus-area list does. It read as an error because it is the first
+              thing that appears on any duration above the 20-minute default:
+              the chips are seeded from the role, which supplies 3-7 of them,
+              and 30 minutes wants 5. Saving at this point produces a valid,
+              publishable, slightly shorter interview. */}
           {tooFewFocusAreas && !noFocusAreas && (
-            <p className="mt-[6px] text-[13px] leading-[18px] text-amber-700">
-              Only {derivedMax} question{derivedMax === 1 ? '' : 's'} fit, because each focus area
-              carries at most {MAX_QUESTIONS_PER_COMPETENCY}. Pick {focusAreasNeeded - form.adaptiveFocusAreas.length} more
-              to use the full {form.sectionTimer} minutes.
+            <p className="mt-[6px] text-[13px] leading-[18px] text-text-muted">
+              This will run about {derivedMax} question{derivedMax === 1 ? '' : 's'} rather than
+              filling the {form.sectionTimer} minutes, because each focus area carries at
+              most {MAX_QUESTIONS_PER_COMPETENCY}. That is fine to save — add{' '}
+              {focusAreasNeeded - form.adaptiveFocusAreas.length} more focus
+              area{focusAreasNeeded - form.adaptiveFocusAreas.length === 1 ? '' : 's'} below
+              if you want the full length.
             </p>
           )}
         </div>
@@ -935,8 +958,24 @@ function AdaptiveQuestionForm({ form, onCancel, onSubmit, submitLabel = 'Add' })
           </div>
           {noFocusAreas && (
             <p className="mt-[8px] text-[13px] font-medium text-red-600">
-              Select at least {focusAreasNeeded} focus area{focusAreasNeeded === 1 ? '' : 's'} for a
+              Select at least one focus area. {focusAreasNeeded} would fill the
               {' '}{form.sectionTimer}-minute interview.
+            </p>
+          )}
+          {/* There is no hard cap on the chips (the serializer accepts 20), but
+              the blueprint assigns one competency per question slot and cycles
+              through the list, so anything past `derivedMax` is never reached:
+              those competencies come back in `unasked_focus_areas` with no
+              question and no score. Saying so is more useful than a cap, because
+              the fix is either fewer chips or a longer interview and only the
+              recruiter knows which they meant. */}
+          {form.adaptiveFocusAreas.length > derivedMax && (
+            <p className="mt-[8px] text-[13px] leading-[18px] text-amber-700">
+              {form.adaptiveFocusAreas.length} focus areas selected but only {derivedMax}{' '}
+              question{derivedMax === 1 ? '' : 's'} fit in {form.sectionTimer} minutes, so the
+              interview will cover {derivedMax} of them and report the rest as not asked.
+              Lengthen the interview or remove{' '}
+              {form.adaptiveFocusAreas.length - derivedMax} to score every one.
             </p>
           )}
         </div>

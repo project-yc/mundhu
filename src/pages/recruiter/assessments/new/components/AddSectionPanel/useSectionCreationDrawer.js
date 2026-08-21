@@ -13,6 +13,7 @@ import { SECTION_TYPE_CONFIG } from '../../constants/sectionTypeConfig';
 import {
   ADAPTIVE_DEFAULT_TIMER,
   ADAPTIVE_PRESET_OPTIONS,
+  CODING_ANCHORED_PRESETS,
   CODING_RUBRIC_DIMENSIONS,
   DEFAULT_CODING_TASK_INDEX,
   FALLBACK_CODING_TASKS,
@@ -22,6 +23,7 @@ import {
   createInitialOptions,
   createInitialRankingItems,
   deriveQuestionCount,
+  STANDALONE_PRESET,
 } from './constants';
 
 const DRAWER_SECTION_TYPES = ['mcq', 'coding', 'ranking', 'free_text', 'adaptive'];
@@ -56,7 +58,6 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   const [codingFilterOpen, setCodingFilterOpen] = useState(false);
   const [codingFilters, setCodingFilters] = useState(DEFAULT_CODING_FILTERS);
   const [adaptivePreset, setAdaptivePreset] = useState('balanced_technical');
-  const [adaptiveAnchorId, setAdaptiveAnchorId] = useState('');
   const [adaptiveFocusAreas, setAdaptiveFocusAreas] = useState([]);
   const [adaptiveRoleTitle, setAdaptiveRoleTitle] = useState('');
   // Set when the drawer is editing an existing item instead of adding one.
@@ -161,7 +162,6 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     setCodingFilterOpen(false);
     setCodingFilters(DEFAULT_CODING_FILTERS);
     setAdaptivePreset('balanced_technical');
-    setAdaptiveAnchorId('');
     setAdaptiveFocusAreas([]);
     setAdaptiveRoleTitle('');
     setAdaptiveQuestionMax(null);
@@ -220,7 +220,21 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     setDrawerType(type);
     setDrawerStep(options.step ?? 'section');
     setTargetSectionId(options.targetSectionId ?? null);
-    setSectionTimer(type === 'adaptive' ? ADAPTIVE_DEFAULT_TIMER : 45);
+
+    // Reopening an interview to edit it must show the duration it actually
+    // runs for, not the default. The adaptive drawer derives the question
+    // budget from this control, so seeding a 30-minute interview with 20
+    // silently recomputed its budget down the moment the recruiter saved a
+    // change to something unrelated.
+    const editedSection = options.targetSectionId
+      ? (state.sections || []).find(section => section.id === options.targetSectionId)
+      : null;
+    const savedTimer = type === 'adaptive' ? Number(editedSection?.timer_minutes) : NaN;
+    setSectionTimer(
+      Number.isFinite(savedTimer) && savedTimer > 0
+        ? savedTimer
+        : (type === 'adaptive' ? ADAPTIVE_DEFAULT_TIMER : 45),
+    );
     setAiLevel('chat_only');
     setPoints(type === 'adaptive' ? 100 : 5);
 
@@ -308,6 +322,11 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     });
 
     getLibraryTasks({
+      // Without this the picker lists every library item — MCQ, ranking, free
+      // text, adaptive — as a selectable coding task. Publish validation does
+      // not cover technical tasks, so the mistake surfaces only when the
+      // candidate tries to start the section.
+      content_type: 'technical_task',
       search: taskSearch.trim() || undefined,
       language: codingFilters.language || undefined,
       difficulty: codingFilters.difficulty === 'adaptive' ? undefined : codingFilters.difficulty,
@@ -860,6 +879,53 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     ));
   };
 
+  /**
+   * Is there a coding task the interview could actually be grounded in?
+   *
+   * "Could" means ORDERED BEFORE IT. The runtime resolves the anchor from
+   * preceding items only (`AdaptiveInterviewContext._resolve_anchor_attempt`
+   * filters on `section__order__lt` / `section_item__order__lt`), so a coding
+   * section placed after the interview grounds nothing — the candidate has not
+   * written the code yet when they sit it.
+   *
+   * A brand-new section is appended to the end of the outline, so in the create
+   * flow every section already in the builder precedes it. In the edit flow the
+   * interview has a position, and a coding task can share its section, so the
+   * items ahead of it in that same section count too.
+   */
+  const codingTaskPrecedesInterview = useMemo(() => {
+    const sections = state.sections || [];
+    const holdsCodingItem = section => (section.items || []).some(item => item.type === 'coding');
+
+    const index = targetSectionId
+      ? sections.findIndex(section => section.id === targetSectionId)
+      : -1;
+    if (index === -1) return sections.some(holdsCodingItem);
+    if (sections.slice(0, index).some(holdsCodingItem)) return true;
+
+    const items = sections[index]?.items || [];
+    const selfIndex = editingQuestionId
+      ? items.findIndex(item => item.id === editingQuestionId)
+      : -1;
+    return items
+      .slice(0, selfIndex === -1 ? items.length : selfIndex)
+      .some(item => item.type === 'coding');
+  }, [state.sections, targetSectionId, editingQuestionId]);
+
+  // DERIVED, not coerced through an effect. Whether a coding-anchored preset is
+  // available depends on the outline, which the recruiter can change after
+  // picking one (delete the coding section, drag the interview above it, or
+  // reopen a saved interview whose assessment has since lost its coding
+  // section). Writing the correction back into `adaptivePreset` would make the
+  // stored value a second source of truth that has to be re-synced on each of
+  // those, and cascades a render every time. Deriving it means the drawer, the
+  // saved config and the publish check cannot disagree.
+  const effectiveAdaptivePreset = (
+    !codingTaskPrecedesInterview && CODING_ANCHORED_PRESETS.includes(adaptivePreset)
+      ? STANDALONE_PRESET
+      : adaptivePreset
+  );
+
   const handleCreateAdaptive = () => {
     // Backstop for a drawer that was already open when the level changed under
     // it — the same reason the time budget is re-checked here and not only on
@@ -887,41 +953,81 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
       published: false,
       locked: false,
       adaptive_config: {
-        preset: adaptivePreset,
+        preset: effectiveAdaptivePreset,
         focus_areas: adaptiveFocusAreas,
         question_count: { min: Math.min(derived.min, questionMax), max: questionMax },
         // '' means "most recent coding section" — the backend resolves that from
-        // a blank source id. Only the explicit 'none' option detaches the anchor.
-        anchor: adaptiveAnchorId === 'none'
-          ? { type: 'none', source_section_item_id: '', use_coding_task_as_anchor: false }
-          : {
+        // a blank source id.
+        //
+        // Claim the anchor only when a coding task actually precedes the
+        // interview. This used to emit `type: 'coding_task'` unconditionally,
+        // because the only branch that produced `'none'` needed an option value
+        // of `'none'` and the select offers exactly one option, `''`. So an
+        // interview in an assessment with no coding section at all shipped a
+        // config asserting it was grounded in one. The runtime resolved it to
+        // nothing and ran the interview correctly, but every reader of the
+        // stored config was told otherwise — the builder's own summary panel
+        // printed "The coding task submitted earlier in this assessment" under
+        // "Grounded on" for an assessment that had no such task.
+        anchor: codingTaskPrecedesInterview
+          ? {
               type: 'coding_task',
-              source_section_item_id: adaptiveAnchorId || '',
+              // Always blank: the backend reads an empty source id as "the
+              // most recent coding section preceding this item", which is the
+              // only grounding the builder has ever been able to express. The
+              // control that fed this was a <select> with a single option, so
+              // the value was constant; keeping the variable implied a choice
+              // that did not exist.
+              source_section_item_id: '',
               use_coding_task_as_anchor: true,
-            },
+            }
+          : { type: 'none', source_section_item_id: '', use_coding_task_as_anchor: false },
         ...(adaptiveRoleTitle.trim() ? { role_title: adaptiveRoleTitle.trim() } : {}),
         ...(adaptiveMustAsk.trim() ? { must_ask_questions: splitLines(adaptiveMustAsk) } : {}),
         ...(adaptiveAvoidTopics.trim() ? { avoid_topics: splitLines(adaptiveAvoidTopics) } : {}),
       },
     };
 
-    if (targetSectionId) {
-      if (!guardQuestionBudget()) return;
-      dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
-    } else {
-      if (!guardSectionBudget(sectionTimer)) return;
+    // Through `commitQuestion`, NOT a bare ADD_QUESTION. "Edit settings" on the
+    // summary panel reopens this same drawer with `editingQuestionId` set, and
+    // this handler ignored it: saving an edit appended a SECOND interview to the
+    // section instead of replacing the first. The section then carried two
+    // adaptive items worth 100 points each, and Review & Publish refused the
+    // whole assessment with "A section can hold only one adaptive interview." —
+    // an accurate message about a section the recruiter never asked for, with no
+    // visible cause and no way back except deleting the section.
+    //
+    // `commitQuestion` is where that distinction already lives (it dispatches
+    // UPDATE_QUESTION when editing, which also preserves `backendItemId` and
+    // `published` so the save updates the existing SectionItem rather than
+    // orphaning it). Adaptive was the one type that never called it — and the
+    // only type with an edit entry point at all.
+    // The duration control belongs to the SECTION, and `commitQuestion`'s edit
+    // branch only rewrites the item. Without this, changing the duration of an
+    // existing interview updated the question budget derived from it and left
+    // the section still running the old clock.
+    if (editingQuestionId && targetSectionId) {
+      // Only the INCREASE has to fit the remaining budget — the section's
+      // current minutes are already counted in `allocatedMinutes`, so checking
+      // the full timer against what is left would refuse an edit that shortens
+      // the interview.
+      const currentTimer = Number(
+        (state.sections || []).find(section => section.id === targetSectionId)?.timer_minutes,
+      ) || 0;
+      const added = Number(sectionTimer) - currentTimer;
+      if (added > remainingMinutes) {
+        toast.error('Section timer exceeds remaining time', {
+          description: `Only ${remainingMinutes} min left to allocate.`,
+        });
+        return;
+      }
       dispatch({
-        type: ACTIONS.ADD_SECTION,
-        payload: {
-          name: sectionName.trim() || 'AI Adaptive Interview',
-          type: 'adaptive',
-          timer_minutes: Number(sectionTimer),
-          ai_level_override: null,
-          items: [question],
-        },
+        type: ACTIONS.UPDATE_SECTION,
+        payload: { sectionId: targetSectionId, updates: { timer_minutes: Number(sectionTimer) } },
       });
     }
-    closeDrawer();
+
+    commitQuestion(question, 'AI Adaptive Interview');
   };
 
   return {
@@ -981,10 +1087,9 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
       removeRankingItem,
       addRankingItem,
       handlePollTypeChange,
-      adaptivePreset,
+      adaptivePreset: effectiveAdaptivePreset,
       setAdaptivePreset,
-      adaptiveAnchorId,
-      setAdaptiveAnchorId,
+      codingTaskPrecedesInterview,
       adaptiveFocusAreas,
       toggleAdaptiveFocusArea,
       adaptiveRoleTitle,
