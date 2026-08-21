@@ -16,7 +16,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { IconLayoutSidebarRight } from '@tabler/icons-react'
 import {
   getAdaptiveInterviewQuestions,
   getAdaptiveInterviewRun,
@@ -26,14 +25,10 @@ import {
   submitAdaptiveInterviewAnswers,
 } from '../../../api/candidate/adaptiveInterview'
 import { loadCandidateBranding } from '../../../theme/CandidateThemeProvider'
-import ExamShell, { ExamActionBar } from '../../../components/candidate/exam/ExamShell'
-import ExamButton from '../../../components/candidate/exam/ExamButton'
+import ExamShell from '../../../components/candidate/exam/ExamShell'
 import AdaptiveInterviewTopBar from './components/AdaptiveInterviewTopBar'
 import InterviewStatusPanel from './components/InterviewStatusPanel'
-import ScenarioPanel from './components/ScenarioPanel'
-import ScenarioPanelSheet from './components/ScenarioPanelSheet'
-import ChatMessageList from './components/ChatMessageList'
-import Composer from './components/Composer'
+import InterviewChatScreen from './components/InterviewChatScreen'
 import { useDictation } from './useDictation'
 import { questionToMessages } from './transcript'
 
@@ -132,6 +127,8 @@ export default function CandidateAdaptiveInterviewExperience({
   const [pendingNudge, setPendingNudge] = useState(null)
   const [composerValue, setComposerValue] = useState('')
   const [turnState, setTurnState] = useState('idle') // 'idle' | 'sending' | 'thinking'
+  // The optimistic bubble currently in flight, dimmed until the POST lands.
+  const [pendingMessageId, setPendingMessageId] = useState(null)
   const [thinkingLabel, setThinkingLabel] = useState('')
   const [scenarioSheetOpen, setScenarioSheetOpen] = useState(false)
   const [sendError, setSendError] = useState('')
@@ -208,6 +205,7 @@ export default function CandidateAdaptiveInterviewExperience({
     setActiveQuestion(null)
     setPendingNudge(null)
     setTurnState('idle')
+    setPendingMessageId(null)
     setUsedDictation(false)
     // Restore THIS attempt's draft rather than blanking. The per-attempt key is
     // what keeps section 1's abandoned answer out of section 2's composer, so
@@ -540,11 +538,20 @@ export default function CandidateAdaptiveInterviewExperience({
 
     setTurnState('sending')
     setSendError('')
-    // Optimistic bubble with a known id so a failed send can retract it. The
-    // composer is only cleared on SUCCESS — a network blip must never destroy
-    // a typed answer.
+    // Optimistic bubble with a known id, so a failed send can retract it and
+    // the bubble can be dimmed while it is in flight.
     const optimisticId = makeId()
     setMessages((prev) => [...prev, { id: optimisticId, role: 'candidate', text }])
+    setPendingMessageId(optimisticId)
+    // Clear the box in the SAME commit that appends the bubble. It used to be
+    // cleared only once the POST resolved, so for the whole round trip — plus
+    // the generation wait behind it, which is tens of seconds — the answer sat
+    // in the composer AND in the transcript at once. It read as a failed send:
+    // candidates deleted it, or sent it a second time.
+    //
+    // The reason it was deferred still stands (a network blip must never
+    // destroy typed text), so the catch below puts the text back instead.
+    setComposerValue('')
 
     if (!idempotencyKeyRef.current) idempotencyKeyRef.current = makeId()
 
@@ -559,7 +566,7 @@ export default function CandidateAdaptiveInterviewExperience({
         expectedStateVersion: engineRun?.state_version,
       })
       idempotencyKeyRef.current = null
-      setComposerValue('')
+      setPendingMessageId(null)
       setUsedDictation(false)
       setEngineRun(result.engine_run)
 
@@ -627,6 +634,12 @@ export default function CandidateAdaptiveInterviewExperience({
     } catch (err) {
       // Retract the optimistic bubble — the server never got (or refused) it.
       setMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+      setPendingMessageId(null)
+      // Give the answer back. The composer is disabled for the whole flight
+      // (`composerDisabled` covers turnState !== 'idle') and dictation is
+      // stopped with it, so there is nothing newer to overwrite — but restore
+      // through the functional form anyway rather than assume it.
+      setComposerValue((current) => (current.trim() ? current : text))
       const code = err?.code || ''
       const isTerminal = code === 'interview_complete' || code === 'section_expired' || code === 'run_expired'
       if (isTerminal || err?.status === 409) {
@@ -763,6 +776,8 @@ export default function CandidateAdaptiveInterviewExperience({
       questionTotal={questionTotal}
       remainingSeconds={remainingSeconds}
       elapsedSeconds={elapsedSeconds}
+      // Only on the chat screen, and only when there is something to open.
+      onOpenScenario={screen === 'chat' && activeScenario ? () => setScenarioSheetOpen(true) : null}
     />
   )
 
@@ -813,59 +828,38 @@ export default function CandidateAdaptiveInterviewExperience({
 
   // screen === 'chat'
   return (
-    <ExamShell
+    <InterviewChatScreen
       branding={branding}
-      topBar={topBar}
-      sidebar={activeScenario ? <ScenarioPanel scenario={activeScenario} /> : null}
-      actionBar={(
-        <ExamActionBar>
-          {activeScenario && (
-            <ExamButton
-              variant="quiet"
-              size="icon"
-              className="lg:hidden"
-              onClick={() => setScenarioSheetOpen(true)}
-              aria-label="Open interview scenario"
-            >
-              <IconLayoutSidebarRight size={18} />
-            </ExamButton>
-          )}
-          <span className="flex-1" />
-        </ExamActionBar>
-      )}
-    >
-      <div className="flex flex-col gap-5">
-        <ChatMessageList
-          messages={messages}
-          thinking={turnState === 'thinking'}
-          thinkingLabel={thinkingLabel}
-          avatarUrl={branding?.logo_url}
-        />
+      sectionName={sectionName}
+      sectionOrder={sectionOrder}
+      sectionCount={sectionCount}
+      questionNumber={questionNumber}
+      questionTotal={questionTotal}
+      remainingSeconds={remainingSeconds}
+      elapsedSeconds={elapsedSeconds}
 
-        {sendError && (
-          <p role="alert" className="text-[13px] text-error">
-            {sendError}
-          </p>
-        )}
+      scenario={activeScenario}
+      scenarioSheetOpen={scenarioSheetOpen}
+      onScenarioSheetOpenChange={setScenarioSheetOpen}
 
-        <Composer
-          inputRef={composerRef}
-          value={composerValue}
-          onChange={(next) => {
-            setComposerValue(next)
-            if (sendError) setSendError('')
-          }}
-          onSend={handleSend}
-          disabled={composerDisabled}
-          dictation={dictation}
-        />
-      </div>
+      messages={messages}
+      thinking={turnState === 'thinking'}
+      thinkingLabel={thinkingLabel}
+      // Scoped to the flight itself, so every path that leaves `sending` —
+      // success, retry, 409 resync, timer expiry — un-dims the bubble without
+      // each one having to remember to clear it.
+      pendingMessageId={turnState === 'sending' ? pendingMessageId : null}
 
-      <ScenarioPanelSheet
-        open={scenarioSheetOpen && Boolean(activeScenario)}
-        onOpenChange={setScenarioSheetOpen}
-        scenario={activeScenario}
-      />
-    </ExamShell>
+      composerRef={composerRef}
+      composerValue={composerValue}
+      onComposerChange={(next) => {
+        setComposerValue(next)
+        if (sendError) setSendError('')
+      }}
+      onSend={handleSend}
+      composerDisabled={composerDisabled}
+      dictation={dictation}
+      sendError={sendError}
+    />
   )
 }
