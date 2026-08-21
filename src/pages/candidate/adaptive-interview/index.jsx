@@ -132,6 +132,8 @@ export default function CandidateAdaptiveInterviewExperience({
   // gets to read the interviewer's last line first. See the `farewell` screen.
   const advanceRef = useRef(null)
   const [farewellSeconds, setFarewellSeconds] = useState(null)
+  // true / false / null-for-unknown. See beginFarewell.
+  const [isLastSection, setIsLastSection] = useState(null)
   // The optimistic bubble currently in flight, dimmed until the POST lands.
   const [pendingMessageId, setPendingMessageId] = useState(null)
   const [thinkingLabel, setThinkingLabel] = useState('')
@@ -254,11 +256,23 @@ export default function CandidateAdaptiveInterviewExperience({
   // come back to a section that never ended.
   const FAREWELL_SECONDS = 6
 
-  /** Hold on the transcript so the sign-off can be read, then hand over. */
-  const beginFarewell = useCallback((advance) => {
+  /** Hold on the transcript so the sign-off can be read, then hand over.
+   *
+   * `isLast` is tri-state — true, false, or null for "we were not told". It is
+   * NOT derived from `sectionOrder < sectionCount`, which is what this did first
+   * and which was wrong twice over: section order is 0-BASED, and `runtime.js`
+   * builds it as `payload.section_order || … || null`, so the first section's 0
+   * is falsy and arrives as null. `null < 1` then coerces to `0 < 1` and every
+   * single-section assessment promised a next section that did not exist.
+   * Observed live on a one-section run, which offered "Continue to next
+   * section". (The same 0-base silently hides "Section 1 of 1" in
+   * AdaptiveInterviewTopBar, for the same reason.)
+   */
+  const beginFarewell = useCallback((advance, isLast = null) => {
     advanceRef.current = advance
     setActiveQuestion(null)
     setTurnState('idle')
+    setIsLastSection(isLast)
     setFarewellSeconds(FAREWELL_SECONDS)
     setScreen('farewell')
   }, [])
@@ -654,7 +668,7 @@ export default function CandidateAdaptiveInterviewExperience({
           } catch {
             // Completion screen still renders; the parent retries navigation.
           }
-        })
+        }, result.next_action === 'assessment_complete')
         return
       }
 
@@ -883,7 +897,12 @@ export default function CandidateAdaptiveInterviewExperience({
   // this moment reads as the interview having been cut off, which is the thing
   // being fixed.
   if (screen === 'farewell') {
-    const isLastSection = !(sectionOrder < sectionCount)
+    const closingNote = isLastSection === true
+      ? 'That was the last section.'
+      : isLastSection === false
+        ? 'Moving on to the next section.'
+        // Not told what comes next — say nothing about it rather than guess.
+        : 'Your answers have been submitted.'
     return (
       <InterviewChatScreen
         branding={branding}
@@ -905,12 +924,10 @@ export default function CandidateAdaptiveInterviewExperience({
         closing={(
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p aria-live="polite" className="text-[13px] leading-[1.5] text-text-muted">
-              {isLastSection
-                ? 'That was the last section.'
-                : 'Moving on to the next section.'}
+              {closingNote}
             </p>
             <ExamButton onClick={runAdvance} autoFocus>
-              {isLastSection ? 'Finish' : 'Continue'}
+              {isLastSection === true ? 'Finish' : 'Continue'}
               {farewellSeconds > 0 ? ` (${farewellSeconds})` : ''}
             </ExamButton>
           </div>
