@@ -407,6 +407,142 @@
   .shadow-ember-tight { box-shadow: 0 0 18px -4px var(--color-ember-glow); }
 }
 
+/* ═══════════════════════════════════════════════════════
+   ADAPTIVE INTERVIEW — chat stage
+   The chat column is the only screen in the product with an ambient ground
+   rather than a flat one, so its pieces live together here instead of being
+   scattered through utility strings.
+   ═══════════════════════════════════════════════════════ */
+
+/* ── The ember ground ──────────────────────────────────────────────────────
+   Three layers, in paint order from the bottom:
+
+     1. a near-black warm base, so the column reads deeper than `page` and the
+        ember has something to emerge FROM;
+     2. a vertical wash whose alpha follows a power curve (nothing until ~16%
+        down, ~0.35 at the floor). Evenly-spaced stops on a ground this dark
+        leave a visible shoulder where the ramp starts, and the eye finds it
+        immediately;
+     3. two wide elliptical lobes anchored past the bottom corners — the right
+        one taller and hotter, the left one flatter and wider. They are what
+        makes the glow uneven: without them the top edge of the light is a
+        horizontal line straight across the pane, which is the one thing a
+        gradient like this must not look like.
+
+   The geometry and the alpha at every stop were fitted to the Figma frame
+   (node 806-5546) rather than eyeballed — sampled against the exported PNG the
+   whole stack lands within ~5 levels per channel of the design.
+
+   Colours go through `color-mix` on the ember tokens instead of literal hex, so
+   an org with its own brand colour gets a ground in ITS colour; only the base
+   is fixed. Percentages throughout, never pixels — the pane is a flex child of
+   unknown size, and scaling the ellipses with it is what keeps the character at
+   any window size. */
+.interview-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(140% 37.2% at -11.6% 100%,
+      color-mix(in srgb, var(--color-ember) 33.5%, transparent) 0%,
+      color-mix(in srgb, var(--color-ember) 31.5%, transparent) 15%,
+      color-mix(in srgb, var(--color-ember) 26.3%, transparent) 30%,
+      color-mix(in srgb, var(--color-ember) 19.3%, transparent) 45%,
+      color-mix(in srgb, var(--color-ember) 11.8%, transparent) 60%,
+      color-mix(in srgb, var(--color-ember) 5.2%, transparent) 75%,
+      color-mix(in srgb, var(--color-ember) 0.9%, transparent) 90%,
+      color-mix(in srgb, var(--color-ember) 0.0%, transparent) 100%),
+    radial-gradient(57% 83.6% at 113.3% 85%,
+      color-mix(in srgb, var(--color-ember) 44.3%, transparent) 0%,
+      color-mix(in srgb, var(--color-ember) 41.6%, transparent) 15%,
+      color-mix(in srgb, var(--color-ember) 34.8%, transparent) 30%,
+      color-mix(in srgb, var(--color-ember) 25.5%, transparent) 45%,
+      color-mix(in srgb, var(--color-ember) 15.6%, transparent) 60%,
+      color-mix(in srgb, var(--color-ember) 6.9%, transparent) 75%,
+      color-mix(in srgb, var(--color-ember) 1.2%, transparent) 90%,
+      color-mix(in srgb, var(--color-ember) 0.0%, transparent) 100%),
+    linear-gradient(to bottom,
+      color-mix(in srgb, var(--color-ember-soft) 0.0%, transparent) 15.8%,
+      color-mix(in srgb, var(--color-ember-soft) 0.1%, transparent) 22.8%,
+      color-mix(in srgb, var(--color-ember-soft) 0.7%, transparent) 29.9%,
+      color-mix(in srgb, var(--color-ember-soft) 1.7%, transparent) 36.9%,
+      color-mix(in srgb, var(--color-ember-soft) 3.2%, transparent) 43.9%,
+      color-mix(in srgb, var(--color-ember-soft) 5.2%, transparent) 50.9%,
+      color-mix(in srgb, var(--color-ember-soft) 7.7%, transparent) 57.9%,
+      color-mix(in srgb, var(--color-ember-soft) 10.8%, transparent) 64.9%,
+      color-mix(in srgb, var(--color-ember-soft) 14.5%, transparent) 71.9%,
+      color-mix(in srgb, var(--color-ember-soft) 18.8%, transparent) 79.0%,
+      color-mix(in srgb, var(--color-ember-soft) 23.7%, transparent) 86.0%,
+      color-mix(in srgb, var(--color-ember-soft) 29.2%, transparent) 93.0%,
+      color-mix(in srgb, var(--color-ember-soft) 35.4%, transparent) 100.0%),
+    #15110F;
+}
+
+/* Dither. A gradient this large and this dark bands into visible steps on 8-bit
+   panels — the ramp above crosses ~130 levels of red over ~700px, so whole
+   bands of pixels round to the same value. A little static noise breaks the
+   step boundaries up and costs one composited layer. */
+.interview-ambient::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── Composer shell ────────────────────────────────────────────────────────
+   The composer sits at the hottest part of the ember ground, where a token
+   surface (`surface`/`chrome`, both mixed for a flat dark page) turns muddy.
+   A near-black warm fill with a little translucency and a blur reads as glass
+   over the glow instead of as a hole punched through it, and keeps the input
+   the darkest thing on screen — which is what makes it read as the one place
+   to type. */
+.interview-composer-surface {
+  background-color: rgba(22, 18, 16, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
+    0 8px 28px -12px rgba(0, 0, 0, 0.7);
+}
+
+/* ── Composer veil ─────────────────────────────────────────────────────────
+   The message list scrolls UNDER the pinned composer. Fading it to a solid
+   colour would paint a flat band over the ember ground, so blur it out through
+   a mask instead: the ground shows through untouched and only the text
+   dissolves. */
+.interview-composer-veil {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 62%);
+          mask-image: linear-gradient(to bottom, transparent 0%, #000 62%);
+}
+
+/* ── Thin scrollbars ───────────────────────────────────────────────────────
+   The scenario panel and the transcript both scroll. The platform scrollbar is
+   a light-grey slab on this ground and is the loudest thing on screen. */
+.cand-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+.cand-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.cand-scroll::-webkit-scrollbar-track { background: transparent; }
+.cand-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.cand-scroll::-webkit-scrollbar-thumb:hover { background-color: var(--color-border-strong); }
+
+/* ── Live-dictation pip ────────────────────────────────────────────────────
+   The mic button is the only control whose state is not visible from its own
+   shape once pressed. */
+@keyframes candMicPulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-ember-edge); }
+  50%      { box-shadow: 0 0 0 5px rgba(255, 133, 40, 0); }
+}
+.cand-mic-live { animation: candMicPulse 1.6s ease-out infinite; }
+
 /* ── Autosave acknowledgement ─────────────────────────────────────── */
 @keyframes autosavePulse {
   0%   { transform: scale(1);   background-color: var(--color-ember); }
@@ -524,6 +660,7 @@
   .ask-shell,
   .ask-mic-live,
   .ember-sweep,
+  .cand-mic-live,
   .cand-section-item,
   .lp-aurora,
   .lp-shimmer,

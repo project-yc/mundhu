@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+*.local
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Graphify
+graphify-out/
+.graphify_*
+
+# Env
+.env.local
+.env.*.local
+
+# Vite
+.env.local
+
+# Temp
+*.log
+npm-debug.log*

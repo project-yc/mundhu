@@ -2,6 +2,18 @@ import { useState, useEffect } from 'react';
 import { IconTerminal2, IconClock, IconSearch, IconRobot } from '@tabler/icons-react';
 import { useAssessmentBuilder } from '../../context/AssessmentBuilderContext';
 import { getLibraryTasks } from '../../api/assessmentBuilderApi';
+import { AI_LEVEL_OPTIONS, CODING_RUBRIC_DIMENSIONS } from '../AddSectionPanel/constants';
+
+// Mirrors _MAX_RUBRIC_WEIGHT in assessments/views/sections.py. Weights outside
+// 1..5 are rejected server-side.
+const RUBRIC_WEIGHT_CHOICES = [1, 2, 3, 4, 5];
+
+function rubricWeightsWithDefaults(weights) {
+  return CODING_RUBRIC_DIMENSIONS.reduce((acc, { key }) => {
+    acc[key] = Number(weights?.[key]) || 1;
+    return acc;
+  }, {});
+}
 
 function TaskCard({ task, selected, onSelect }) {
   return (
@@ -44,8 +56,25 @@ export function CodingEditor({ sectionId, item }) {
   useEffect(() => {
     setLoadingLibrary(true);
     setLibError('');
-    getLibraryTasks()
-      .then(tasks => setLibraryTasks(tasks))
+    // content_type matters: the library holds every question type, so without
+    // this filter the coding picker offered MCQ and ranking questions as
+    // "tasks". Attaching one publishes cleanly and then fails on the
+    // candidate's screen with "not configured with a runnable task".
+    Promise.all([
+      getLibraryTasks({ content_type: 'technical_task' }),
+      // The org's own coding tasks. The creation drawer could reach My Library
+      // and this editor could not, so a task authored in-house was invisible
+      // once the section existed.
+      getLibraryTasks({ scope: 'my', content_type: 'technical_task' }).catch(() => []),
+    ])
+      .then(([platform, mine]) => {
+        const seen = new Set();
+        setLibraryTasks([...mine, ...platform].filter(t => {
+          if (seen.has(t.id)) return false;
+          seen.add(t.id);
+          return true;
+        }));
+      })
       .catch(e => setLibError(e.message))
       .finally(() => setLoadingLibrary(false));
   }, []);
@@ -56,6 +85,22 @@ export function CodingEditor({ sectionId, item }) {
 
   const updateSection = (updates) => {
     dispatch({ type: ACTIONS.UPDATE_SECTION, payload: { sectionId, updates } });
+  };
+
+  // The AI level is per-USE of the task, so it belongs on the section item's
+  // override_config_json — and `buildOverrideConfig` reads it off the ITEM.
+  // Writing only `section.ai_level_override` (which is what this control used
+  // to do) left the value out of the publish payload entirely: the dropdown
+  // moved, the save succeeded, and nothing changed for the candidate.
+  const setAiLevel = (value) => {
+    updateItem({ ai_level: value || null });
+    updateSection({ ai_level_override: value || null });
+  };
+
+  const rubricWeights = rubricWeightsWithDefaults(item.rubric_weights);
+
+  const setRubricWeight = (key, value) => {
+    updateItem({ rubric_weights: { ...rubricWeights, [key]: Number(value) } });
   };
 
   const filteredTasks = libraryTasks.filter(t => {
@@ -104,19 +149,20 @@ export function CodingEditor({ sectionId, item }) {
           <IconRobot size={14} className="text-text-muted" />
           <span>AI level</span>
           <select
-            value={section?.ai_level_override ?? ''}
-            onChange={e => updateSection({ ai_level_override: e.target.value || null })}
+            value={item.ai_level ?? ''}
+            onChange={e => setAiLevel(e.target.value)}
             className="px-2.5 py-1.5 bg-page border border-border-default rounded-lg text-[13px] text-text-primary focus:outline-none focus:border-brand"
           >
+            {/* Values come from the shared constant, not a second hardcoded
+                list — this one used to send "chat", which AILevel.choices()
+                rejects, and omitted inline_completions entirely. */}
             <option value="">Default</option>
-            <option value="full">Full agent</option>
-            <option value="chat">Chat only</option>
-            <option value="none">Disabled</option>
+            {AI_LEVEL_OPTIONS.map(({ value, label }) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
           </select>
         </div>
       </div>
-
-      {/* Locked banner */}
 
       {/* Content area */}
       <div className="space-y-3">
@@ -168,6 +214,43 @@ export function CodingEditor({ sectionId, item }) {
                 <p className="text-[13px] text-text-muted py-4 text-center">No tasks found.</p>
               )}
             </div>
+          </>
+        )}
+
+        {activeTab === 'details' && (
+          <>
+            {/* This tab used to render nothing at all — the toggle existed and
+                had no branch. Rubric weighting is the per-use setting that had
+                no edit path once the section was created. */}
+            <div>
+              <p className="text-[13px] font-semibold text-text-primary">Rubric weighting</p>
+              <p className="text-[12px] text-text-secondary mt-0.5">
+                How much each dimension counts toward the section score. Leave them equal to weight all four the same.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              {CODING_RUBRIC_DIMENSIONS.map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-3 px-3 h-10 rounded-lg bg-surface-muted border border-border-default">
+                  <span className="text-[13px] font-semibold text-text-primary">{label}</span>
+                  <select
+                    value={rubricWeights[key]}
+                    onChange={e => setRubricWeight(key, e.target.value)}
+                    className="ml-auto px-2 py-1 bg-page border border-border-default rounded-lg text-[13px] font-semibold text-text-primary focus:outline-none focus:border-brand"
+                  >
+                    {RUBRIC_WEIGHT_CHOICES.map(value => (
+                      <option key={value} value={value}>{value}×</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+
+            {!item.task_data && (
+              <p className="text-[12px] text-text-muted">
+                No task attached yet. Pick one from the Library tab.
+              </p>
+            )}
           </>
         )}
       </div>

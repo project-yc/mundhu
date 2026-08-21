@@ -16,7 +16,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { IconLayoutSidebarRight } from '@tabler/icons-react'
 import {
   getAdaptiveInterviewQuestions,
   getAdaptiveInterviewRun,
@@ -26,14 +25,11 @@ import {
   submitAdaptiveInterviewAnswers,
 } from '../../../api/candidate/adaptiveInterview'
 import { loadCandidateBranding } from '../../../theme/CandidateThemeProvider'
-import ExamShell, { ExamActionBar } from '../../../components/candidate/exam/ExamShell'
-import ExamButton from '../../../components/candidate/exam/ExamButton'
+import ExamShell from '../../../components/candidate/exam/ExamShell'
 import AdaptiveInterviewTopBar from './components/AdaptiveInterviewTopBar'
 import InterviewStatusPanel from './components/InterviewStatusPanel'
-import ScenarioPanel from './components/ScenarioPanel'
-import ScenarioPanelSheet from './components/ScenarioPanelSheet'
-import ChatMessageList from './components/ChatMessageList'
-import Composer from './components/Composer'
+import ExamButton from '../../../components/candidate/exam/ExamButton'
+import InterviewChatScreen from './components/InterviewChatScreen'
 import { useDictation } from './useDictation'
 import { questionToMessages } from './transcript'
 
@@ -136,6 +132,8 @@ export default function CandidateAdaptiveInterviewExperience({
   // gets to read the interviewer's last line first. See the `farewell` screen.
   const advanceRef = useRef(null)
   const [farewellSeconds, setFarewellSeconds] = useState(null)
+  // The optimistic bubble currently in flight, dimmed until the POST lands.
+  const [pendingMessageId, setPendingMessageId] = useState(null)
   const [thinkingLabel, setThinkingLabel] = useState('')
   const [scenarioSheetOpen, setScenarioSheetOpen] = useState(false)
   const [sendError, setSendError] = useState('')
@@ -212,6 +210,7 @@ export default function CandidateAdaptiveInterviewExperience({
     setActiveQuestion(null)
     setPendingNudge(null)
     setTurnState('idle')
+    setPendingMessageId(null)
     setUsedDictation(false)
     // Restore THIS attempt's draft rather than blanking. The per-attempt key is
     // what keeps section 1's abandoned answer out of section 2's composer, so
@@ -580,11 +579,20 @@ export default function CandidateAdaptiveInterviewExperience({
 
     setTurnState('sending')
     setSendError('')
-    // Optimistic bubble with a known id so a failed send can retract it. The
-    // composer is only cleared on SUCCESS — a network blip must never destroy
-    // a typed answer.
+    // Optimistic bubble with a known id, so a failed send can retract it and
+    // the bubble can be dimmed while it is in flight.
     const optimisticId = makeId()
     setMessages((prev) => [...prev, { id: optimisticId, role: 'candidate', text }])
+    setPendingMessageId(optimisticId)
+    // Clear the box in the SAME commit that appends the bubble. It used to be
+    // cleared only once the POST resolved, so for the whole round trip — plus
+    // the generation wait behind it, which is tens of seconds — the answer sat
+    // in the composer AND in the transcript at once. It read as a failed send:
+    // candidates deleted it, or sent it a second time.
+    //
+    // The reason it was deferred still stands (a network blip must never
+    // destroy typed text), so the catch below puts the text back instead.
+    setComposerValue('')
 
     if (!idempotencyKeyRef.current) idempotencyKeyRef.current = makeId()
 
@@ -599,7 +607,7 @@ export default function CandidateAdaptiveInterviewExperience({
         expectedStateVersion: engineRun?.state_version,
       })
       idempotencyKeyRef.current = null
-      setComposerValue('')
+      setPendingMessageId(null)
       setUsedDictation(false)
       setEngineRun(result.engine_run)
 
@@ -675,6 +683,12 @@ export default function CandidateAdaptiveInterviewExperience({
     } catch (err) {
       // Retract the optimistic bubble — the server never got (or refused) it.
       setMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+      setPendingMessageId(null)
+      // Give the answer back. The composer is disabled for the whole flight
+      // (`composerDisabled` covers turnState !== 'idle') and dictation is
+      // stopped with it, so there is nothing newer to overwrite — but restore
+      // through the functional form anyway rather than assume it.
+      setComposerValue((current) => (current.trim() ? current : text))
       const code = err?.code || ''
       const isTerminal = code === 'interview_complete' || code === 'section_expired' || code === 'run_expired'
       if (isTerminal || err?.status === 409) {
@@ -812,6 +826,8 @@ export default function CandidateAdaptiveInterviewExperience({
       questionTotal={questionTotal}
       remainingSeconds={remainingSeconds}
       elapsedSeconds={elapsedSeconds}
+      // Only on the chat screen, and only when there is something to open.
+      onOpenScenario={screen === 'chat' && activeScenario ? () => setScenarioSheetOpen(true) : null}
     />
   )
 
@@ -862,101 +878,81 @@ export default function CandidateAdaptiveInterviewExperience({
 
   // The interview is over and the transcript stays up, so the candidate reads
   // the interviewer's last line instead of watching the conversation disappear.
-  // Deliberately the SAME shell and the same message list as the chat — a
-  // different-looking screen would read as the interview having been cut off.
+  // Rendered through the SAME InterviewChatScreen as the live chat, with the
+  // composer swapped for the handoff control — a different-looking screen at
+  // this moment reads as the interview having been cut off, which is the thing
+  // being fixed.
   if (screen === 'farewell') {
+    const isLastSection = !(sectionOrder < sectionCount)
     return (
-      <ExamShell
+      <InterviewChatScreen
         branding={branding}
-        topBar={topBar}
-        sidebar={activeScenario ? <ScenarioPanel scenario={activeScenario} /> : null}
-        actionBar={(
-          <ExamActionBar>
-            <span className="flex-1" />
+        sectionName={sectionName}
+        sectionOrder={sectionOrder}
+        sectionCount={sectionCount}
+        questionNumber={questionNumber}
+        questionTotal={questionTotal}
+        remainingSeconds={remainingSeconds}
+        elapsedSeconds={elapsedSeconds}
+
+        scenario={activeScenario}
+        scenarioSheetOpen={scenarioSheetOpen}
+        onScenarioSheetOpenChange={setScenarioSheetOpen}
+
+        messages={messages}
+        thinking={false}
+
+        closing={(
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p aria-live="polite" className="text-[13px] leading-[1.5] text-text-muted">
+              {isLastSection
+                ? 'That was the last section.'
+                : 'Moving on to the next section.'}
+            </p>
             <ExamButton onClick={runAdvance} autoFocus>
-              {sectionOrder < sectionCount ? 'Continue to next section' : 'Finish'}
+              {isLastSection ? 'Finish' : 'Continue'}
               {farewellSeconds > 0 ? ` (${farewellSeconds})` : ''}
             </ExamButton>
-          </ExamActionBar>
+          </div>
         )}
-      >
-        <div className="flex flex-col gap-5">
-          <ChatMessageList
-            messages={messages}
-            thinking={false}
-            avatarUrl={branding?.logo_url}
-          />
-          <p aria-live="polite" className="text-[13px] text-text-muted">
-            {sectionOrder < sectionCount
-              ? 'This interview is complete. Moving on to the next section.'
-              : 'This interview is complete. That was the last section.'}
-          </p>
-        </div>
-
-        <ScenarioPanelSheet
-          open={scenarioSheetOpen && Boolean(activeScenario)}
-          onOpenChange={setScenarioSheetOpen}
-          scenario={activeScenario}
-        />
-      </ExamShell>
+      />
     )
   }
 
   // screen === 'chat'
   return (
-    <ExamShell
+    <InterviewChatScreen
       branding={branding}
-      topBar={topBar}
-      sidebar={activeScenario ? <ScenarioPanel scenario={activeScenario} /> : null}
-      actionBar={(
-        <ExamActionBar>
-          {activeScenario && (
-            <ExamButton
-              variant="quiet"
-              size="icon"
-              className="lg:hidden"
-              onClick={() => setScenarioSheetOpen(true)}
-              aria-label="Open interview scenario"
-            >
-              <IconLayoutSidebarRight size={18} />
-            </ExamButton>
-          )}
-          <span className="flex-1" />
-        </ExamActionBar>
-      )}
-    >
-      <div className="flex flex-col gap-5">
-        <ChatMessageList
-          messages={messages}
-          thinking={turnState === 'thinking'}
-          thinkingLabel={thinkingLabel}
-          avatarUrl={branding?.logo_url}
-        />
+      sectionName={sectionName}
+      sectionOrder={sectionOrder}
+      sectionCount={sectionCount}
+      questionNumber={questionNumber}
+      questionTotal={questionTotal}
+      remainingSeconds={remainingSeconds}
+      elapsedSeconds={elapsedSeconds}
 
-        {sendError && (
-          <p role="alert" className="text-[13px] text-error">
-            {sendError}
-          </p>
-        )}
+      scenario={activeScenario}
+      scenarioSheetOpen={scenarioSheetOpen}
+      onScenarioSheetOpenChange={setScenarioSheetOpen}
 
-        <Composer
-          inputRef={composerRef}
-          value={composerValue}
-          onChange={(next) => {
-            setComposerValue(next)
-            if (sendError) setSendError('')
-          }}
-          onSend={handleSend}
-          disabled={composerDisabled}
-          dictation={dictation}
-        />
-      </div>
+      messages={messages}
+      thinking={turnState === 'thinking'}
+      thinkingLabel={thinkingLabel}
+      // Scoped to the flight itself, so every path that leaves `sending` —
+      // success, retry, 409 resync, timer expiry — un-dims the bubble without
+      // each one having to remember to clear it.
+      pendingMessageId={turnState === 'sending' ? pendingMessageId : null}
 
-      <ScenarioPanelSheet
-        open={scenarioSheetOpen && Boolean(activeScenario)}
-        onOpenChange={setScenarioSheetOpen}
-        scenario={activeScenario}
-      />
-    </ExamShell>
+      composerRef={composerRef}
+      composerValue={composerValue}
+      onComposerChange={(next) => {
+        setComposerValue(next)
+        if (sendError) setSendError('')
+      }}
+      onSend={handleSend}
+      composerDisabled={composerDisabled}
+      dictation={dictation}
+      sendError={sendError}
+    />
   )
 }

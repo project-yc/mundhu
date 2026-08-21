@@ -21,9 +21,13 @@ import {
   CandidatePrimaryButton,
 } from '../../components/candidate/CandidateSectionScaffold'
 
+// Keys are AILevel.choices() on the backend. `chat` was never one of them —
+// it came from a stale docstring on the overview endpoint — so a section
+// configured as chat_only rendered the raw string to the candidate.
 const AI_LEVEL_LABELS = {
   full: 'Full AI access',
-  chat: 'AI chat only',
+  chat_only: 'AI chat only',
+  inline_completions: 'Inline completions only',
   none: 'No AI assistance',
 }
 
