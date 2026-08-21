@@ -1,35 +1,34 @@
 import { ExamSidebar } from '../../../../components/candidate/exam/ExamShell'
-import ScenarioSection from './ScenarioSection'
-import ScenarioErrorBoundary from './ScenarioErrorBoundary'
+import ScenarioBody from './ScenarioBody'
 
-// The desktop, persistent version of the scenario panel — reuses ExamShell's
-// sidebar slot at a wider fixed width than the question-navigator case.
+// The desktop, persistent version of the scenario panel.
+//
+// It sits on the RIGHT. The candidate's job on this screen is to answer, and
+// the answer is composed on the left — putting the reference material first in
+// reading order made the conversation the secondary column on its own screen.
+// Wider than the question-navigator case, too: this rail carries stat grids,
+// log blocks and chat transcripts, not a grid of numbers.
 export default function ScenarioPanel({ scenario }) {
   if (!scenario) return null
 
   return (
-    <ExamSidebar title={scenario.title} width="420px">
-      <ScenarioErrorBoundary>
-      <div className="flex flex-col gap-5">
-        {scenario.images?.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {scenario.images.map((image, i) => (
-              <figure key={i} className="overflow-hidden rounded-lg border border-border-subtle">
-                <img src={image.url} alt={image.alt} className="w-full object-cover" />
-                {image.caption && (
-                  <figcaption className="px-2 py-1.5 text-[11px] text-text-muted">{image.caption}</figcaption>
-                )}
-              </figure>
-            ))}
-          </div>
-        )}
-        {/* Optional-chained: `sections` is required by contract but arrives
-            unvalidated, and an absent key must not throw. */}
-        {(scenario.sections || []).map((section, i) => (
-          <ScenarioSection key={section?.id || i} section={section} />
-        ))}
-      </div>
-      </ScenarioErrorBoundary>
+    <ExamSidebar
+      side="right"
+      // Fluid: the Figma frame gives the rail ~44% of a 1440px viewport, which
+      // a fixed 440px does not reproduce on a large display and which squeezes
+      // the conversation on a small one. Clamped so the stat grids keep enough
+      // width to lay out without ellipsing their labels.
+      width="clamp(380px, 32vw, 560px)"
+      bodyClassName="px-6 py-5"
+      header={(
+        <div className="shrink-0 px-6 pb-1 pt-6">
+          <h2 className="text-[17px] font-semibold leading-[1.3] tracking-[-0.015em] text-text-primary">
+            {scenario.title}
+          </h2>
+        </div>
+      )}
+    >
+      <ScenarioBody scenario={scenario} />
     </ExamSidebar>
   )
 }
