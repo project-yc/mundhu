@@ -86,16 +86,30 @@ export function FullscreenToggle() {
 }
 
 // ── Org identity ─────────────────────────────────────────────────────────────
-export function ExamBrand({ branding, fallback }) {
+// `subtitle` names what the candidate is actually sitting in front of. On a
+// multi-section assessment the org name alone is the same on every screen, so
+// it answers "whose assessment is this" and nothing about "which part am I on".
+export function ExamBrand({ branding, fallback, subtitle }) {
   const { logo_url, candidate_name } = branding || {}
   const name = candidate_name || fallback
+  // Never print the section name twice when it is standing in for the org.
+  const secondary = subtitle && subtitle !== name ? subtitle : null
 
   return (
     <div className="flex min-w-0 items-center gap-2.5">
       {logo_url && (
-        <img src={logo_url} alt="" className="h-6 w-auto shrink-0 object-contain" />
+        <img src={logo_url} alt="" className="h-7 w-auto shrink-0 object-contain" />
       )}
-      <span className="truncate text-[15px] font-bold tracking-[-0.01em] text-brand">{name}</span>
+      <div className="flex min-w-0 flex-col justify-center">
+        <span className="truncate text-[15px] font-bold leading-[1.25] tracking-[-0.01em] text-brand">
+          {name}
+        </span>
+        {secondary && (
+          <span className="hidden truncate text-[12px] leading-[1.3] text-text-muted sm:block">
+            {secondary}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
