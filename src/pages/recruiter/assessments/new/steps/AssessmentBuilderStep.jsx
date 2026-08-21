@@ -6,6 +6,7 @@ import { CodingEditor } from '../components/editors/CodingEditor';
 import { McqEditor } from '../components/editors/McqEditor';
 import { FreeTextEditor } from '../components/editors/FreeTextEditor';
 import { RankingEditor } from '../components/editors/RankingEditor';
+import { AdaptiveEditor } from '../components/editors/AdaptiveEditor';
 
 function RightPanel() {
   const { state } = useAssessmentBuilder();
@@ -70,6 +71,7 @@ function RightPanel() {
       {item.type === 'mcq' && <McqEditor {...sharedProps} />}
       {item.type === 'free_text' && <FreeTextEditor {...sharedProps} />}
       {item.type === 'ranking' && <RankingEditor {...sharedProps} />}
+      {item.type === 'adaptive' && <AdaptiveEditor {...sharedProps} />}
     </div>
   );
 }

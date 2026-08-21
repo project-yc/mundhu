@@ -110,23 +110,13 @@ export async function deleteSectionItem(sectionId, itemId) {
 }
 
 // ─── Library Items ────────────────────────────────────────────────────────────
-
-/**
- * POST /api/v1/library/my
- *
- * Used for adaptive interviews, which have no dedicated create endpoint the way
- * MCQ / free text / ranking do — the item is a bare AssessmentItem and all of
- * its configuration lives on the SectionItem.
- */
-export async function createLibraryItem({ content_type, title, domain, seniority, language }) {
-  return authAxios.post('/api/v1/library/my', {
-    content_type,
-    title,
-    ...(domain ? { domain } : {}),
-    ...(seniority ? { seniority } : {}),
-    ...(language ? { language } : {}),
-  });
-}
+//
+// `createLibraryItem` was removed here. It POSTed to /api/v1/library/my and its
+// docstring claimed it was the path adaptive interviews used — but a repo-wide
+// search found zero importers, and the live path is `createMyLibraryItem` from
+// `api/recruiter/taskLibrary`, called by `syncLibraryItems` below (and directly
+// by the section drawer). Two functions against one endpoint, one of them
+// unreachable and carrying a false claim about which one authoring depends on.
 
 /**
  * GET /api/v1/recruiter/adaptive/focus-areas

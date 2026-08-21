@@ -2,7 +2,9 @@
 //
 // The engine names competencies in snake_case (`implementation_reasoning`) and
 // ships no display labels, so titles are derived. Only add an override when
-// title-casing reads badly.
+// the shared formatter reads badly.
+
+import { formatCompetencyLabel as formatKey } from '../../../../utils/competencyLabels';
 
 const LABEL_OVERRIDES = {
   testing_validation: 'Testing & validation',
@@ -12,8 +14,40 @@ const LABEL_OVERRIDES = {
 export function formatCompetencyLabel(key) {
   if (!key) return 'Competency';
   if (LABEL_OVERRIDES[key]) return LABEL_OVERRIDES[key];
-  const words = String(key).replace(/_/g, ' ');
-  return words.charAt(0).toUpperCase() + words.slice(1);
+  // Shared with the builder's chips so the same competency reads the same way
+  // when authoring and when reading the report. The local version capitalised
+  // only the first character, which rendered "Ai collaboration", "Sql",
+  // "Ci cd" and "Llm tool use" on the hiring manager's report.
+  return formatKey(key);
+}
+
+/**
+ * Read a snapshot number, treating "absent" as unknown rather than as zero.
+ *
+ * `Number(null)` is 0 and `Number('')` is 0 — both finite — so every guard in
+ * this file that went straight to `Number.isFinite(Number(value))` accepted the
+ * backend's explicit nulls and rendered them as a real measurement. The snapshot
+ * writes null in several places and always means "we do not have this", never
+ * "zero":
+ *
+ *   - `_attach_response_times` sets `response_seconds = None` for any answer
+ *     whose timestamp it could not parse or that predates the run start, so a
+ *     question with no usable timing rendered "0s" beside the answer — a claim
+ *     that the candidate answered instantly.
+ *   - `total_seconds` is None when no answer was timed at all, which rendered
+ *     "0s total" under the header of a real interview.
+ *   - A competency or an answer the scorer returned nothing usable for carries
+ *     `score: None` / `max_score: None`, which rendered as a bold red 0/4 (0%)
+ *     on a competency that was never graded.
+ *
+ * This is the same coercion trap already documented on the per-question score
+ * chip in AdaptiveSectionPanel; these were its siblings. Route every numeric
+ * read through here so null can only ever fall back, never round-trip to 0.
+ */
+function toFiniteNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /**
@@ -21,9 +55,9 @@ export function formatCompetencyLabel(key) {
  * from the ratio rather than the raw number.
  */
 export function getRatioTone(score, maxScore) {
-  const value = Number(score);
-  const max = Number(maxScore);
-  if (!Number.isFinite(value) || !Number.isFinite(max) || max <= 0) {
+  const value = toFiniteNumber(score);
+  const max = toFiniteNumber(maxScore);
+  if (value === null || max === null || max <= 0) {
     return { text: 'text-text-muted', dot: 'bg-border-default' };
   }
   const ratio = value / max;
@@ -34,8 +68,8 @@ export function getRatioTone(score, maxScore) {
 
 /** Trims trailing zeros so 4.0 renders as "4" and 4.2 stays "4.2". */
 export function formatScoreValue(value) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return '—';
+  const parsed = toFiniteNumber(value);
+  if (parsed === null) return '—';
   return Number.isInteger(parsed) ? String(parsed) : parsed.toFixed(1);
 }
 
@@ -49,9 +83,9 @@ export function joinRationales(rationales) {
  * scales themselves.
  */
 export function formatPercent(score, maxScore) {
-  const value = Number(score);
-  const max = Number(maxScore);
-  if (!Number.isFinite(value) || !Number.isFinite(max) || max <= 0) return null;
+  const value = toFiniteNumber(score);
+  const max = toFiniteNumber(maxScore);
+  if (value === null || max === null || max <= 0) return null;
   return `${Math.round((value / max) * 100)}%`;
 }
 
@@ -72,10 +106,16 @@ export function describeCaps(capsApplied) {
   return caps.map(cap => CAP_LABELS[cap] || `Capped — ${cap.replace(/_/g, ' ')}`).join(' · ');
 }
 
-/** "4m 12s" / "48s" — omitted entirely when no timing was captured. */
+/**
+ * "4m 12s" / "48s" — omitted entirely when no timing was captured.
+ *
+ * "No timing" is written as an explicit `null` by `_attach_response_times`, and
+ * `Number(null)` is 0, so this used to answer "0s" for an untimed answer and
+ * "0s total" for an untimed run. `toFiniteNumber` rejects null before coercion.
+ */
 export function formatDuration(seconds) {
-  const total = Number(seconds);
-  if (!Number.isFinite(total) || total < 0) return null;
+  const total = toFiniteNumber(seconds);
+  if (total === null || total < 0) return null;
   if (total < 60) return `${Math.round(total)}s`;
   const minutes = Math.floor(total / 60);
   const remainder = Math.round(total % 60);
@@ -93,10 +133,105 @@ export function formatDuration(seconds) {
 export const ANSWER_TURN_SEPARATOR = '[follow-up]';
 
 export function splitAnswerTurns(answer) {
-  const text = (answer || '').trim();
+  const text = typeof answer === 'string' ? answer.trim() : '';
   if (!text) return [];
   return text
     .split(ANSWER_TURN_SEPARATOR)
     .map(turn => turn.trim())
     .filter(Boolean);
+}
+
+/**
+ * The full exchange for one transcript entry, in the order it happened.
+ *
+ * The panel used to interleave nudges inside the answer-turn loop itself —
+ * `index > 0 && entry.nudges[index - 1]` — which silently capped the number of
+ * nudges that could ever appear at `turns - 1`. Three states the engine really
+ * produces lost their evidence to that cap:
+ *
+ *   1. A nudge the candidate IGNORED. It produces no further answer turn, so
+ *      its text was dropped — while the "Needed a prompt" badge and the
+ *      run-level `questions_nudged` still counted it. The recruiter was told the
+ *      candidate needed prompting and then shown no prompt.
+ *   2. A nudge issued as the LAST thing that happened — the timer expired or the
+ *      candidate moved on before replying. `_attach_nudge` writes it to
+ *      `nudge_history` and leaves `nudge_pending` set; same shape as (1), same
+ *      disappearance.
+ *   3. A question with nudges but no answer at all. `answered` is
+ *      `bool(answer_text.strip())`, so a whitespace-only submission that still
+ *      drew a probe skipped the answer branch entirely and rendered the badge
+ *      beside nothing.
+ *
+ * This is the acknowledgement bug a second time — see the `acknowledgements`
+ * split in backend/core/assessments/services/adaptive_interview_runtime.py,
+ * which moved praise out of `nudges` precisely because a message with no reply
+ * after it was counted and never rendered. That fix removed praise from the
+ * count; it could not help a genuine probe that the candidate simply never
+ * answered, because that one belongs in the count.
+ *
+ * The rule here: nudge N sits between answer turn N and N+1 for as many turns as
+ * exist (the normal case, unchanged), and every nudge past that boundary is
+ * emitted after the last turn carrying `replied: false`. `turns - 1` is the most
+ * that can be *known* to have been replied to — the snapshot records no link
+ * from a nudge to the turn that answered it, only two parallel lists — so the
+ * overflow is marked as unanswered rather than guessed into place.
+ *
+ * `acknowledgements` are deliberately absent from this function. They are a
+ * separate key, they are not prompting, and pulling them in here would put them
+ * back on the same footing as probes that the backend split them out of.
+ */
+// Snapshots written before this version put ACKNOWLEDGEMENTS in `nudges`.
+//
+// v5 split them into their own key because an acknowledgement ("That's exactly
+// the failure mode") is praise, not prompting — counting it inflated
+// `questions_nudged` and badged a strong candidate as one who needed help.
+// Nothing migrates the stored rows, and most snapshots on disk predate it, so
+// the READ side has to know the difference.
+const ACKNOWLEDGEMENTS_SPLIT_IN_VERSION = 5;
+
+export function buildExchange(entry, snapshotVersion) {
+  const turns = splitAnswerTurns(entry?.answer);
+  // Defensive on both counts: `nudges` is always a list of non-empty strings in
+  // the current snapshot, but this panel also renders snapshots written by older
+  // versions of the builder, so neither the type nor the emptiness is guaranteed.
+  const nudges = (Array.isArray(entry?.nudges) ? entry.nudges : []).filter(
+    text => typeof text === 'string' && text.trim(),
+  );
+  // Absent version = oldest shape. Only treat the list as probes-only when the
+  // snapshot is new enough to have separated them.
+  const separated = Number(snapshotVersion) >= ACKNOWLEDGEMENTS_SPLIT_IN_VERSION;
+
+  const items = [];
+  turns.forEach((turn, index) => {
+    const prompt = index > 0 ? nudges[index - 1] : null;
+    // An interleaved nudge sits between two answer turns, so it was demonstrably
+    // replied to — that is true regardless of snapshot version, and it is the
+    // only nudge classification an old snapshot supports.
+    if (prompt) items.push({ kind: 'nudge', text: prompt, replied: true, counts: true });
+    items.push({ kind: 'answer', text: turn });
+  });
+
+  // Everything the interleave could not place. For an unanswered question
+  // `turns` is empty and this is the entire nudge list, which is the only reason
+  // an unanswered-but-nudged question renders at all.
+  //
+  // On a PRE-SPLIT snapshot these are ambiguous: an unreplied probe and an
+  // acknowledgement are indistinguishable here, because both produce no second
+  // answer turn. Measured on this deployment: 47 transcript entries across 25
+  // snapshots are in exactly that state, and the highest-scoring run in the
+  // database has two 4/4 answers whose only "nudge" is praise. Rendering those
+  // as `replied: false` printed "No reply to this prompt" and badged the
+  // question "Needed a prompt" under a perfect score — reintroducing, on the
+  // read side, the exact defect v5 was cut to fix.
+  //
+  // So on an old snapshot they are shown as interviewer messages with no
+  // unreplied marker and no contribution to the prompting count. That loses the
+  // badge on a genuinely-ignored probe in an old run; the alternative is telling
+  // a hiring manager that a strong candidate needed help when they were being
+  // congratulated, and a false accusation is the worse error.
+  nudges.slice(Math.max(0, turns.length - 1)).forEach(text => {
+    items.push({ kind: 'nudge', text, replied: separated ? false : null, counts: separated });
+  });
+
+  return items;
 }

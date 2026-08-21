@@ -11,6 +11,8 @@ import {
 import CreateTaskOverlay from '../../../../../../components/recruiter/CreateTaskOverlay.jsx';
 import LibraryPickerPanel from '../../../../../../components/recruiter/library/LibraryPickerPanel.jsx';
 import {
+  ADAPTIVE_AVOID_TOPICS_MAX_TOTAL,
+  ADAPTIVE_MUST_ASK_MAX_TOTAL,
   ADAPTIVE_PRESET_OPTIONS,
   ADAPTIVE_TIMER_OPTIONS,
   AI_LEVEL_OPTIONS,
@@ -20,12 +22,14 @@ import {
   DRAWER_TYPE_LABELS,
   FILTER_ROLES,
   LANGUAGE_OPTIONS,
+  MAX_QUESTIONS_PER_COMPETENCY,
   POINT_OPTIONS,
   ROLE_FOCUS_AREAS,
   TIMER_OPTIONS,
   UNIVERSAL_FOCUS_AREAS,
   WORD_LIMIT_OPTIONS,
   formatFocusAreaLabel,
+  focusAreasNeededFor,
 } from './constants';
 import { Sheet, SheetContent } from '../../../../../../components/ui/sheet';
 import { Input } from '../../../../../../components/ui/input';
@@ -788,7 +792,7 @@ function McqQuestionForm({ form, onCancel, onSubmit, submitLabel = 'Add' }) {
   );
 }
 
-function AdaptiveQuestionForm({ form, onCancel, onSubmit }) {
+function AdaptiveQuestionForm({ form, onCancel, onSubmit, submitLabel = 'Add' }) {
   const roleFocusAreas = ROLE_FOCUS_AREAS[form.assessmentRoleFamily] || [];
   // Prefer the engine catalog — it is the only source that knows what can
   // actually be asked and scored. The static lists are the offline fallback.
@@ -801,6 +805,10 @@ function AdaptiveQuestionForm({ form, onCancel, onSubmit }) {
     : fallbackChoices;
   const { max: derivedMax } = form.adaptiveQuestionCount;
   const noFocusAreas = form.adaptiveFocusAreas.length === 0;
+  // Each focus area carries at most two questions, so too few chips quietly
+  // shorten the interview well below the duration the recruiter chose.
+  const focusAreasNeeded = focusAreasNeededFor(form.sectionTimer);
+  const tooFewFocusAreas = form.adaptiveFocusAreas.length < focusAreasNeeded;
 
   return (
     <>
@@ -843,18 +851,26 @@ function AdaptiveQuestionForm({ form, onCancel, onSubmit }) {
             Grounded on
           </label>
           <div className="relative mt-[10px]">
+            {/* "Nothing — standalone interview" was removed: a standalone
+                interview is authored by choosing the Role specific style, not by
+                detaching the anchor. Two controls expressing the same intent is
+                what let a recruiter pick Role specific and still ship a config
+                claiming a coding task. The anchor now always points at the most
+                recent coding section, and resolves to nothing on its own when
+                there is none. */}
             <select
               value={form.adaptiveAnchorId}
               onChange={event => form.setAdaptiveAnchorId(event.target.value)}
               className="h-[42px] w-full appearance-none rounded-[8px] border border-border-default bg-surface px-[12px] pr-[38px] text-[15px] font-medium text-text-primary outline-none"
             >
               <option value="">Most recent coding section</option>
-              <option value="none">Nothing — standalone interview</option>
             </select>
             <ChevronDown className="pointer-events-none absolute right-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
           </div>
           <p className="mt-[6px] text-[13px] leading-[18px] text-text-muted">
-            Follow-up questions reference the candidate&apos;s submitted code and test results.
+            Follow-up questions reference the candidate&apos;s submitted code and test
+            results. With no coding section before this one, the interview runs
+            standalone — choose the Role specific style for that.
           </p>
         </div>
 
@@ -878,6 +894,13 @@ function AdaptiveQuestionForm({ form, onCancel, onSubmit }) {
             Roughly <span className="font-semibold text-text-secondary">{derivedMax} question{derivedMax === 1 ? '' : 's'}</span>
             {' '}at this length. The interview ends after the last question or when time runs out.
           </p>
+          {tooFewFocusAreas && !noFocusAreas && (
+            <p className="mt-[6px] text-[13px] leading-[18px] text-amber-700">
+              Only {derivedMax} question{derivedMax === 1 ? '' : 's'} fit, because each focus area
+              carries at most {MAX_QUESTIONS_PER_COMPETENCY}. Pick {focusAreasNeeded - form.adaptiveFocusAreas.length} more
+              to use the full {form.sectionTimer} minutes.
+            </p>
+          )}
         </div>
 
         <div className="mt-[22px]">
@@ -912,7 +935,8 @@ function AdaptiveQuestionForm({ form, onCancel, onSubmit }) {
           </div>
           {noFocusAreas && (
             <p className="mt-[8px] text-[13px] font-medium text-red-600">
-              Select at least one focus area.
+              Select at least {focusAreasNeeded} focus area{focusAreasNeeded === 1 ? '' : 's'} for a
+              {' '}{form.sectionTimer}-minute interview.
             </p>
           )}
         </div>
@@ -938,12 +962,30 @@ function AdaptiveQuestionForm({ form, onCancel, onSubmit }) {
             <label className="block text-[14px] font-semibold leading-none text-text-primary">
               Number of questions
             </label>
+            {/* Clamped on the way IN, because `min`/`max` here are decoration:
+                the submit control is a plain button with no enclosing <form>, so
+                native constraint validation never runs. Typing 0 produced the
+                truthy string "0", which survived the falsy guard in
+                `handleCreateAdaptive` and saved `question_count: {min: 0, max: 0}`.
+                The serializer then refuses it at Save/Publish — accurately, and
+                with no way to act on it, because the drawer is gone and the
+                editor cannot change settings. Rejecting the bad value at the
+                keystroke is the only place the recruiter can still fix it. */}
             <input
               type="number"
               min={1}
               max={derivedMax}
               value={form.adaptiveQuestionMax ?? derivedMax}
-              onChange={event => form.setAdaptiveQuestionMax(event.target.value)}
+              onChange={event => {
+                const raw = event.target.value;
+                // Empty means "not overridden" — the derived max applies.
+                if (raw === '') return form.setAdaptiveQuestionMax(null);
+                const parsed = Number.parseInt(raw, 10);
+                if (Number.isNaN(parsed)) return undefined;
+                return form.setAdaptiveQuestionMax(
+                  String(Math.min(Math.max(parsed, 1), derivedMax)),
+                );
+              }}
               className="mt-[8px] h-[38px] w-[120px] rounded-[8px] border border-border-default bg-surface px-[12px] text-[15px] text-text-primary outline-none"
             />
             <p className="mt-[6px] text-[13px] leading-[18px] text-text-muted">
@@ -958,10 +1000,17 @@ function AdaptiveQuestionForm({ form, onCancel, onSubmit }) {
             <textarea
               rows={3}
               value={form.adaptiveMustAsk}
+              // 10 lines x 500 chars is what AdaptiveInterviewConfigSerializer
+              // accepts. Neither limit was shown or enforced here, so exceeding
+              // one produced a server 400 the recruiter could not have predicted.
+              maxLength={ADAPTIVE_MUST_ASK_MAX_TOTAL}
               onChange={event => form.setAdaptiveMustAsk(event.target.value)}
               placeholder="How they would handle a duplicate write"
               className="mt-[8px] w-full resize-none rounded-[8px] border border-border-default bg-surface px-[12px] py-[10px] text-[14px] text-text-primary outline-none placeholder:text-text-muted"
             />
+            <p className="mt-[6px] text-[12px] leading-[16px] text-text-muted">
+              Up to 10 lines, 500 characters each.
+            </p>
           </div>
 
           <div className="mt-[16px]">
@@ -971,22 +1020,45 @@ function AdaptiveQuestionForm({ form, onCancel, onSubmit }) {
             <textarea
               rows={2}
               value={form.adaptiveAvoidTopics}
+              // 20 lines x 120 chars server side. The per-line cap here is short
+              // enough that one pasted sentence exceeds it, against a placeholder
+              // ("Kubernetes internals") that gave no hint a limit existed.
+              maxLength={ADAPTIVE_AVOID_TOPICS_MAX_TOTAL}
               onChange={event => form.setAdaptiveAvoidTopics(event.target.value)}
               placeholder="Kubernetes internals"
               className="mt-[8px] w-full resize-none rounded-[8px] border border-border-default bg-surface px-[12px] py-[10px] text-[14px] text-text-primary outline-none placeholder:text-text-muted"
             />
+            <p className="mt-[6px] text-[12px] leading-[16px] text-text-muted">
+              Short topics, one per line — up to 20 lines, 120 characters each.
+            </p>
           </div>
         </details>
       </div>
 
-      <DrawerFooter onCancel={onCancel} onSubmit={noFocusAreas ? () => {} : onSubmit} />
+      {/* Disabled, not a silent no-op. The Add button used to stay fully enabled
+          and be wired to `() => {}` when no focus area was selected, so clicking
+          it did nothing with no feedback — and the explanatory red text sits at
+          the top of a long scrolling form, usually off-screen when the footer is
+          in view. `DrawerFooter` already supported `submitDisabled`; it just was
+          not passed. */}
+      <DrawerFooter onCancel={onCancel} onSubmit={onSubmit} submitLabel={submitLabel} submitDisabled={noFocusAreas} />
     </>
   );
 }
 
 function QuestionStep({ drawerType, form, actions, onCancel }) {
   if (drawerType === 'adaptive') {
-    return <AdaptiveQuestionForm form={form} onCancel={onCancel} onSubmit={actions.createAdaptive} />;
+    // "Save" when editing an existing interview — the other question forms
+    // already make this distinction, and clicking "Add" to save an edit reads
+    // as though it will create a second interview the section cannot hold.
+    return (
+      <AdaptiveQuestionForm
+        form={form}
+        onCancel={onCancel}
+        onSubmit={actions.createAdaptive}
+        submitLabel={form.isEditingAdaptive ? 'Save' : 'Add'}
+      />
+    );
   }
 
   if (drawerType === 'coding') {
@@ -1097,7 +1169,10 @@ function EditScopeDialog({ scope, actions }) {
 export function SectionCreationDrawer({ drawer, form, actions }) {
   return (
     <>
-      <Sheet open={drawer.isOpen} onOpenChange={open => { if (!open) drawer.close(); }}>
+      {/* `confirmDiscard` only on this path: it covers Escape and backdrop
+          clicks, which are accidental. The explicit Cancel button stays
+          immediate — someone who clicked Cancel meant it. */}
+      <Sheet open={drawer.isOpen} onOpenChange={open => { if (!open) drawer.close({ confirmDiscard: true }); }}>
         <SheetContent
           side="right"
           className="flex w-[min(760px,54vw)] min-w-[560px] max-w-none flex-col gap-0 p-0"
@@ -1106,7 +1181,7 @@ export function SectionCreationDrawer({ drawer, form, actions }) {
             <SectionDetailsStep
               drawerType={drawer.type}
               form={form}
-              onCancel={drawer.close}
+              onCancel={() => drawer.close()}
               onContinue={drawer.continueToQuestion}
             />
           ) : (
@@ -1114,7 +1189,7 @@ export function SectionCreationDrawer({ drawer, form, actions }) {
               drawerType={drawer.type}
               form={form}
               actions={actions}
-              onCancel={drawer.close}
+              onCancel={() => drawer.close()}
             />
           )}
         </SheetContent>

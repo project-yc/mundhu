@@ -1,5 +1,6 @@
 import { ExamSidebar } from '../../../../components/candidate/exam/ExamShell'
 import ScenarioSection from './ScenarioSection'
+import ScenarioErrorBoundary from './ScenarioErrorBoundary'
 
 // The desktop, persistent version of the scenario panel — reuses ExamShell's
 // sidebar slot at a wider fixed width than the question-navigator case.
@@ -8,6 +9,7 @@ export default function ScenarioPanel({ scenario }) {
 
   return (
     <ExamSidebar title={scenario.title} width="420px">
+      <ScenarioErrorBoundary>
       <div className="flex flex-col gap-5">
         {scenario.images?.length > 0 && (
           <div className="flex flex-col gap-2">
@@ -21,10 +23,13 @@ export default function ScenarioPanel({ scenario }) {
             ))}
           </div>
         )}
-        {scenario.sections.map((section, i) => (
-          <ScenarioSection key={section.id || i} section={section} />
+        {/* Optional-chained: `sections` is required by contract but arrives
+            unvalidated, and an absent key must not throw. */}
+        {(scenario.sections || []).map((section, i) => (
+          <ScenarioSection key={section?.id || i} section={section} />
         ))}
       </div>
+      </ScenarioErrorBoundary>
     </ExamSidebar>
   )
 }

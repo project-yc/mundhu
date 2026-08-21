@@ -17,7 +17,20 @@ export const requestCandidate = async (url, token, options = {}, { unwrapData = 
 
   const body = await parseJson(response)
   if (!response.ok) {
-    throw new Error(body.detail || body.message || 'Candidate runtime request failed')
+    // Surface status + machine-readable code so callers can distinguish
+    // "interview complete" / "timer expired" / "out of sync" instead of
+    // rendering every failure as a generic unavailable screen.
+    const detail = body?.detail
+    const message = (detail && typeof detail === 'object' ? detail.message : detail)
+      || body?.message
+      || 'Candidate runtime request failed'
+    const error = new Error(message)
+    error.status = response.status
+    error.code = body?.data?.code
+      || (detail && typeof detail === 'object' ? detail.code : null)
+      || null
+    error.data = body?.data ?? null
+    throw error
   }
 
   if (!unwrapData) {

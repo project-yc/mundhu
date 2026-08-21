@@ -43,18 +43,49 @@ const DEFAULT_DURATION = 45;
 // Sent to the backend as `config_json.seniority`; values must match TaskSeniority.
 // These previously shipped display labels ("Junior Level") as the values, which
 // matched no enum member — so nothing downstream could read them.
-// "Entry level" is `new_grad`, a separate rung below Junior. Both are early
+// "Early career" is `new_grad`, a separate rung below Junior. Both are early
 // career (scaffolded questions, leniency scoring) but they score against
 // different level-calibrated rubrics.
+// `intern` is NOT a third rung — it resolves to `new_grad` everywhere
+// downstream (Django `SENIORITY_ALIASES`, engine `LEVEL_ALIASES`), so a legacy
+// intern assessment runs the early-career interview rather than falling back to
+// the level-blind shared rubrics it used to get.
+// Senior / Staff / Principal are deliberately not offered yet: above mid the
+// interview catalog falls back to auto-generated template text and the base
+// competencies share one rubric across every level, so a senior candidate
+// would get a visibly machine-written interview scored against anchors that
+// do not distinguish them from a principal. Adaptive publish validation
+// refuses those levels for the same reason. Restore each rung as its content
+// is authored.
 const SENIORITY_OPTIONS = [
-  { value: 'new_grad', label: 'Entry level' },
+  { value: 'new_grad', label: 'Early career' },
   { value: 'junior', label: 'Junior' },
   { value: 'mid', label: 'Mid' },
-  { value: 'senior', label: 'Senior' },
-  { value: 'staff', label: 'Staff' },
-  { value: 'principal', label: 'Principal' },
 ];
 const DEFAULT_SENIORITY = 'new_grad';
+// Levels that exist on saved assessments but are no longer offered. Without
+// this, hydrating an older `senior` assessment renders a Radix Select whose
+// value matches no item — a blank, unrecoverable field that silently
+// re-submits the old value on Continue.
+const LEGACY_SENIORITY_LABELS = {
+  // `intern` is aliased to `new_grad`, not withdrawn — say so, because
+  // "no longer offered" reads as "this assessment is broken" when in fact it
+  // runs exactly the Early career interview.
+  intern: 'Intern (runs as Early career)',
+  senior: 'Senior (no longer offered)',
+  staff: 'Staff (no longer offered)',
+  principal: 'Principal (no longer offered)',
+};
+
+const seniorityOptionsFor = (currentValue) => {
+  if (!currentValue || SENIORITY_OPTIONS.some((option) => option.value === currentValue)) {
+    return SENIORITY_OPTIONS;
+  }
+  return [
+    ...SENIORITY_OPTIONS,
+    { value: currentValue, label: LEGACY_SENIORITY_LABELS[currentValue] || currentValue },
+  ];
+};
 
 // Must match TaskDomain — `config_json.domain` is what the adaptive interview
 // reads to resolve focus areas, role topics and its catalog slice.
@@ -399,7 +430,7 @@ export function AssessmentDetailsStep({ onCancel }) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {SENIORITY_OPTIONS.map(({ value, label }) => (
+                    {seniorityOptionsFor(seniorityValue).map(({ value, label }) => (
                       <SelectItem key={value} value={value} className={cn('text-[14px]', SELECT_ITEM_FOCUS)}>
                         {label}
                       </SelectItem>

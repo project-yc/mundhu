@@ -1,7 +1,7 @@
-// Shared "what do we do with the response of start-mcq" branching, used by
-// both the terms page (the only place that now calls startMcqAssessment) and
-// the legacy McqSectionPage resume path. Keeping this in one place means a
-// new next_action only needs to be taught to navigate once.
+// Shared "what do we do with the start response" branching, used by both the
+// terms page (the only place that now calls startAssessment) and the legacy
+// McqSectionPage resume path. Keeping this in one place means a new
+// next_action only needs to be taught to navigate once.
 import {
   buildCandidateCompletionRoute,
   buildCandidateSectionRoute,
@@ -29,7 +29,16 @@ export function handleAssessmentStartResponse(data, { token, overview, navigate 
     return
   }
 
-  if (data.next_action === 'open_section' || data.next_action === 'launch_coding') {
+  // Every action that opens a section routes the same way — through the section
+  // runtime, which dispatches on `content_type`.
+  //
+  // `launch_adaptive_interview` was missing, so an adaptive section fell through
+  // to the MCQ carousel below and the candidate hit "Session expired" — an
+  // adaptive-only assessment could not be started at all. The backend has
+  // exactly four actions (`assessment_run_service.get_next_action`); keep this
+  // list in step with it rather than defaulting unknown ones to MCQ.
+  const SECTION_ACTIONS = ['open_section', 'launch_coding', 'launch_adaptive_interview']
+  if (SECTION_ACTIONS.includes(data.next_action)) {
     const runtime = saveCandidateRuntimeState(data)
     navigate(
       data.frontend_route || buildCandidateSectionRoute(data.assessment_instance_id || data.instance_id, data.section_id),
@@ -38,5 +47,19 @@ export function handleAssessmentStartResponse(data, { token, overview, navigate 
     return
   }
 
-  navigate(`/assessment/${token}/mcq/0`, { replace: true })
+  // Legacy MCQ carousel. Only correct when the backend genuinely returned MCQ
+  // sections — an unrecognised action lands here otherwise and dead-ends.
+  if (data.sections?.length) {
+    navigate(`/assessment/${token}/mcq/0`, { replace: true })
+    return
+  }
+
+  // Nothing we know how to open, and no MCQ carousel to fall back on. Send the
+  // candidate somewhere truthful instead of a screen that says their session
+  // expired when it did not.
+  const runtime = saveCandidateRuntimeState(data)
+  navigate(
+    data.frontend_route || buildCandidateSectionRoute(data.assessment_instance_id || data.instance_id, data.section_id),
+    { replace: true, state: { runtime } },
+  )
 }

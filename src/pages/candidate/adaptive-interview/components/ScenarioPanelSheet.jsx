@@ -10,6 +10,7 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../../../components/ui/sheet'
 import { useCandidateThemeContainer } from '../../../../theme/CandidateThemeProvider'
 import ScenarioSection from './ScenarioSection'
+import ScenarioErrorBoundary from './ScenarioErrorBoundary'
 
 export default function ScenarioPanelSheet({ open, onOpenChange, scenario }) {
   const container = useCandidateThemeContainer()
@@ -27,6 +28,7 @@ export default function ScenarioPanelSheet({ open, onOpenChange, scenario }) {
           <SheetTitle>{scenario.title}</SheetTitle>
         </SheetHeader>
         <div className="flex flex-col gap-5 overflow-y-auto px-6 py-5">
+          <ScenarioErrorBoundary>
           {scenario.images?.length > 0 && (
             <div className="flex flex-col gap-2">
               {scenario.images.map((image, i) => (
@@ -39,9 +41,11 @@ export default function ScenarioPanelSheet({ open, onOpenChange, scenario }) {
               ))}
             </div>
           )}
-          {scenario.sections.map((section, i) => (
-            <ScenarioSection key={section.id || i} section={section} />
+          {/* See ScenarioPanel: `sections` arrives unvalidated and must not throw. */}
+          {(scenario.sections || []).map((section, i) => (
+            <ScenarioSection key={section?.id || i} section={section} />
           ))}
+          </ScenarioErrorBoundary>
         </div>
       </SheetContent>
     </Sheet>

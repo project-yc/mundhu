@@ -12,10 +12,13 @@ import { buildLibraryTypeData } from '../../../../../../lib/libraryTypeData.js';
 import { SECTION_TYPE_CONFIG } from '../../constants/sectionTypeConfig';
 import {
   ADAPTIVE_DEFAULT_TIMER,
+  ADAPTIVE_PRESET_OPTIONS,
   CODING_RUBRIC_DIMENSIONS,
   DEFAULT_CODING_TASK_INDEX,
   FALLBACK_CODING_TASKS,
   ROLE_FOCUS_AREAS,
+  adaptiveSeniorityBlock,
+  assessmentSeniorityOf,
   createInitialOptions,
   createInitialRankingItems,
   deriveQuestionCount,
@@ -56,6 +59,9 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   const [adaptiveAnchorId, setAdaptiveAnchorId] = useState('');
   const [adaptiveFocusAreas, setAdaptiveFocusAreas] = useState([]);
   const [adaptiveRoleTitle, setAdaptiveRoleTitle] = useState('');
+  // Set when the drawer is editing an existing item instead of adding one.
+  // Null for the add flow, which is every non-adaptive type today.
+  const [editingQuestionId, setEditingQuestionId] = useState(null);
   const [adaptiveQuestionMax, setAdaptiveQuestionMax] = useState(null);
   const [adaptiveMustAsk, setAdaptiveMustAsk] = useState('');
   const [adaptiveAvoidTopics, setAdaptiveAvoidTopics] = useState('');
@@ -80,7 +86,12 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   // Role and level come from the assessment, not the section — one requisition,
   // one role. Both are needed to ask the catalog what is actually scoreable.
   const assessmentRoleFamily = (state.config_json?.domain || state.domain || '').toLowerCase();
-  const assessmentSeniority = (state.config_json?.seniority || state.seniority || '').toLowerCase();
+  // Shared with the section picker's card gate so the two cannot disagree about
+  // which level this assessment is. It reads `state.seniority` ahead of the
+  // hydrated `config_json` snapshot — the snapshot only catches up on Continue,
+  // so preferring it meant a level the recruiter had just changed was ignored.
+  const assessmentSeniority = assessmentSeniorityOf(state);
+  const seniorityBlock = adaptiveSeniorityBlock(assessmentSeniority);
 
   // Mirrors LeftPanel's SectionAllocation math — the section-timer budget
   // against the assessment's total duration. Kept unclamped here (can go
@@ -105,6 +116,16 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
       return false;
     }
     return true;
+  };
+
+  // Senior, staff and principal have no authored interview content, and publish
+  // validation refuses them. Nothing checked before that: the drawer opened, the
+  // catalog answered with a full set of chips, and the section was added — the
+  // whole configuration was thrown away at Review & Publish.
+  const guardAdaptiveSeniority = () => {
+    if (!seniorityBlock) return true;
+    toast.error(seniorityBlock.title, { description: seniorityBlock.detail });
+    return false;
   };
 
   const guardQuestionBudget = () => {
@@ -146,6 +167,7 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     setAdaptiveQuestionMax(null);
     setAdaptiveMustAsk('');
     setAdaptiveAvoidTopics('');
+    setEditingQuestionId(null);
     // Library state was never reset, so closing the drawer mid-edit and
     // reopening it landed on the manual form still holding the previous
     // question — and saving would have written it back over that question.
@@ -155,11 +177,45 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     setEditScope(null);
   };
 
-  const closeDrawer = () => {
+  // Has the recruiter typed anything into the adaptive form that closing would
+  // destroy?
+  //
+  // `resetDrawerState` clears every field unconditionally, and Radix `Sheet`
+  // closes on Escape and on a backdrop click — so an accidental Escape five
+  // minutes into configuring an interview discarded all of it silently. The
+  // adaptive form is the longest in the builder, which is why this guard is
+  // scoped to it rather than added to every drawer type.
+  //
+  // Focus areas are deliberately NOT part of the signal: they are seeded from
+  // the role when the drawer opens, so a pristine form already has them and
+  // every close would prompt. These four are only ever set by typing.
+  const hasAdaptiveWorkInProgress = () => (
+    drawerType === 'adaptive'
+    && Boolean(
+      adaptiveRoleTitle.trim()
+      || adaptiveMustAsk.trim()
+      || adaptiveAvoidTopics.trim()
+      || adaptiveQuestionMax !== null,
+    )
+  );
+
+  const closeDrawer = ({ confirmDiscard = false } = {}) => {
+    if (confirmDiscard && hasAdaptiveWorkInProgress()) {
+      const discard = window.confirm(
+        'Discard this interview setup? Your focus areas, must-ask questions and '
+        + 'other settings will be lost.',
+      );
+      if (!discard) return;
+    }
     resetDrawerState();
   };
 
   const openDrawer = (type, options = {}) => {
+    // Guarded here rather than at the card so both entry points are covered —
+    // the section picker and "add question" on an adaptive section a hydrated
+    // draft already carries.
+    if (type === 'adaptive' && !guardAdaptiveSeniority()) return;
+
     setDrawerOpen(true);
     setDrawerType(type);
     setDrawerStep(options.step ?? 'section');
@@ -167,10 +223,39 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     setSectionTimer(type === 'adaptive' ? ADAPTIVE_DEFAULT_TIMER : 45);
     setAiLevel('chat_only');
     setPoints(type === 'adaptive' ? 100 : 5);
+
+    const editItem = options.editItem || null;
+    setEditingQuestionId(editItem?.id ?? null);
+
     if (type === 'adaptive') {
-      // Seed with the role's focus areas so the section is valid without the
-      // recruiter having to pick anything.
-      setAdaptiveFocusAreas(ROLE_FOCUS_AREAS[assessmentRoleFamily] || []);
+      const saved = editItem?.adaptive_config || null;
+      if (saved) {
+        // Prefill from what was actually stored, so "edit" shows the recruiter
+        // their own configuration rather than a fresh one.
+        //
+        // Focus areas are loaded as-is and pruned by the effect below once the
+        // live catalog arrives — deliberately not against a hardcoded list of
+        // deprecated areas here, because a fourth copy of that table is exactly
+        // the cross-repo drift this codebase keeps getting bitten by.
+        setAdaptiveFocusAreas(saved.focus_areas || []);
+        setAdaptivePreset(
+          ADAPTIVE_PRESET_OPTIONS.some(option => option.value === saved.preset)
+            ? saved.preset
+            // A withdrawn preset cannot be re-saved, so edit lands on the
+            // default rather than silently keeping a value publish refuses.
+            : 'balanced_technical',
+        );
+        setAdaptiveRoleTitle(saved.role_title || '');
+        setAdaptiveMustAsk((saved.must_ask_questions || []).join('\n'));
+        setAdaptiveAvoidTopics((saved.avoid_topics || []).join('\n'));
+        setAdaptiveQuestionMax(
+          saved.question_count?.max != null ? String(saved.question_count.max) : null,
+        );
+      } else {
+        // Seed with the role's focus areas so the section is valid without the
+        // recruiter having to pick anything.
+        setAdaptiveFocusAreas(ROLE_FOCUS_AREAS[assessmentRoleFamily] || []);
+      }
     }
   };
 
@@ -198,9 +283,16 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
     if (!request) return;
     if (!DRAWER_SECTION_TYPES.includes(request.sectionType)) return;
 
+    // An edit request carries the item to prefill from; an add request does not.
+    const editing = request.editQuestionId
+      ? (state.sections.find(section => section.id === request.sectionId)?.items || [])
+        .find(item => item.id === request.editQuestionId)
+      : null;
+
     openDrawer(request.sectionType, {
       step: 'question',
       targetSectionId: request.sectionId,
+      editItem: editing || null,
     });
     dispatch({ type: ACTIONS.CLEAR_ADD_QUESTION_DRAWER });
   }, [ACTIONS.CLEAR_ADD_QUESTION_DRAWER, dispatch, state.addQuestionDrawerRequest?.requestId]);
@@ -478,7 +570,22 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
 
   /** Commit a question into the section, either as a new section or an added item. */
   const commitQuestion = (question, fallbackSectionName) => {
-    if (targetSectionId) {
+    if (editingQuestionId && targetSectionId) {
+      // Replace the stored config in place. Editing must NOT go through
+      // ADD_QUESTION: a section may hold only one adaptive interview (the server
+      // refuses a second), so adding would produce a section that cannot be
+      // saved. `UPDATE_QUESTION` merges, so `backendItemId` and `published`
+      // survive and the save updates the existing SectionItem rather than
+      // orphaning it.
+      dispatch({
+        type: ACTIONS.UPDATE_QUESTION,
+        payload: {
+          sectionId: targetSectionId,
+          questionId: editingQuestionId,
+          updates: { adaptive_config: question.adaptive_config },
+        },
+      });
+    } else if (targetSectionId) {
       if (!guardQuestionBudget()) return;
       dispatch({ type: ACTIONS.ADD_QUESTION, payload: { sectionId: targetSectionId, question } });
     } else {
@@ -754,6 +861,11 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
   };
 
   const handleCreateAdaptive = () => {
+    // Backstop for a drawer that was already open when the level changed under
+    // it — the same reason the time budget is re-checked here and not only on
+    // Continue.
+    if (!guardAdaptiveSeniority()) return;
+
     const splitLines = (value) => value
       .split('\n')
       .map(line => line.trim())
@@ -886,6 +998,9 @@ export function useSectionCreationDrawer({ dispatch, ACTIONS, state }) {
       setAdaptiveAvoidTopics,
       adaptiveFocusAreaOptions,
       adaptiveCatalogAvailable,
+      // Drives the submit label: "Save" when the drawer was opened to edit an
+      // existing interview, "Add" when authoring a new one.
+      isEditingAdaptive: Boolean(editingQuestionId),
       assessmentRoleFamily,
       questionMode,
       setQuestionMode,

@@ -100,24 +100,18 @@ export function makeCodingItem() {
   };
 }
 
-export function makeAdaptiveItem() {
-  return {
-    id: crypto.randomUUID(),
-    type: 'adaptive',
-    backendItemId: null,
-    points: 100,
-    published: false,
-    locked: false,
-    // Config lives on the section item server-side, so it rides along with the
-    // item rather than on the section.
-    adaptive_config: {
-      preset: 'balanced_technical',
-      focus_areas: [],
-      question_count: { min: 3, max: 5 },
-      anchor: { type: 'coding_task', use_coding_task_as_anchor: true },
-    },
-  };
-}
+// `makeAdaptiveItem` was removed, along with the ADD_SECTION branch that called
+// it. It was unreachable — the only dispatch with `type: 'adaptive'`
+// (`useSectionCreationDrawer.handleCreateAdaptive`) always supplies
+// `items: [question]`, so the `items.length === 0` arm could not fire — and it
+// was unreachable in a way that would have been silently wrong if it ever did:
+// it seeded `focus_areas: []`, which the engine fills from role defaults, so the
+// recruiter would have got an interview scoped to competencies they never chose.
+//
+// Deleted rather than kept as a safety net on purpose. With no seed, a future
+// dispatch that forgets `items` produces a section with no items, which
+// `adaptive_interview_publish_error` refuses outright ("is missing its interview
+// settings") instead of publishing a quietly mis-scoped interview.
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 export function assessmentBuilderReducer(state, action) {
@@ -143,7 +137,7 @@ export function assessmentBuilderReducer(state, action) {
       else if (items.length === 0 && action.payload.type === 'free_text') items = [makeFreeTextQuestion()];
       else if (items.length === 0 && action.payload.type === 'ranking') items = [makeRankingQuestion()];
       else if (items.length === 0 && action.payload.type === 'coding') items = [makeCodingItem()];
-      else if (items.length === 0 && action.payload.type === 'adaptive') items = [makeAdaptiveItem()];
+      // No 'adaptive' arm — see the note where `makeAdaptiveItem` used to live.
 
       newSection.items = items;
       return {
@@ -301,6 +295,14 @@ export function assessmentBuilderReducer(state, action) {
         addQuestionDrawerRequest: {
           sectionId: action.payload.sectionId,
           sectionType: action.payload.sectionType,
+          // Set when the drawer is being opened to EDIT an existing item rather
+          // than add a new one. Without this an adaptive interview could only be
+          // authored once: the drawer had no edit entry point and the right-hand
+          // editor is read-only, so a saved config the serializer later refused
+          // (a question count of 0, a legacy focus area no longer scoreable)
+          // left the recruiter with an accurate error and no control to act on
+          // it — the only escape was deleting the section and starting over.
+          editQuestionId: action.payload.editQuestionId ?? null,
           requestId: crypto.randomUUID(),
         },
       };

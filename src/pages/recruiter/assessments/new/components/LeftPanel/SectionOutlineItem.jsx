@@ -186,7 +186,14 @@ export function SectionOutlineItem({ section, activeQuestion }) {
               </div>
             </SortableContext>
           </DndContext>
-          {section.type !== 'coding' && (
+          {/* Coding sections hold one task. Adaptive sections hold one INTERVIEW:
+              a second adaptive item runs for the candidate and scores into the
+              section total, but the recruiter report resolves the section with
+              `.order_by("section_item__order").first()` — so the second
+              interview's transcript, competencies and summary are unreachable
+              forever. Adding one silently doubles the candidate's work and hides
+              half the evidence, so the control is not offered. */}
+          {section.type !== 'coding' && section.type !== 'adaptive' && (
             <button
               type="button"
               onClick={handleAddQuestion}

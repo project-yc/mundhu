@@ -1,9 +1,9 @@
 /**
- * API layer for the new full-screen candidate MCQ assessment flow.
+ * API layer for the full-screen candidate assessment flow.
  *
  * Endpoints:
  *   POST /api/v1/sessions/assessment-overview   — public overview for landing page
- *   POST /api/v1/sessions/start-mcq             — start / resume MCQ session
+ *   POST /api/v1/sessions/start                 — start / resume ANY assessment type
  *   POST /api/v1/sessions/:instanceId/timer-sync — timer heartbeat
  *   POST /api/v1/candidate/sections/:id/submit-all — batch section submit
  */
@@ -51,8 +51,18 @@ export const getAssessmentOverview = (token) =>
     body: JSON.stringify({ token }),
   })
 
-export const startMcqAssessment = (token, extra = {}) =>
-  request('/api/v1/sessions/start-mcq', {
+/**
+ * Starts ANY assessment type — coding, adaptive, MCQ, ranking, free text.
+ *
+ * The response's `next_action` / `content_type` fields do the routing, so an
+ * adaptive assessment legitimately comes back with `sections: []` (there is no
+ * MCQ carousel to pre-build) and `next_action: "launch_adaptive_interview"`.
+ *
+ * Formerly posted to `/start-mcq`, which made every adaptive and coding start
+ * look like an MCQ call in the network tab. That alias still works server-side.
+ */
+export const startAssessment = (token, extra = {}) =>
+  request('/api/v1/sessions/start', {
     method: 'POST',
     headers: JSON_HEADERS,
     body: JSON.stringify({ token, ...extra }),

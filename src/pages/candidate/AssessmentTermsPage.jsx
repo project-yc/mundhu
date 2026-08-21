@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { IconChevronRight } from '@tabler/icons-react'
-import { getAssessmentOverview, startMcqAssessment } from '../../api/candidate/assessmentSession'
+import { getAssessmentOverview, startAssessment } from '../../api/candidate/assessmentSession'
 import { saveCandidateBranding } from '../../theme/CandidateThemeProvider.jsx'
 import {
   CandidateCenteredErrorState,
@@ -43,7 +43,7 @@ export default function AssessmentTermsPage() {
     setStarting(true)
     setError('')
     try {
-      const data = await startMcqAssessment(token, { terms_accepted: true })
+      const data = await startAssessment(token, { terms_accepted: true })
       handleAssessmentStartResponse(data, { token, overview, navigate })
     } catch (e) {
       setError(e.message || 'Failed to start assessment')

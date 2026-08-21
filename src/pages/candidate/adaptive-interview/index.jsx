@@ -34,27 +34,64 @@ import ScenarioPanel from './components/ScenarioPanel'
 import ScenarioPanelSheet from './components/ScenarioPanelSheet'
 import ChatMessageList from './components/ChatMessageList'
 import Composer from './components/Composer'
+import { useDictation } from './useDictation'
+import { questionToMessages } from './transcript'
 
 const NEXT_QUESTION_POLL_MS = 2000
-const NEXT_QUESTION_POLL_TIMEOUT_MS = 60000
+// When to switch the spinner caption to "still preparing". NOT a timeout —
+// renamed from NEXT_QUESTION_POLL_TIMEOUT_MS, which is what it was called while
+// it only ever swapped a caption, so the polling loop read as bounded when
+// nothing bounded it.
+const NEXT_QUESTION_SLOW_AFTER_MS = 60000
+// The actual ceiling. A generation that has not produced a question or an error
+// in this long is not coming: the Celery task was lost, the worker was OOM
+// killed, or the queue drained without a result. Without this the client polls
+// at 8s forever — through section expiry and beyond, until the tab closes — and
+// on an untimed section nothing else ever clears the timer.
+const NEXT_QUESTION_GIVE_UP_MS = 240000
+// Transient network failures during the generation window must not destroy the
+// screen. The window is tens of seconds of repeated requests, so a dropped
+// packet, a wifi handover or a proxy restart is expected, not exceptional.
+const MAX_TRANSIENT_POLL_RETRIES = 4
 
 const makeId = () => (
   typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`
 )
 
-const questionToMessages = (question) => {
-  const messages = [{ id: `q-${question.id}`, role: 'ai', text: question.question_text }]
-  // Only the FINAL answer text is stored (nudge replies overwrite), so the
-  // exchange hydrates as question → nudge(s) → final answer.
-  ;(question.nudge_history || []).forEach((nudge, index) => {
-    if (nudge?.text) {
-      messages.push({ id: `n-${question.id}-${index}`, role: 'ai', text: nudge.text, isNudge: true })
-    }
-  })
-  if (question.answer?.answer_text) {
-    messages.push({ id: `a-${question.id}`, role: 'candidate', text: question.answer.answer_text })
+// Draft persistence for the in-progress answer.
+//
+// Everything SUBMITTED is recovered from the server on bootstrap, but the turn
+// being typed was held in component state alone — and adaptive is the only
+// content type with no save at all (`runtime.js` has autosave for mcq, free
+// text and ranking). It also asks for the longest free text in the product
+// (65,000-char cap) and is dictated as often as typed, so a refresh, a browser
+// reload under memory pressure, or a crash silently destroyed several minutes
+// of work with no warning and no way back.
+//
+// sessionStorage, not localStorage: per-tab and cleared when the tab closes, so
+// a candidate's answer does not outlive their sitting on a shared machine.
+// Keyed per item attempt so two adaptive sections cannot read each other's.
+const draftKey = (itemAttemptId) => `trudev.adaptive.draft.${itemAttemptId}`
+
+const readDraft = (itemAttemptId) => {
+  if (!itemAttemptId) return ''
+  try {
+    return window.sessionStorage.getItem(draftKey(itemAttemptId)) || ''
+  } catch {
+    // Storage disabled (private mode, blocked cookies). Drafts are a safety net,
+    // never a dependency — the interview must run without them.
+    return ''
   }
-  return messages
+}
+
+const writeDraft = (itemAttemptId, value) => {
+  if (!itemAttemptId) return
+  try {
+    if (value) window.sessionStorage.setItem(draftKey(itemAttemptId), value)
+    else window.sessionStorage.removeItem(draftKey(itemAttemptId))
+  } catch {
+    /* see readDraft */
+  }
 }
 
 // A nudge memory aid is the candidate's own code excerpt — render it in the
@@ -97,20 +134,160 @@ export default function CandidateAdaptiveInterviewExperience({
   const [turnState, setTurnState] = useState('idle') // 'idle' | 'sending' | 'thinking'
   const [thinkingLabel, setThinkingLabel] = useState('')
   const [scenarioSheetOpen, setScenarioSheetOpen] = useState(false)
+  const [sendError, setSendError] = useState('')
+  // Whether ANY part of the answer in the composer came from speech. Recorded
+  // on the answer so `response_mode` is honest and the recruiter transcript can
+  // say the answer was spoken — it is context for reading a terse reply, not a
+  // judgement.
+  const [usedDictation, setUsedDictation] = useState(false)
+  // Authoritative countdown target: the section attempt's server-side
+  // expires_at, served on bootstrap/start. The old derivation (engine run
+  // started_at + timer) drifts from the server's deadline, showing minutes the
+  // server will 409.
+  const [deadlineMs, setDeadlineMs] = useState(null)
 
   const composerRef = useRef(null)
   const pollTimeoutRef = useRef(null)
   const pollStartedAtRef = useRef(0)
+  // Consecutive connectivity-class poll failures, reset by any successful round
+  // trip. Bounds "reconnecting" so a genuinely dead connection still terminates.
+  const transientPollFailuresRef = useRef(0)
+  // Which item attempt the current `composerValue` belongs to. Guards the draft
+  // write across a section change — see the persist effect.
+  const draftOwnerRef = useRef(null)
   const idempotencyKeyRef = useRef(null)
+  const bootstrapRef = useRef(null)
+  const expiryHandledRef = useRef(false)
+  // Bounded resync. An unrecognised 409 used to call bootstrap() unconditionally,
+  // and bootstrap ends by polling for the next question — which 409s again. That
+  // is an unthrottled loop of 3 requests per iteration, per candidate, for the
+  // whole generation window.
+  const resyncCountRef = useRef(0)
+  const unmountedRef = useRef(false)
 
   const branding = useMemo(() => loadCandidateBranding(), [])
 
-  useEffect(() => () => clearTimeout(pollTimeoutRef.current), [])
+  // Dictation writes finalized phrases INTO the composer so the candidate reads
+  // and edits before sending — recognition mishears technical vocabulary often
+  // enough that sending straight through would measure the recogniser, not them.
+  const appendDictatedPhrase = useCallback((phrase) => {
+    setUsedDictation(true)
+    setComposerValue((prev) => (prev.trim() ? `${prev.replace(/\s+$/, '')} ${phrase}` : phrase))
+  }, [])
+  const dictation = useDictation({ onCommit: appendDictatedPhrase })
 
-  const handleFailure = useCallback((err) => {
-    if (err?.status === 409) {
+  useEffect(() => {
+    unmountedRef.current = false
+    return () => {
+      unmountedRef.current = true
+      clearTimeout(pollTimeoutRef.current)
+    }
+  }, [])
+
+  // Per-section state must not leak between sections: this component is
+  // rendered without a `key`, so moving to a second adaptive section reuses the
+  // same instance. A stale `expiryHandledRef` meant section 2's timer could
+  // never fire; a stale `deadlineMs` meant it fired instantly against section
+  // 1's past deadline.
+  useEffect(() => {
+    expiryHandledRef.current = false
+    resyncCountRef.current = 0
+    idempotencyKeyRef.current = null
+    pollStartedAtRef.current = 0
+    transientPollFailuresRef.current = 0
+    setDeadlineMs(null)
+    setSendError('')
+    // The conversation itself also has to reset. These were missed, and both
+    // gaps are candidate-visible: an unsent draft from section 1 (typically one
+    // abandoned at timer expiry) appeared pre-filled in section 2's composer,
+    // and a stale `usedDictation` stamped `response_mode: 'voice'` on a fully
+    // typed answer, which is what the recruiter transcript renders as "Spoken".
+    // A stale `activeQuestion` also left section 2's composer enabled against
+    // section 1's question before bootstrap replaced it.
+    setMessages([])
+    setActiveQuestion(null)
+    setPendingNudge(null)
+    setTurnState('idle')
+    setUsedDictation(false)
+    // Restore THIS attempt's draft rather than blanking. The per-attempt key is
+    // what keeps section 1's abandoned answer out of section 2's composer, so
+    // the leak the reset above exists to close stays closed.
+    setComposerValue(readDraft(itemAttemptId))
+    draftOwnerRef.current = itemAttemptId
+  }, [itemAttemptId])
+
+  // Persist the draft as it is typed, and drop it once it has been sent.
+  //
+  // The ownership guard matters. `setComposerValue` above only SCHEDULES the
+  // new value, so on the render where `itemAttemptId` changes this effect still
+  // closes over section 1's text — and would write it under section 2's key.
+  // The following render corrects it, but a per-attempt key that transiently
+  // holds another attempt's answer is exactly the leak this design avoids.
+  useEffect(() => {
+    if (draftOwnerRef.current !== itemAttemptId) return
+    writeDraft(itemAttemptId, composerValue)
+  }, [itemAttemptId, composerValue])
+
+  // Warn before a reload or a close discards unsent text. Only while there is
+  // something to lose — an unconditional handler nags on every normal exit,
+  // including the navigation that follows a successful submit.
+  useEffect(() => {
+    if (!composerValue.trim()) return undefined
+    const warn = (event) => {
+      event.preventDefault()
+      // Browsers ignore custom text and show their own copy; returnValue must
+      // still be set for the prompt to appear at all in some of them.
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [composerValue])
+
+  const MAX_RESYNCS = 3
+
+  // Codes come from the backend's structured error envelope (data.code); the
+  // legacy status-only fallbacks keep older responses working.
+  const handleFailure = useCallback(async (err) => {
+    const code = err?.code || ''
+    if (code === 'interview_complete') {
+      setScreen('complete')
+      if (onRequestNextAction) {
+        try {
+          await onRequestNextAction()
+        } catch {
+          // Completion screen still renders; the parent retries navigation.
+        }
+      }
+      return
+    }
+    if (code === 'section_expired' || code === 'run_expired' || (err?.status === 409 && !code)) {
       setStatusMessage(err.message || 'Section timer has expired.')
       setScreen('expired')
+      return
+    }
+    // A recruiter config the interview cannot run on. Terminal for the
+    // candidate: retrying re-runs start + next-question against the same broken
+    // config forever, so this gets its own screen with no retry affordance.
+    if (code === 'interview_misconfigured') {
+      setStatusMessage(err.message || '')
+      setScreen('misconfigured')
+      return
+    }
+    if (err?.status === 409) {
+      // Out-of-sync family (stale state version, duplicate tab, pending nudge,
+      // generation race): the page disagrees with the run — re-sync rather than
+      // claiming the time is up. Bounded, because a persistent disagreement
+      // would otherwise spin forever.
+      if (resyncCountRef.current >= MAX_RESYNCS) {
+        setStatusMessage(
+          'We could not get your interview back in sync. Please refresh the page to continue.',
+        )
+        setScreen('unavailable')
+        return
+      }
+      resyncCountRef.current += 1
+      setStatusMessage('Syncing your interview...')
+      bootstrapRef.current?.()
       return
     }
     if (err?.status === 503) {
@@ -120,20 +297,32 @@ export default function CandidateAdaptiveInterviewExperience({
     }
     setStatusMessage(err?.message || 'Something went wrong. Please try again.')
     setScreen('unavailable')
-  }, [])
+  }, [onRequestNextAction])
 
   // ── Bootstrap ──────────────────────────────────────────────────────
   const bootstrap = useCallback(async () => {
     setScreen('preparing')
     setStatusMessage('Preparing your interview...')
     try {
-      const { engine_run: run } = await getAdaptiveInterviewRun(itemAttemptId, sectionToken)
+      const { engine_run: run, section } = await getAdaptiveInterviewRun(itemAttemptId, sectionToken)
       let currentRun = run
+      let sectionInfo = section
 
       if (currentRun.status === 'pending_generation') {
         setStatusMessage('Starting your interview...')
         const startResult = await startAdaptiveInterview(itemAttemptId, sectionToken)
         currentRun = startResult.engine_run
+        sectionInfo = startResult.section || sectionInfo
+      }
+
+      if (sectionInfo?.expires_at) {
+        const parsed = new Date(sectionInfo.expires_at).getTime()
+        // Correct for client clock skew: the deadline is a server timestamp, so
+        // an uncalibrated comparison against Date.now() lets a fast local clock
+        // finalize the interview — with zero answers — on first render.
+        const serverNow = sectionInfo.server_time ? new Date(sectionInfo.server_time).getTime() : NaN
+        const skew = Number.isNaN(serverNow) ? 0 : Date.now() - serverNow
+        if (!Number.isNaN(parsed)) setDeadlineMs(parsed + skew)
       }
 
       setStatusMessage('Loading your conversation...')
@@ -149,10 +338,29 @@ export default function CandidateAdaptiveInterviewExperience({
 
       // A nudge was issued and never replied to (e.g. page refresh mid-exchange):
       // resume with the nudge visible and the composer on the same question.
-      if (currentRun.nudge && lastQuestion && currentRun.nudge.question_id === lastQuestion.id) {
+      //
+      // `awaits_reply === false` is excluded: an acknowledgement stays in
+      // `conversation_state.nudge` after it is delivered, so resuming on it
+      // parked the candidate on an already-answered question waiting to reply
+      // to a remark, and the next question was never requested. A refresh at
+      // that moment hung the interview outright.
+      if (
+        currentRun.nudge
+        && currentRun.nudge.awaits_reply !== false
+        && lastQuestion
+        && currentRun.nudge.question_id === lastQuestion.id
+      ) {
         setPendingNudge(currentRun.nudge)
         setActiveQuestion(lastQuestion)
-        setMessages((prev) => [...prev, { id: makeId(), role: 'ai', text: currentRun.nudge.text, isNudge: true }])
+        // Append only if the replay above did not already render it. An issued
+        // nudge is in the question's `nudge_history`, so `questionToMessages`
+        // emits it — appending unconditionally showed the candidate the same
+        // follow-up twice after any resync or refresh.
+        setMessages((prev) => (
+          prev.some((message) => message.isNudge && message.text === currentRun.nudge.text)
+            ? prev
+            : [...prev, { id: makeId(), role: 'ai', text: currentRun.nudge.text, isNudge: true }]
+        ))
         setTurnState('idle')
         setScreen('chat')
         return
@@ -184,12 +392,19 @@ export default function CandidateAdaptiveInterviewExperience({
       // the next one before showing the chat screen.
       setScreen('chat')
       setTurnState('thinking')
+      // The resync budget is NOT refilled here — a completed bootstrap only
+      // proves the two reads succeeded, not that the disagreement is resolved.
+      // It is refilled in pollNextQuestion() when a question actually arrives.
       await pollNextQuestion()
     } catch (err) {
       handleFailure(err)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemAttemptId, sectionToken])
+
+  useEffect(() => {
+    bootstrapRef.current = bootstrap
+  }, [bootstrap])
 
   useEffect(() => {
     bootstrap()
@@ -201,35 +416,115 @@ export default function CandidateAdaptiveInterviewExperience({
     setTurnState('thinking')
     setThinkingLabel('')
 
+    // The run is finalized (or the component is gone) — nothing to poll for.
+    if (expiryHandledRef.current || unmountedRef.current) return
+
     try {
       const { engine_run: run, next_question: nextQuestion, question } = await requestNextAdaptiveInterviewQuestion(
         itemAttemptId, sectionToken,
       )
+      if (expiryHandledRef.current || unmountedRef.current) return
       setEngineRun(run)
 
       if (nextQuestion?.error) {
         pollStartedAtRef.current = 0
-        setStatusMessage(nextQuestion.error)
+        // NOT rendered to the candidate. `next_question.error` is a raw
+        // `str(exc)` from the engine's generation task
+        // (`question_generation.py:679`), whitelisted straight through Django —
+        // so this is whatever the Celery task happened to die on: a provider
+        // blob like `429 RESOURCE_EXHAUSTED {...quota...}`, a DB error, or a
+        // traceback fragment carrying the internal `http://…:8010/…` URL.
+        // Django's synchronous errors are redacted for exactly this reason
+        // (`_engine_error_response`); the async generation path routed around it.
+        console.error('[adaptive-interview] generation failed', nextQuestion.error)
+        setStatusMessage(
+          'We could not prepare your next question. Please try again in a moment.',
+        )
         setScreen('unavailable')
         return
       }
 
       if (question) {
         pollStartedAtRef.current = 0
-        setMessages((prev) => [...prev, { id: `q-${question.id}`, role: 'ai', text: question.question_text }])
+        // A question in hand is the ONLY proof the page and the run agree, so it
+        // is the only thing that may refill the resync budget. This used to sit
+        // at the end of bootstrap(), one line above its own call to
+        // pollNextQuestion() — and since polling is what raises the 409 that
+        // triggers a resync, every resync reset the counter that was meant to
+        // bound it. MAX_RESYNCS was unreachable on the one path it exists for:
+        // poll -> 409 -> count 1 -> bootstrap -> count 0 -> poll -> 409 -> ...
+        // three requests per lap with no delay, for as long as the run stayed
+        // stuck. Self-healing 409s (nudge_pending, stale_state) hid it, because
+        // bootstrap really does resolve those; generation_in_progress does not.
+        resyncCountRef.current = 0
+        // Append once. A question can arrive from both the bootstrap replay and
+        // a poll (two poll chains after a resync, or React's double-invoked
+        // effects in dev), and the candidate then sees the same question asked
+        // twice in the transcript.
+        const messageId = `q-${question.id}`
+        setMessages((prev) => (
+          prev.some((message) => message.id === messageId)
+            ? prev
+            : [...prev, { id: messageId, role: 'ai', text: question.question_text }]
+        ))
         setActiveQuestion(question)
         setTurnState('idle')
+        // Put the caret back in the composer. Sending disables the textarea
+        // (`composerDisabled` is true while turnState !== 'idle'), and a browser
+        // blurs a disabled element — focus falls to <body>. Re-enabling does not
+        // restore it, so without this every keyboard and screen-reader user had
+        // to tab in from the top of the document for EVERY question. The nudge
+        // branch already does this; the question-to-question transition is the
+        // common case and was missed.
+        requestAnimationFrame(() => composerRef.current?.focus())
         return
       }
 
-      // Still queued — poll again, with a soft-degrade message past the cap.
+      // A successful round trip clears the transient-failure budget: the
+      // connection is demonstrably working, so an earlier blip must not count
+      // against a later one.
+      transientPollFailuresRef.current = 0
+
+      // Still queued — poll again with backoff (2s → 4s → 8s). Each poll costs
+      // engine rate budget shared across every candidate; a cohort polling at a
+      // fixed 2s starves the whole platform.
       const elapsed = Date.now() - pollStartedAtRef.current
-      if (elapsed > NEXT_QUESTION_POLL_TIMEOUT_MS) {
+      if (elapsed > NEXT_QUESTION_GIVE_UP_MS) {
+        // Terminal. Nothing else stops this loop: `handleTimerExpiry` clears the
+        // timeout only when the section HAS a timer, so an untimed section
+        // polled forever.
+        pollStartedAtRef.current = 0
+        setStatusMessage(
+          'Your next question is taking longer than expected to prepare. '
+          + 'Please try again — your previous answers are saved.',
+        )
+        setScreen('unavailable')
+        return
+      }
+      if (elapsed > NEXT_QUESTION_SLOW_AFTER_MS) {
         setThinkingLabel('Still preparing your next question...')
       }
-      pollTimeoutRef.current = setTimeout(pollNextQuestion, NEXT_QUESTION_POLL_MS)
+      const delay = elapsed > 30000 ? 8000 : elapsed > 10000 ? 4000 : NEXT_QUESTION_POLL_MS
+      pollTimeoutRef.current = setTimeout(pollNextQuestion, delay)
     } catch (err) {
+      // A transient network failure mid-generation must not replace the whole
+      // transcript with an error page. The send path already distinguishes these
+      // and stays on `chat`; the poll path used to send every one of them
+      // straight to `handleFailure`, so a single dropped packet during a
+      // tens-of-seconds generation window ended the interview screen.
+      //
+      // Only connectivity-class failures are retried — anything the server
+      // answered (a status code) is a real answer and goes to handleFailure,
+      // which owns the 409/503/terminal-code routing.
+      const isTransient = !err?.status || err.status >= 500
+      if (isTransient && transientPollFailuresRef.current < MAX_TRANSIENT_POLL_RETRIES) {
+        transientPollFailuresRef.current += 1
+        setThinkingLabel('Reconnecting...')
+        pollTimeoutRef.current = setTimeout(pollNextQuestion, 4000)
+        return
+      }
       pollStartedAtRef.current = 0
+      transientPollFailuresRef.current = 0
       handleFailure(err)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -238,29 +533,51 @@ export default function CandidateAdaptiveInterviewExperience({
   // ── Sending an answer ──────────────────────────────────────────────
   const handleSend = useCallback(async () => {
     const text = composerValue.trim()
-    if (!text || !activeQuestion || turnState !== 'idle') return
+    // Refuse once the clock has run out: the run is being finalized, so a send
+    // here 409s `answer_locked` and the resync would paint a live-looking chat
+    // over the expired screen while the answer is discarded.
+    if (!text || !activeQuestion || turnState !== 'idle' || expiryHandledRef.current) return
 
     setTurnState('sending')
-    setMessages((prev) => [...prev, { id: makeId(), role: 'candidate', text }])
-    setComposerValue('')
+    setSendError('')
+    // Optimistic bubble with a known id so a failed send can retract it. The
+    // composer is only cleared on SUCCESS — a network blip must never destroy
+    // a typed answer.
+    const optimisticId = makeId()
+    setMessages((prev) => [...prev, { id: optimisticId, role: 'candidate', text }])
 
     if (!idempotencyKeyRef.current) idempotencyKeyRef.current = makeId()
 
     try {
       const result = await submitAdaptiveInterviewAnswers(itemAttemptId, sectionToken, {
-        answers: [{ question_id: activeQuestion.id, answer_text: text, response_mode: 'text' }],
+        answers: [{
+          question_id: activeQuestion.id,
+          answer_text: text,
+          response_mode: usedDictation ? 'voice' : 'text',
+        }],
         idempotencyKey: idempotencyKeyRef.current,
         expectedStateVersion: engineRun?.state_version,
       })
       idempotencyKeyRef.current = null
+      setComposerValue('')
+      setUsedDictation(false)
       setEngineRun(result.engine_run)
 
       // Nudge flow: the interviewer follows up on the SAME question. The
       // composer stays put; the next send is the nudge reply.
+      //
+      // `awaits_reply === false` is an acknowledgement ("That's a solid point
+      // about X") — a statement, not a question. It is shown like any other
+      // interviewer message, but it must NOT hold the composer here: the
+      // candidate had to invent a "thanks" to get the next question. So it
+      // falls THROUGH to the normal progression below rather than returning.
       const nudge = result.engine_run?.nudge
-      if (nudge && nudge.question_id === activeQuestion.id) {
-        setPendingNudge(nudge)
+      const nudgeIsForThisQuestion = nudge && nudge.question_id === activeQuestion.id
+      if (nudgeIsForThisQuestion) {
         setMessages((prev) => [...prev, { id: makeId(), role: 'ai', text: nudge.text, isNudge: true }])
+      }
+      if (nudgeIsForThisQuestion && nudge.awaits_reply !== false) {
+        setPendingNudge(nudge)
         setTurnState('idle')
         composerRef.current?.focus()
         return
@@ -275,54 +592,97 @@ export default function CandidateAdaptiveInterviewExperience({
 
       if (result.next_action) {
         setScreen('complete')
-        onSubmitResult?.(result)
+        // Awaited and caught: the answer WAS accepted, so a routing failure must
+        // never fall into the catch below — that retracts the candidate's bubble
+        // and tells them their answer wasn't sent, which is a lie.
+        try {
+          await onSubmitResult?.(result)
+        } catch {
+          // Completion screen still renders; the parent retries navigation.
+        }
         return
       }
 
       if (['submitted', 'pending_scoring', 'scoring'].includes(result.engine_run?.status)) {
+        // Terminal, but with NO next_action on this payload: the backend attaches
+        // one only for `pending_scoring` and `submitted`
+        // (views/adaptive_interview.py::_response_data), and `scoring` is a real
+        // status the candidate can land on — the scoring worker can finish before
+        // the submit response is built ("The worker may already have finished by
+        // now", engine app/services/answers.py). Handing that to `onSubmitResult`
+        // threw `Backend did not return next_action` out of an un-awaited promise:
+        // no error UI, no route onward, candidate stranded on the completion
+        // screen after their FINAL answer. Resolve an action the way bootstrap
+        // already does instead.
         setScreen('complete')
-        onSubmitResult?.(result)
+        try {
+          await onRequestNextAction?.()
+        } catch {
+          // Completion screen still renders; the parent retries navigation.
+        }
         return
       }
 
       await pollNextQuestion()
     } catch (err) {
-      handleFailure(err)
+      // Retract the optimistic bubble — the server never got (or refused) it.
+      setMessages((prev) => prev.filter((message) => message.id !== optimisticId))
+      const code = err?.code || ''
+      const isTerminal = code === 'interview_complete' || code === 'section_expired' || code === 'run_expired'
+      if (isTerminal || err?.status === 409) {
+        handleFailure(err)
+        return
+      }
+      // Retryable failure: keep the answer and stay in the chat. The key is
+      // released so an EDITED retry is treated as a new submission — reusing it
+      // makes the engine replay the cached first response and silently discard
+      // the edit while showing success.
+      idempotencyKeyRef.current = null
+      setTurnState('idle')
+      setSendError(
+        // The backend collapses engine 422/403/503 into 503, so a genuine
+        // outage is not a connectivity problem and must not be described as one.
+        err?.status === 503
+          ? "The interviewer service is temporarily unavailable — your answer is still here. Try again in a moment."
+          : "Your answer wasn't sent — check your connection and try again.",
+      )
     }
   }, [
     activeQuestion, composerValue, engineRun, itemAttemptId, onSubmitResult,
-    pollNextQuestion, sectionToken, turnState, handleFailure,
+    onRequestNextAction, pollNextQuestion, sectionToken, turnState, handleFailure,
+    usedDictation,
   ])
 
-  // Ends the interview server-side and scores whatever was answered. This used
-  // to be local-only, which left the run open and unscored — the candidate's
-  // answers were discarded entirely.
-  const handleFinishInterview = useCallback(async () => {
-    if (turnState !== 'idle') return
-    const remaining = activeQuestion ? ' Your current answer will not be submitted.' : ''
-    if (!window.confirm(`End the interview now?${remaining}`)) return
-
+  // Timer expiry: finalize server-side so the answers the candidate DID give
+  // are scored, then show the time-up screen. There is deliberately no
+  // candidate-facing "End interview" button — the interview closes itself after
+  // the last question, and the only early exit is running out the clock.
+  const handleTimerExpiry = useCallback(async () => {
+    if (expiryHandledRef.current) return
+    expiryHandledRef.current = true
+    // Stop the generation poll: otherwise it keeps requesting questions for a
+    // run that is being finalized, and its 409 would resync the candidate back
+    // onto a live-looking chat screen.
+    clearTimeout(pollTimeoutRef.current)
+    pollStartedAtRef.current = 0
     setTurnState('sending')
+    setStatusMessage("Time's up — submitting the answers you gave...")
+    setScreen('expired')
     try {
       const result = await finishAdaptiveInterview(itemAttemptId, sectionToken)
       setEngineRun(result.engine_run)
-      setActiveQuestion(null)
-      setPendingNudge(null)
-      setScreen('complete')
+      setStatusMessage("Time's up. The answers you gave were submitted for scoring.")
       if (result.next_action) {
         onSubmitResult?.(result)
       } else if (onRequestNextAction) {
         await onRequestNextAction()
       }
-    } catch (err) {
-      handleFailure(err)
-    } finally {
-      setTurnState('idle')
+    } catch {
+      // The reconciliation sweep finalizes abandoned runs server-side; the
+      // screen already says time is up.
+      setStatusMessage("Time's up. The answers you gave will be submitted for scoring.")
     }
-  }, [
-    activeQuestion, handleFailure, itemAttemptId, onRequestNextAction,
-    onSubmitResult, sectionToken, turnState,
-  ])
+  }, [itemAttemptId, onRequestNextAction, onSubmitResult, sectionToken])
 
   // The panel is data-driven: a pending nudge's memory aid outranks the
   // question's attached scenario; no data means no panel.
@@ -332,18 +692,27 @@ export default function CandidateAdaptiveInterviewExperience({
     return activeQuestion?.scenario || null
   }, [pendingNudge, activeQuestion])
 
-  // Derived from the run's own started_at plus the section timer, ticking each
-  // second. Both are real values off the launch payload and the engine run —
-  // when either is missing the timer stays hidden rather than guessing.
+  // Countdown target: the server's expires_at when we have it (authoritative),
+  // else the legacy started_at + timer derivation. Hidden when neither exists.
   const [nowMs, setNowMs] = useState(() => Date.now())
 
+  const hasTimer = Boolean(deadlineMs || (engineRun?.started_at && sectionTimerMinutes))
+
   useEffect(() => {
-    if (screen !== 'chat' || !engineRun?.started_at || !sectionTimerMinutes) return undefined
+    if (screen !== 'chat' || !hasTimer) return undefined
     const interval = setInterval(() => setNowMs(Date.now()), 1000)
     return () => clearInterval(interval)
-  }, [screen, engineRun?.started_at, sectionTimerMinutes])
+  }, [screen, hasTimer])
 
   const { remainingSeconds, elapsedSeconds } = useMemo(() => {
+    if (deadlineMs) {
+      const remaining = Math.max(0, Math.floor((deadlineMs - nowMs) / 1000))
+      const totalSeconds = sectionTimerMinutes ? sectionTimerMinutes * 60 : null
+      return {
+        remainingSeconds: remaining,
+        elapsedSeconds: totalSeconds ? Math.max(0, totalSeconds - remaining) : null,
+      }
+    }
     if (!engineRun?.started_at || !sectionTimerMinutes) {
       return { remainingSeconds: null, elapsedSeconds: null }
     }
@@ -355,7 +724,34 @@ export default function CandidateAdaptiveInterviewExperience({
       elapsedSeconds: elapsed,
       remainingSeconds: Math.max(0, sectionTimerMinutes * 60 - elapsed),
     }
-  }, [engineRun?.started_at, sectionTimerMinutes, nowMs])
+  }, [deadlineMs, engineRun?.started_at, sectionTimerMinutes, nowMs])
+
+  // The clock hitting zero must DO something: finalize (partial answers get
+  // scored) instead of letting the candidate type into a dead run forever.
+  useEffect(() => {
+    if (screen !== 'chat' || remainingSeconds !== 0 || !hasTimer) return
+    handleTimerExpiry()
+  }, [screen, remainingSeconds, hasTimer, handleTimerExpiry])
+
+  const composerDisabled = turnState !== 'idle' || !activeQuestion
+
+  // A live recognition session while the answer is in flight would keep writing
+  // into a composer the candidate can no longer edit, and the next question
+  // would open with leftover speech already in the box.
+  useEffect(() => {
+    if (composerDisabled && dictation.listening) dictation.stop()
+  }, [composerDisabled, dictation])
+
+  // The question the candidate is ON. Its own `order` is the only honest
+  // source: `answered_count + 1` counts the CURRENT question during a pending
+  // nudge — it already has an answer — so the header read one ahead of the
+  // question on screen for the whole nudge exchange.
+  const questionTotal = engineRun?.planned_total
+  const questionNumber = Number.isFinite(activeQuestion?.order)
+    ? activeQuestion.order
+    : Number.isFinite(engineRun?.answered_count)
+      ? Math.min(engineRun.answered_count + 1, questionTotal || Infinity)
+      : undefined
 
   const topBar = (
     <AdaptiveInterviewTopBar
@@ -363,9 +759,10 @@ export default function CandidateAdaptiveInterviewExperience({
       sectionName={sectionName}
       sectionOrder={sectionOrder}
       sectionCount={sectionCount}
+      questionNumber={questionNumber}
+      questionTotal={questionTotal}
       remainingSeconds={remainingSeconds}
       elapsedSeconds={elapsedSeconds}
-      onFinish={handleFinishInterview}
     />
   )
 
@@ -385,6 +782,15 @@ export default function CandidateAdaptiveInterviewExperience({
     )
   }
 
+  if (screen === 'misconfigured') {
+    return (
+      <ExamShell branding={branding} topBar={topBar}>
+        {/* No onRetry: the config cannot be fixed from here. */}
+        <InterviewStatusPanel variant="misconfigured" message={statusMessage} />
+      </ExamShell>
+    )
+  }
+
   if (screen === 'unavailable') {
     return (
       <ExamShell branding={branding} topBar={topBar}>
@@ -397,8 +803,8 @@ export default function CandidateAdaptiveInterviewExperience({
     return (
       <ExamShell branding={branding} topBar={topBar}>
         <InterviewStatusPanel
-          variant="unavailable"
-          message="Your interview has been submitted."
+          variant="complete"
+          message="Thanks — that's everything for this interview. Your answers have been submitted."
           onRetry={null}
         />
       </ExamShell>
@@ -436,12 +842,22 @@ export default function CandidateAdaptiveInterviewExperience({
           avatarUrl={branding?.logo_url}
         />
 
+        {sendError && (
+          <p role="alert" className="text-[13px] text-error">
+            {sendError}
+          </p>
+        )}
+
         <Composer
           inputRef={composerRef}
           value={composerValue}
-          onChange={setComposerValue}
+          onChange={(next) => {
+            setComposerValue(next)
+            if (sendError) setSendError('')
+          }}
           onSend={handleSend}
-          disabled={turnState !== 'idle' || !activeQuestion}
+          disabled={composerDisabled}
+          dictation={dictation}
         />
       </div>
 
