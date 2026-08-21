@@ -132,6 +132,10 @@ export default function CandidateAdaptiveInterviewExperience({
   const [pendingNudge, setPendingNudge] = useState(null)
   const [composerValue, setComposerValue] = useState('')
   const [turnState, setTurnState] = useState('idle') // 'idle' | 'sending' | 'thinking'
+  // The handoff to the next section, held rather than fired, so the candidate
+  // gets to read the interviewer's last line first. See the `farewell` screen.
+  const advanceRef = useRef(null)
+  const [farewellSeconds, setFarewellSeconds] = useState(null)
   const [thinkingLabel, setThinkingLabel] = useState('')
   const [scenarioSheetOpen, setScenarioSheetOpen] = useState(false)
   const [sendError, setSendError] = useState('')
@@ -244,6 +248,42 @@ export default function CandidateAdaptiveInterviewExperience({
   }, [composerValue])
 
   const MAX_RESYNCS = 3
+
+  // Seconds the closing message stays on screen before the handoff runs itself.
+  // There IS a Continue button, but it cannot be the only way out: the answers
+  // are already submitted at this point, so a candidate who steps away must not
+  // come back to a section that never ended.
+  const FAREWELL_SECONDS = 6
+
+  /** Hold on the transcript so the sign-off can be read, then hand over. */
+  const beginFarewell = useCallback((advance) => {
+    advanceRef.current = advance
+    setActiveQuestion(null)
+    setTurnState('idle')
+    setFarewellSeconds(FAREWELL_SECONDS)
+    setScreen('farewell')
+  }, [])
+
+  const runAdvance = useCallback(async () => {
+    const advance = advanceRef.current
+    // Cleared first: the countdown and the button can both land here, and
+    // running the handoff twice double-navigates.
+    advanceRef.current = null
+    if (!advance) return
+    setFarewellSeconds(null)
+    setScreen('complete')
+    await advance()
+  }, [])
+
+  useEffect(() => {
+    if (screen !== 'farewell' || farewellSeconds === null) return undefined
+    if (farewellSeconds <= 0) {
+      runAdvance()
+      return undefined
+    }
+    const timer = setTimeout(() => setFarewellSeconds((s) => (s === null ? null : s - 1)), 1000)
+    return () => clearTimeout(timer)
+  }, [screen, farewellSeconds, runAdvance])
 
   // Codes come from the backend's structured error envelope (data.code); the
   // legacy status-only fallbacks keep older responses working.
@@ -591,15 +631,22 @@ export default function CandidateAdaptiveInterviewExperience({
       setActiveQuestion(null)
 
       if (result.next_action) {
-        setScreen('complete')
+        // NOT `setScreen('complete')`. That swapped the entire chat out in the
+        // same commit that appended the closing message above, so the message
+        // was never painted: the candidate sent their last answer and the
+        // interview vanished mid-conversation. Hold on the transcript, let them
+        // read the sign-off, and hand over on their click (or the countdown).
+        //
         // Awaited and caught: the answer WAS accepted, so a routing failure must
         // never fall into the catch below — that retracts the candidate's bubble
         // and tells them their answer wasn't sent, which is a lie.
-        try {
-          await onSubmitResult?.(result)
-        } catch {
-          // Completion screen still renders; the parent retries navigation.
-        }
+        beginFarewell(async () => {
+          try {
+            await onSubmitResult?.(result)
+          } catch {
+            // Completion screen still renders; the parent retries navigation.
+          }
+        })
         return
       }
 
@@ -614,12 +661,13 @@ export default function CandidateAdaptiveInterviewExperience({
         // no error UI, no route onward, candidate stranded on the completion
         // screen after their FINAL answer. Resolve an action the way bootstrap
         // already does instead.
-        setScreen('complete')
-        try {
-          await onRequestNextAction?.()
-        } catch {
-          // Completion screen still renders; the parent retries navigation.
-        }
+        beginFarewell(async () => {
+          try {
+            await onRequestNextAction?.()
+          } catch {
+            // Completion screen still renders; the parent retries navigation.
+          }
+        })
         return
       }
 
@@ -650,6 +698,7 @@ export default function CandidateAdaptiveInterviewExperience({
   }, [
     activeQuestion, composerValue, engineRun, itemAttemptId, onSubmitResult,
     onRequestNextAction, pollNextQuestion, sectionToken, turnState, handleFailure,
+    beginFarewell,
     usedDictation,
   ])
 
@@ -806,6 +855,48 @@ export default function CandidateAdaptiveInterviewExperience({
           variant="complete"
           message="Thanks — that's everything for this interview. Your answers have been submitted."
           onRetry={null}
+        />
+      </ExamShell>
+    )
+  }
+
+  // The interview is over and the transcript stays up, so the candidate reads
+  // the interviewer's last line instead of watching the conversation disappear.
+  // Deliberately the SAME shell and the same message list as the chat — a
+  // different-looking screen would read as the interview having been cut off.
+  if (screen === 'farewell') {
+    return (
+      <ExamShell
+        branding={branding}
+        topBar={topBar}
+        sidebar={activeScenario ? <ScenarioPanel scenario={activeScenario} /> : null}
+        actionBar={(
+          <ExamActionBar>
+            <span className="flex-1" />
+            <ExamButton onClick={runAdvance} autoFocus>
+              {sectionOrder < sectionCount ? 'Continue to next section' : 'Finish'}
+              {farewellSeconds > 0 ? ` (${farewellSeconds})` : ''}
+            </ExamButton>
+          </ExamActionBar>
+        )}
+      >
+        <div className="flex flex-col gap-5">
+          <ChatMessageList
+            messages={messages}
+            thinking={false}
+            avatarUrl={branding?.logo_url}
+          />
+          <p aria-live="polite" className="text-[13px] text-text-muted">
+            {sectionOrder < sectionCount
+              ? 'This interview is complete. Moving on to the next section.'
+              : 'This interview is complete. That was the last section.'}
+          </p>
+        </div>
+
+        <ScenarioPanelSheet
+          open={scenarioSheetOpen && Boolean(activeScenario)}
+          onOpenChange={setScenarioSheetOpen}
+          scenario={activeScenario}
         />
       </ExamShell>
     )
